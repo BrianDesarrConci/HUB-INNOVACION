@@ -101,15 +101,22 @@ const DEFAULT_APPEARANCE = {
   contrast: 'balanced',
   transparency: 'glass',
   clockStyle: 'minimal',
+  clockFormat: '24',
 };
 
 const WIDGET_CATALOG = [
-  { id: 'pomodoro', label: 'Tiempo de enfoque', detail: 'Temporizador Pomodoro de 25 minutos', icon: IcoClock },
+  { id: 'pomodoro', label: 'Tiempo de enfoque', detail: 'Temporizador con duración ajustable', icon: IcoClock },
   { id: 'quick-note', label: 'Nota rápida', detail: 'Un espacio para guardar ideas al instante', icon: IcoNotes },
   { id: 'productivity', label: 'Productividad', detail: 'Resumen visual de tus tareas completadas', icon: IcoCheck },
   { id: 'upcoming', label: 'Próxima agenda', detail: 'Tareas programadas para los siguientes días', icon: IcoCal },
   { id: 'shortcuts', label: 'Herramientas rápidas', detail: 'Acceso directo a las utilidades del sistema', icon: IcoGrid },
   { id: 'activity', label: 'Mi actividad', detail: 'Aplicaciones abiertas y accesos recientes', icon: IcoHistory },
+];
+
+const BOARD_TYPES = [
+  { id: 'comunicado', label: 'Comunicado', detail: 'Novedades y anuncios internos', icon: IcoBell },
+  { id: 'banner', label: 'Banner gráfico', detail: 'Imagen completa de ancho total', icon: IcoGrid },
+  { id: 'incidencia', label: 'Incidencia', detail: 'Alertas operativas importantes', icon: IcoShield },
 ];
 
 const DEFAULT_BOARD_POSTS = [{
@@ -344,6 +351,8 @@ export default function App() {
   const [minimizeVectors, setMinimizeVectors] = useState({});
   const [maximizedApps, setMaximizedApps] = useState({});
   const [loadingApps, setLoadingApps] = useState({});
+  const [windowLayers, setWindowLayers] = useState({});
+  const windowLayerCounter = useRef(100);
 
   /* --- Datos --- */
   const [appsList, setAppsList] = useState([]);
@@ -365,9 +374,13 @@ export default function App() {
   });
   const [showBoardManager, setShowBoardManager] = useState(false);
   const [newBoardPost, setNewBoardPost] = useState({ type: 'comunicado', title: '', body: '', imageUrl: '' });
+  const [publicationTypeOpen, setPublicationTypeOpen] = useState(false);
+  const [boardSlide, setBoardSlide] = useState(0);
+  const [boardCarouselPaused, setBoardCarouselPaused] = useState(false);
   const [enabledWidgets, setEnabledWidgets] = useState([]);
   const [profilePreferences, setProfilePreferences] = useState({ displayName: '', roleLabel: '', welcomeMessage: '' });
   const [quickNote, setQuickNote] = useState('');
+  const [focusMinutes, setFocusMinutes] = useState(25);
   const [pomodoroSeconds, setPomodoroSeconds] = useState(25 * 60);
   const [pomodoroRunning, setPomodoroRunning] = useState(false);
   const [userPreferencesReady, setUserPreferencesReady] = useState(false);
@@ -405,6 +418,7 @@ export default function App() {
       if (e.key === 'Escape') {
         setIsSpotlightOpen(false); setIsLaunchpadOpen(false); setShowUserMenu(false);
         setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
+        setPublicationTypeOpen(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -431,13 +445,19 @@ export default function App() {
       const key = userData.usuario;
       const savedWidgets = JSON.parse(localStorage.getItem(`agora_widgets_${key}`) || '[]');
       const savedProfile = JSON.parse(localStorage.getItem(`agora_profile_${key}`) || 'null');
+      const savedFocus = Number(localStorage.getItem(`agora_focus_minutes_${key}`) || 25);
+      const validFocus = Number.isFinite(savedFocus) ? Math.min(120, Math.max(5, Math.round(savedFocus / 5) * 5)) : 25;
       setEnabledWidgets(Array.isArray(savedWidgets) ? savedWidgets.filter(id => WIDGET_CATALOG.some(widget => widget.id === id)) : []);
       setProfilePreferences(savedProfile ? { displayName: '', roleLabel: '', welcomeMessage: '', ...savedProfile } : { displayName: '', roleLabel: '', welcomeMessage: '' });
       setQuickNote(localStorage.getItem(`agora_quick_note_${key}`) || '');
+      setFocusMinutes(validFocus);
+      setPomodoroSeconds(validFocus * 60);
     } catch {
       setEnabledWidgets([]);
       setProfilePreferences({ displayName: '', roleLabel: '', welcomeMessage: '' });
       setQuickNote('');
+      setFocusMinutes(25);
+      setPomodoroSeconds(25 * 60);
     }
     setUserPreferencesReady(true);
   }, [isLoggedIn, userData]);
@@ -456,7 +476,8 @@ export default function App() {
     localStorage.setItem(`agora_widgets_${key}`, JSON.stringify(enabledWidgets));
     localStorage.setItem(`agora_profile_${key}`, JSON.stringify(profilePreferences));
     localStorage.setItem(`agora_quick_note_${key}`, quickNote);
-  }, [enabledWidgets, profilePreferences, quickNote, userPreferencesReady, userData]);
+    localStorage.setItem(`agora_focus_minutes_${key}`, String(focusMinutes));
+  }, [enabledWidgets, profilePreferences, quickNote, focusMinutes, userPreferencesReady, userData]);
 
   useEffect(() => {
     if (!pomodoroRunning) return undefined;
@@ -472,6 +493,18 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('agora_corporate_board', JSON.stringify(boardPosts));
   }, [boardPosts]);
+
+  useEffect(() => {
+    setBoardSlide(index => boardPosts.length ? Math.min(index, boardPosts.length - 1) : 0);
+  }, [boardPosts.length]);
+
+  useEffect(() => {
+    if (boardPosts.length < 2 || boardCarouselPaused) return undefined;
+    const timer = setInterval(() => {
+      setBoardSlide(index => (index + 1) % boardPosts.length);
+    }, 6500);
+    return () => clearInterval(timer);
+  }, [boardPosts.length, boardCarouselPaused, boardSlide]);
 
   /* ---------------- API ---------------- */
   const post = async (payload) => {
@@ -511,6 +544,7 @@ export default function App() {
   const handleLogout = () => {
     setIsLoggedIn(false); setUserData(null); setOpenApps([]); setActiveAppId(null);
     setShowUserMenu(false); setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
+    setShowBoardManager(false); setPublicationTypeOpen(false); setBoardCarouselPaused(false);
     setCurrentView('dashboard'); setPassword(''); setCaptchaVerified(false); setPomodoroRunning(false);
   };
 
@@ -563,6 +597,8 @@ export default function App() {
     };
     setBoardPosts(posts => [postItem, ...posts]);
     setNewBoardPost({ type: 'comunicado', title: '', body: '', imageUrl: '' });
+    setBoardSlide(0);
+    setPublicationTypeOpen(false);
     try {
       const r = await post({ action: 'addBoardPost', postData: postItem });
       if (r.status === 'success') await fetchBoardPosts();
@@ -608,36 +644,55 @@ export default function App() {
     ].slice(0, 5));
   };
 
+  const prioritizeWindow = (appId) => {
+    windowLayerCounter.current += 1;
+    setWindowLayers(layers => ({ ...layers, [appId]: windowLayerCounter.current }));
+    setActiveAppId(appId);
+  };
+
+  const topVisibleWindow = (apps, excludedId = null) => apps
+    .filter(app => app.id !== excludedId && !minimizedApps[app.id])
+    .sort((a, b) => (windowLayers[b.id] || 0) - (windowLayers[a.id] || 0))[0];
+
   const launchApp = (app) => {
     closeOverlays();
     pushRecent(app);
     const existing = openApps.find(a => a.id === app.id);
-    if (existing) { setMinimizedApps(p => ({ ...p, [app.id]: false })); setActiveAppId(app.id); return; }
+    if (existing) { setMinimizedApps(p => ({ ...p, [app.id]: false })); prioritizeWindow(app.id); return; }
     const toOpen = { ...app, isAuthorized: true, sys: false, defaultWidth: 1040, defaultHeight: 660 };
     setOpenApps(prev => [...prev, toOpen]);
-    setActiveAppId(toOpen.id);
+    prioritizeWindow(toOpen.id);
     setLoadingApps(p => ({ ...p, [toOpen.id]: true }));
   };
 
   const launchSystemApp = (type) => {
     closeOverlays();
     const existing = openApps.find(a => a.sys === type);
-    if (existing) { setMinimizedApps(p => ({ ...p, [existing.id]: false })); setActiveAppId(existing.id); return; }
+    if (existing) { setMinimizedApps(p => ({ ...p, [existing.id]: false })); prioritizeWindow(existing.id); return; }
     const def = SYSTEM_APPS.find(s => s.sys === type);
     const win = {
       id: `sys-${type}-${Date.now()}`, nombre: def.nombre, sys: type, isAuthorized: true,
       icono: '', grad: def.grad, sysIcon: def.icon, defaultWidth: def.w, defaultHeight: def.h,
     };
     setOpenApps(prev => [...prev, win]);
-    setActiveAppId(win.id);
+    prioritizeWindow(win.id);
   };
 
   const closeApp = (e, appId) => {
     if (e) e.stopPropagation();
     const rest = openApps.filter(a => a.id !== appId);
+    const next = topVisibleWindow(rest);
     setOpenApps(rest);
+    setWindowLayers(layers => {
+      const updated = { ...layers };
+      delete updated[appId];
+      if (next) {
+        windowLayerCounter.current += 1;
+        updated[next.id] = windowLayerCounter.current;
+      }
+      return updated;
+    });
     if (activeAppId === appId) {
-      const next = [...rest].reverse().find(app => !minimizedApps[app.id]);
       setActiveAppId(next?.id || null);
     }
   };
@@ -661,8 +716,9 @@ export default function App() {
     setMinimizeVectors(vectors => ({ ...vectors, [appId]: vector }));
     setWindowMotion(motion => ({ ...motion, [appId]: { phase: 'minimizing', ...vector } }));
     if (activeAppId === appId) {
-      const next = [...openApps].reverse().find(app => app.id !== appId && !minimizedApps[app.id]);
-      setActiveAppId(next?.id || null);
+      const next = topVisibleWindow(openApps, appId);
+      if (next) prioritizeWindow(next.id);
+      else setActiveAppId(null);
     }
   };
 
@@ -688,19 +744,18 @@ export default function App() {
     if (minimizedApps[appId]) {
       const vector = minimizeVectors[appId] || { x: 0, y: window.innerHeight, scaleX: .06, scaleY: .04 };
       setMinimizedApps(p => ({ ...p, [appId]: false }));
-      setActiveAppId(appId);
+      prioritizeWindow(appId);
       setWindowMotion(motion => ({ ...motion, [appId]: { phase: 'restoring', ...vector } }));
       return;
     }
     if (activeAppId === appId && workspaceMode === 'desktop') { toggleMinimize({ stopPropagation() {} }, appId); return; }
-    setActiveAppId(appId);
+    prioritizeWindow(appId);
   };
 
   const goDesktop = () => { setActiveAppId(null); setCurrentView('dashboard'); };
-  const handleWorkspaceBackground = (e) => {
+  const handleWorkspaceBackground = () => {
     if (workspaceMode !== 'desktop') return;
-    const surface = e.target;
-    if (surface === e.currentTarget || surface.classList?.contains('workspace-inner') || surface.classList?.contains('bento')) goDesktop();
+    goDesktop();
   };
 
   /* ---------------- Derivados ---------------- */
@@ -763,6 +818,26 @@ export default function App() {
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     .slice(0, 3);
   const pomodoroLabel = `${String(Math.floor(pomodoroSeconds / 60)).padStart(2, '0')}:${String(pomodoroSeconds % 60).padStart(2, '0')}`;
+  const clockUses24Hours = workspaceAppearance.clockFormat !== '12';
+  const clockHour = clockUses24Hours ? currentTime.getHours() : (currentTime.getHours() % 12 || 12);
+  const clockMainLabel = `${String(clockHour).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
+  const clockSecondsLabel = String(currentTime.getSeconds()).padStart(2, '0');
+  const clockPeriodLabel = clockUses24Hours ? '' : (currentTime.getHours() < 12 ? 'AM' : 'PM');
+  const menuClockLabel = `${clockMainLabel}${clockPeriodLabel ? ` ${clockPeriodLabel}` : ''}`;
+  const activeBoardPost = boardPosts[boardSlide] || null;
+  const selectedBoardType = BOARD_TYPES.find(type => type.id === newBoardPost.type) || BOARD_TYPES[0];
+
+  const changeBoardSlide = (direction) => {
+    if (boardPosts.length < 2) return;
+    setBoardSlide(index => (index + direction + boardPosts.length) % boardPosts.length);
+  };
+
+  const setFocusDuration = (minutes) => {
+    if (pomodoroRunning) return;
+    const next = Math.min(120, Math.max(5, Math.round(minutes / 5) * 5));
+    setFocusMinutes(next);
+    setPomodoroSeconds(next * 60);
+  };
 
   const toggleWidget = (widgetId) => setEnabledWidgets(items => (
     items.includes(widgetId) ? items.filter(id => id !== widgetId) : [...items, widgetId]
@@ -777,11 +852,21 @@ export default function App() {
     if (widgetId === 'pomodoro') content = (
       <div className="pomodoro-widget">
         <div className={`pomodoro-ring ${pomodoroRunning ? 'running' : ''}`}><strong>{pomodoroLabel}</strong><span>ENFOQUE</span></div>
-        <div className="widget-actions">
-          <button className="widget-action primary" onClick={() => { if (pomodoroSeconds === 0) setPomodoroSeconds(25 * 60); setPomodoroRunning(value => !value); }}>
+        <div className="focus-widget-controls">
+          <div className="focus-duration">
+            <span>Duración</span>
+            <div>
+              <button disabled={pomodoroRunning || focusMinutes <= 5} onClick={() => setFocusDuration(focusMinutes - 5)} aria-label="Reducir cinco minutos"><IcoMinus s={11} /></button>
+              <strong>{focusMinutes} min</strong>
+              <button disabled={pomodoroRunning || focusMinutes >= 120} onClick={() => setFocusDuration(focusMinutes + 5)} aria-label="Aumentar cinco minutos"><IcoPlus s={11} /></button>
+            </div>
+          </div>
+          <div className="widget-actions">
+          <button className="widget-action primary" onClick={() => { if (pomodoroSeconds === 0) setPomodoroSeconds(focusMinutes * 60); setPomodoroRunning(value => !value); }}>
             {pomodoroRunning ? <IcoPause s={14} /> : <IcoPlay s={14} />} {pomodoroRunning ? 'Pausar' : 'Iniciar'}
           </button>
-          <button className="widget-action" onClick={() => { setPomodoroRunning(false); setPomodoroSeconds(25 * 60); }}><IcoRefresh s={14} /> Reiniciar</button>
+          <button className="widget-action" onClick={() => { setPomodoroRunning(false); setPomodoroSeconds(focusMinutes * 60); }}><IcoRefresh s={14} /> Reiniciar</button>
+          </div>
         </div>
       </div>
     );
@@ -957,8 +1042,8 @@ export default function App() {
       <section className="card b3">
         <div className="card-label"><IcoClock s={13} /> Hora local</div>
         <div className="clock-time">
-          {currentTime.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })}
-          <span className="clock-suffix">{currentTime.toLocaleTimeString('es-CO', { second: '2-digit' }).padStart(2, '0')}</span>
+          {clockMainLabel}
+          <span className="clock-suffix"><b>{clockSecondsLabel}</b>{clockPeriodLabel && <small>{clockPeriodLabel}</small>}</span>
         </div>
         <p className="clock-place">Bogotá, Colombia</p>
         <p className="clock-meta">GMT−5 · Semana {Math.ceil(((currentTime - new Date(currentTime.getFullYear(), 0, 1)) / 86400000 + 1) / 7)}</p>
@@ -998,26 +1083,40 @@ export default function App() {
           </div>
           {isAdmin && <button className="btn btn-primary board-manage" onClick={() => setShowBoardManager(true)}><IcoPlus s={14} /> Administrar</button>}
         </div>
-        <div className="board-feed">
-          {boardPosts.length === 0
-            ? <p className="empty-note">No hay publicaciones activas.</p>
-            : boardPosts.slice(0, 6).map(post => post.type === 'banner' ? (
-              <article key={post.id} className="board-post banner" aria-label="Banner corporativo">
-                {post.imageUrl
-                  ? <img className="board-banner-image" src={getValidImageUrl(post.imageUrl)} alt="Banner corporativo" />
-                  : <div className="board-banner-empty">Banner sin imagen</div>}
-              </article>
-            ) : (
-              <article key={post.id} className={`board-post ${post.type}`}>
-                {post.imageUrl && <div className="board-post-image" style={{ backgroundImage: `linear-gradient(90deg, rgba(14,17,37,.80), rgba(14,17,37,.18)), url(${getValidImageUrl(post.imageUrl)})` }} />}
-                <div className="board-post-content">
-                  <span className="board-type">{post.type}</span>
-                  <h3>{post.title}</h3>
-                  <p>{post.body}</p>
-                  <small>{post.author} · {new Date(post.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</small>
-                </div>
-              </article>
-            ))}
+        <div className="board-carousel" onMouseEnter={() => setBoardCarouselPaused(true)} onMouseLeave={() => setBoardCarouselPaused(false)} onFocusCapture={() => setBoardCarouselPaused(true)} onBlurCapture={() => setBoardCarouselPaused(false)}>
+          <div className="board-feed" aria-live="polite">
+            {!activeBoardPost
+              ? <p className="empty-note">No hay publicaciones activas.</p>
+              : activeBoardPost.type === 'banner' ? (
+                <article key={activeBoardPost.id} className="board-post banner board-slide-enter" aria-label="Banner corporativo">
+                  {activeBoardPost.imageUrl
+                    ? <img className="board-banner-image" src={getValidImageUrl(activeBoardPost.imageUrl)} alt="Banner corporativo" />
+                    : <div className="board-banner-empty">Banner sin imagen</div>}
+                </article>
+              ) : (
+                <article key={activeBoardPost.id} className={`board-post ${activeBoardPost.type} board-slide-enter`}>
+                  {activeBoardPost.imageUrl && <div className="board-post-image" style={{ backgroundImage: `linear-gradient(90deg, rgba(14,17,37,.80), rgba(14,17,37,.18)), url(${getValidImageUrl(activeBoardPost.imageUrl)})` }} />}
+                  <div className="board-post-content">
+                    <span className="board-type">{activeBoardPost.type}</span>
+                    <h3>{activeBoardPost.title}</h3>
+                    <p>{activeBoardPost.body}</p>
+                    <small>{activeBoardPost.author} · {new Date(activeBoardPost.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</small>
+                  </div>
+                </article>
+              )}
+          </div>
+          {boardPosts.length > 1 && (
+            <div className="board-carousel-controls">
+              <button className="board-arrow previous" onClick={() => changeBoardSlide(-1)} aria-label="Publicación anterior"><IcoChevron s={14} /></button>
+              <div className="board-dots" role="tablist" aria-label="Publicaciones del tablón">
+                {boardPosts.map((post, index) => (
+                  <button key={post.id} className={index === boardSlide ? 'active' : ''} onClick={() => setBoardSlide(index)} aria-label={`Ver publicación ${index + 1}`} aria-selected={index === boardSlide} role="tab" />
+                ))}
+              </div>
+              <span className="board-counter">{boardSlide + 1} / {boardPosts.length}</span>
+              <button className="board-arrow next" onClick={() => changeBoardSlide(1)} aria-label="Siguiente publicación"><IcoChevron s={14} /></button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -1263,24 +1362,43 @@ export default function App() {
      ====================================================================== */
   const renderBoardManager = () => {
     if (!showBoardManager || !isAdmin) return null;
+    const SelectedTypeIcon = selectedBoardType.icon;
     return (
-      <div className="modal-overlay" onMouseDown={() => setShowBoardManager(false)}>
+      <div className="modal-overlay" onMouseDown={() => { setPublicationTypeOpen(false); setShowBoardManager(false); }}>
         <section className="board-modal" onMouseDown={e => e.stopPropagation()}>
           <div className="modal-head">
             <div>
               <span className="login-kicker">Administración</span>
               <h2>Tablón corporativo</h2>
             </div>
-            <button className="modal-close" onClick={() => setShowBoardManager(false)}><IcoX s={14} /></button>
+            <button className="modal-close" onClick={() => { setPublicationTypeOpen(false); setShowBoardManager(false); }}><IcoX s={14} /></button>
           </div>
           <div className="board-admin-layout">
-            <form className="board-form" onSubmit={addBoardPost}>
+            <form className="board-form" onSubmit={addBoardPost} onMouseDown={e => { if (!e.target.closest('.publication-select')) setPublicationTypeOpen(false); }}>
               <label className="form-label">Tipo de publicación</label>
-              <select className="field" value={newBoardPost.type} onChange={e => setNewBoardPost({ ...newBoardPost, type: e.target.value })}>
-                <option value="comunicado">Comunicado</option>
-                <option value="banner">Banner</option>
-                <option value="incidencia">Incidencia</option>
-              </select>
+              <div className={`publication-select ${publicationTypeOpen ? 'open' : ''}`}>
+                <button className="publication-select-trigger" type="button" onClick={() => setPublicationTypeOpen(open => !open)} aria-haspopup="listbox" aria-expanded={publicationTypeOpen}>
+                  <span className={`publication-type-icon ${selectedBoardType.id}`}><SelectedTypeIcon s={17} /></span>
+                  <span><strong>{selectedBoardType.label}</strong><small>{selectedBoardType.detail}</small></span>
+                  <IcoChevron s={14} />
+                </button>
+                {publicationTypeOpen && (
+                  <div className="publication-options" role="listbox" aria-label="Tipo de publicación">
+                    {BOARD_TYPES.map(type => {
+                      const TypeIcon = type.icon;
+                      const selected = newBoardPost.type === type.id;
+                      return (
+                        <button key={type.id} type="button" role="option" aria-selected={selected} className={selected ? 'selected' : ''}
+                          onClick={() => { setNewBoardPost(post => ({ ...post, type: type.id })); setPublicationTypeOpen(false); }}>
+                          <span className={`publication-type-icon ${type.id}`}><TypeIcon s={17} /></span>
+                          <span><strong>{type.label}</strong><small>{type.detail}</small></span>
+                          {selected && <IcoCheck s={13} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
               {newBoardPost.type === 'banner' ? (
                 <div className="banner-form-note"><IcoGrid s={16} /><span><strong>Banner gráfico</strong>Se mostrará completo, sin título, texto ni filtros de color.</span></div>
               ) : (
@@ -1404,6 +1522,15 @@ export default function App() {
                     <strong>{sample}</strong><span>{label}</span>
                   </button>
                 ))}
+              </div>
+              <div className="clock-format-row">
+                <div><strong>Formato horario</strong><span>Elige entre reloj de 12 o 24 horas</span></div>
+                <div className="segmented-control">
+                  <button className={workspaceAppearance.clockFormat === '12' ? 'active' : ''}
+                    onClick={() => setWorkspaceAppearance(current => ({ ...current, clockFormat: '12' }))}>12 horas</button>
+                  <button className={workspaceAppearance.clockFormat !== '12' ? 'active' : ''}
+                    onClick={() => setWorkspaceAppearance(current => ({ ...current, clockFormat: '24' }))}>24 horas</button>
+                </div>
               </div>
             </div>
           </div>
@@ -1686,7 +1813,7 @@ export default function App() {
           </button>
           <span className="menu-clock">
             {currentTime.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}{'  '}
-            {currentTime.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+            {menuClockLabel}
           </span>
           <button className="menu-user" onClick={() => setShowUserMenu(v => !v)}>
             <span className="menu-avatar">{initialsOf(welcomeName)}</span>
@@ -1747,10 +1874,10 @@ export default function App() {
               dragHandleClassName={maximizedApps[app.id] ? 'no-drag' : 'titlebar'}
               enableResizing={app.sys !== 'calculator' && !maximizedApps[app.id]}
               style={{
-                zIndex: activeAppId === app.id || windowMotion[app.id] ? 60 : 20,
+                zIndex: windowMotion[app.id] ? 10000 : (windowLayers[app.id] || 100),
                 display: ((activeAppId === null && !windowMotion[app.id]) || (minimizedApps[app.id] && windowMotion[app.id]?.phase !== 'restoring')) ? 'none' : 'block',
               }}
-              onMouseDownCapture={() => { if (!minimizedApps[app.id]) setActiveAppId(app.id); }}
+              onPointerDownCapture={() => { if (!minimizedApps[app.id] && !windowMotion[app.id]) prioritizeWindow(app.id); }}
             >
               <div
                 className={`win ${maximizedApps[app.id] ? 'maxed' : ''} ${windowMotion[app.id]?.phase === 'minimizing' ? 'genie-minimizing' : ''} ${windowMotion[app.id]?.phase === 'restoring' ? 'genie-restoring' : ''}`}
