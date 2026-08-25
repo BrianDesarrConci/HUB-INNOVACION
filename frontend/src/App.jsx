@@ -1002,7 +1002,7 @@ export default function App() {
           {boardPosts.length === 0
             ? <p className="empty-note">No hay publicaciones activas.</p>
             : boardPosts.slice(0, 6).map(post => post.type === 'banner' ? (
-              <article key={post.id} className="board-post banner" title="Banner corporativo">
+              <article key={post.id} className="board-post banner" aria-label="Banner corporativo">
                 {post.imageUrl
                   ? <img className="board-banner-image" src={getValidImageUrl(post.imageUrl)} alt="Banner corporativo" />
                   : <div className="board-banner-empty">Banner sin imagen</div>}
