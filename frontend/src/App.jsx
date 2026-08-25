@@ -30,7 +30,6 @@ const IcoClock = ({ s = 16 }) => <svg width={s} height={s} {...S}><circle cx="12
 const IcoCal = ({ s = 16 }) => <svg width={s} height={s} {...S}><rect x="3" y="4.5" width="18" height="17" rx="2.5" /><path d="M8 2.5v4M16 2.5v4M3 10h18" /></svg>;
 const IcoBell = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>;
 const IcoCheck = ({ s = 11 }) => <svg width={s} height={s} {...S} strokeWidth="3"><path d="M20 6 9 17l-5-5" /></svg>;
-const IcoPulse = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M3 12h4l2.5-7 4 14 2.5-7H21" /></svg>;
 const IcoHistory = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 8v4.5l3.2 1.9" /></svg>;
 const IcoChevron = ({ s = 14 }) => <svg width={s} height={s} {...S} strokeWidth="2"><path d="M9 6l6 6-6 6" /></svg>;
 const IcoShield = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M12 2.5 4.5 6v6c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z" /><path d="M9.2 12.2l2 2 3.6-3.8" /></svg>;
@@ -63,12 +62,35 @@ const hashOf = (str = '') => {
 };
 const gradientFor = (name) => ICON_GRADIENTS[hashOf(name) % ICON_GRADIENTS.length];
 const initialsOf = (name = '') => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'A';
+const dateKey = (date = new Date()) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const TASK_COLORS = [
+  { id: 'navy', label: 'Azul', hex: '#25294F' },
+  { id: 'green', label: 'Verde', hex: '#3D8A44' },
+  { id: 'amber', label: 'Amarillo', hex: '#E0A32E' },
+  { id: 'red', label: 'Rojo', hex: '#D9534F' },
+];
+
+const DEFAULT_BOARD_POSTS = [{
+  id: 'welcome-board',
+  type: 'comunicado',
+  title: 'Actualización de políticas de teletrabajo',
+  body: 'Los nuevos lineamientos ya están publicados en el portal de Gestión de Personas.',
+  imageUrl: '',
+  createdAt: Date.now(),
+  author: 'Gestión Administrativa',
+}];
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxYszzacLW5AbwolurkZFX2_lq_m2qk3JDWokDpo_DitmquPojP-KGmllamG0xayGlabA/exec';
 
 const SYSTEM_APPS = [
   { sys: 'notes', nombre: 'Notas', grad: 'linear-gradient(150deg,#E8C766,#C9A23B)', icon: IcoNotes, w: 720, h: 520 },
-  { sys: 'calculator', nombre: 'Calculadora', grad: 'linear-gradient(150deg,#7C7C86,#4A4A52)', icon: IcoCalc, w: 340, h: 500 },
+  { sys: 'calculator', nombre: 'Calculadora', grad: 'linear-gradient(150deg,#7C7C86,#4A4A52)', icon: IcoCalc, w: 340, h: 560 },
   { sys: 'todo', nombre: 'Post-its', grad: 'linear-gradient(150deg,#6E9BD1,#3E6BA0)', icon: IcoSticky, w: 440, h: 620 },
 ];
 
@@ -98,10 +120,26 @@ const AppIcon = ({ app, size = 58 }) => {
 /* ==========================================================================
    CALCULADORA NATIVA
    ========================================================================== */
-const NativeCalculator = () => {
+const formatCalculatorValue = (raw) => {
+  if (raw === 'Error') return raw;
+  const sign = raw.startsWith('-') ? '-' : '';
+  const unsigned = sign ? raw.slice(1) : raw;
+  const [integer = '0', decimals] = unsigned.split('.');
+  const grouped = Number(integer || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+  if (decimals !== undefined) return `${sign}${grouped},${decimals}`;
+  return `${sign}${grouped}`;
+};
+
+const NativeCalculator = ({ isActive }) => {
   const [display, setDisplay] = useState('0');
   const [prev, setPrev] = useState(null);
   const [op, setOp] = useState(null);
+  const [waitingForOperand, setWaitingForOperand] = useState(false);
+  const [expression, setExpression] = useState('');
+  const [history, setHistory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('agora_calculator_history') || '[]'); }
+    catch { return []; }
+  });
 
   const compute = (a, b, o) => {
     if (o === '+') return a + b;
@@ -111,20 +149,83 @@ const NativeCalculator = () => {
     return b;
   };
 
+  const commitResult = (left, right, operator) => {
+    const res = compute(parseFloat(left), parseFloat(right), operator);
+    const result = Number.isFinite(res) ? String(parseFloat(res.toFixed(8))) : 'Error';
+    const statement = `${formatCalculatorValue(left)} ${operator} ${formatCalculatorValue(right)}`;
+    setDisplay(result);
+    setExpression(`${statement} =`);
+    setHistory(items => [{ id: Date.now(), expression: statement, result }, ...items].slice(0, 8));
+    setPrev(null);
+    setOp(null);
+    setWaitingForOperand(true);
+    return result;
+  };
+
   const press = (k) => {
-    if (k === 'AC') { setDisplay('0'); setPrev(null); setOp(null); return; }
-    if (k === '±') { setDisplay(d => (d.startsWith('-') ? d.slice(1) : d === '0' ? d : '-' + d)); return; }
-    if (k === '%') { setDisplay(d => String(parseFloat(d) / 100)); return; }
-    if (['+', '−', '×', '÷'].includes(k)) { setPrev(display); setOp(k); setDisplay('0'); return; }
+    if (k === 'AC') {
+      setDisplay('0'); setPrev(null); setOp(null); setExpression(''); setWaitingForOperand(false); return;
+    }
+    if (k === '⌫') {
+      if (waitingForOperand || display === 'Error') return;
+      setDisplay(d => d.length <= 1 || (d.length === 2 && d.startsWith('-')) ? '0' : d.slice(0, -1));
+      return;
+    }
+    if (k === '±') {
+      setDisplay(d => (d.startsWith('-') ? d.slice(1) : d === '0' || d === 'Error' ? d : '-' + d)); return;
+    }
+    if (k === '%') {
+      if (display === 'Error') return;
+      setDisplay(d => String(parseFloat(d) / 100)); return;
+    }
+    if (['+', '−', '×', '÷'].includes(k)) {
+      if (display === 'Error') return;
+      if (op && prev !== null && !waitingForOperand) {
+        const result = compute(parseFloat(prev), parseFloat(display), op);
+        const next = Number.isFinite(result) ? String(parseFloat(result.toFixed(8))) : 'Error';
+        setDisplay(next); setPrev(next);
+        setExpression(`${formatCalculatorValue(next)} ${k}`);
+      } else {
+        setPrev(display);
+        setExpression(`${formatCalculatorValue(display)} ${k}`);
+      }
+      setOp(k); setWaitingForOperand(true); return;
+    }
     if (k === '=') {
       if (op === null || prev === null) return;
-      const res = compute(parseFloat(prev), parseFloat(display), op);
-      setDisplay(Number.isFinite(res) ? String(parseFloat(res.toFixed(8))) : 'Error');
-      setPrev(null); setOp(null); return;
+      commitResult(prev, display, op); return;
     }
-    if (k === ',') { setDisplay(d => (d.includes('.') ? d : d + '.')); return; }
-    setDisplay(d => (d === '0' ? k : (d.length > 11 ? d : d + k)));
+    if (k === ',') {
+      if (waitingForOperand || display === 'Error') {
+        setDisplay('0.'); setWaitingForOperand(false);
+      } else if (!display.includes('.')) setDisplay(display + '.');
+      return;
+    }
+    if (waitingForOperand || display === '0' || display === 'Error') {
+      setDisplay(k); setWaitingForOperand(false);
+    } else if (display.replace(/[-.]/g, '').length < 14) setDisplay(display + k);
   };
+
+  useEffect(() => {
+    localStorage.setItem('agora_calculator_history', JSON.stringify(history));
+  }, [history]);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+    const onKeyDown = (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+      const mapped = {
+        '/': '÷', '*': '×', '-': '−', '+': '+',
+        Enter: '=', '=': '=', ',': ',', '.': ',',
+        Backspace: '⌫', Delete: 'AC', Escape: 'AC',
+      }[e.key] || (/^\d$/.test(e.key) ? e.key : null);
+      if (!mapped) return;
+      e.preventDefault();
+      press(mapped);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
 
   const keys = [
     ['AC', 'fn'], ['±', 'fn'], ['%', 'fn'], ['÷', 'op'],
@@ -136,7 +237,23 @@ const NativeCalculator = () => {
 
   return (
     <div className="calc-shell">
-      <div className="calc-screen">{display}</div>
+      <div className="calc-history">
+        <div className="calc-history-head">
+          <span><IcoHistory s={12} /> Historial</span>
+          {history.length > 0 && <button onClick={() => setHistory([])}>Limpiar</button>}
+        </div>
+        <div className="calc-history-list">
+          {history.length === 0
+            ? <span className="calc-history-empty">Las operaciones aparecerán aquí.</span>
+            : history.slice(0, 3).map(item => (
+              <button key={item.id} className="calc-history-row" onClick={() => { setDisplay(item.result); setWaitingForOperand(true); }}>
+                <span>{item.expression}</span><strong>{formatCalculatorValue(item.result)}</strong>
+              </button>
+            ))}
+        </div>
+      </div>
+      <div className="calc-expression">{expression || ' '}</div>
+      <div className="calc-screen" title={formatCalculatorValue(display)}>{formatCalculatorValue(display)}</div>
       <div className="calc-pad">
         {keys.map(([k, cls, st], i) => (
           <button key={i} className={`calc-key ${cls}`} style={st || {}} onClick={() => press(k)}>{k}</button>
@@ -187,7 +304,21 @@ export default function App() {
   const [usersList, setUsersList] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState('');
+  const [newTaskColor, setNewTaskColor] = useState('navy');
   const [recents, setRecents] = useState([]);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(dateKey());
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [calendarTaskText, setCalendarTaskText] = useState('');
+  const [calendarTaskColor, setCalendarTaskColor] = useState('navy');
+  const [boardPosts, setBoardPosts] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('agora_corporate_board') || 'null');
+      return Array.isArray(saved) ? saved : DEFAULT_BOARD_POSTS;
+    } catch { return DEFAULT_BOARD_POSTS; }
+  });
+  const [showBoardManager, setShowBoardManager] = useState(false);
+  const [newBoardPost, setNewBoardPost] = useState({ type: 'comunicado', title: '', body: '', imageUrl: '' });
 
   /* --- CRUD --- */
   const [newApp, setNewApp] = useState({ nombre: '', url: '', desc: '', icono: '' });
@@ -230,9 +361,9 @@ export default function App() {
     if (!isLoggedIn || !userData) return;
     try {
       const t = localStorage.getItem(`agora_tasks_${userData.usuario}`);
-      if (t) setTasks(JSON.parse(t));
+      setTasks(t ? JSON.parse(t).map(task => ({ color: 'navy', dueDate: '', ...task })) : []);
       const r = localStorage.getItem(`agora_recent_${userData.usuario}`);
-      if (r) setRecents(JSON.parse(r));
+      setRecents(r ? JSON.parse(r) : []);
     } catch { /* ignorar almacenamiento corrupto */ }
   }, [isLoggedIn, userData]);
 
@@ -243,6 +374,10 @@ export default function App() {
   useEffect(() => {
     if (isLoggedIn && userData) localStorage.setItem(`agora_recent_${userData.usuario}`, JSON.stringify(recents));
   }, [recents, isLoggedIn, userData]);
+
+  useEffect(() => {
+    localStorage.setItem('agora_corporate_board', JSON.stringify(boardPosts));
+  }, [boardPosts]);
 
   /* ---------------- API ---------------- */
   const post = async (payload) => {
@@ -260,6 +395,12 @@ export default function App() {
     try { const r = await post({ action: 'getUsers' }); if (r.status === 'success') setUsersList(r.data || []); }
     catch { /* offline */ }
   };
+  const fetchBoardPosts = async () => {
+    try {
+      const r = await post({ action: 'getBoardPosts' });
+      if (r.status === 'success' && Array.isArray(r.data)) setBoardPosts(r.data);
+    } catch { /* respaldo local */ }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -267,7 +408,7 @@ export default function App() {
     setLoading(true); setError('');
     try {
       const r = await post({ action: 'login', usuario, password });
-      if (r.status === 'success') { setIsLoggedIn(true); setUserData(r); fetchApps(); fetchUsers(); }
+      if (r.status === 'success') { setIsLoggedIn(true); setUserData(r); fetchApps(); fetchUsers(); fetchBoardPosts(); }
       else setError(r.message || 'Credenciales no válidas.');
     } catch { setError('Servidor no disponible en este momento.'); }
     finally { setLoading(false); }
@@ -281,13 +422,64 @@ export default function App() {
   /* ---------------- Tareas ---------------- */
   const addTask = (e) => {
     if (e.key === 'Enter' && newTask.trim()) {
-      setTasks(t => [...t, { id: Date.now(), text: newTask.trim(), done: false }]);
+      setTasks(t => [...t, {
+        id: Date.now(), text: newTask.trim(), done: false, color: newTaskColor, dueDate: dateKey(),
+      }]);
       setNewTask('');
     }
   };
   const toggleTask = (id) => setTasks(t => t.map(x => x.id === id ? { ...x, done: !x.done } : x));
   const deleteTask = (id) => setTasks(t => t.filter(x => x.id !== id));
   const clearDone = () => setTasks(t => t.filter(x => !x.done));
+  const cycleTaskColor = (id) => setTasks(list => list.map(task => {
+    if (task.id !== id) return task;
+    const index = TASK_COLORS.findIndex(color => color.id === task.color);
+    return { ...task, color: TASK_COLORS[(index + 1) % TASK_COLORS.length].id };
+  }));
+
+  const openCalendar = (date = new Date()) => {
+    setSelectedDate(dateKey(date));
+    setCalendarMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    setIsCalendarOpen(true);
+  };
+
+  const addScheduledTask = (e) => {
+    e.preventDefault();
+    if (!calendarTaskText.trim()) return;
+    setTasks(list => [...list, {
+      id: Date.now(), text: calendarTaskText.trim(), done: false,
+      color: calendarTaskColor, dueDate: selectedDate,
+    }]);
+    setCalendarTaskText('');
+  };
+
+  const addBoardPost = async (e) => {
+    e.preventDefault();
+    if (!newBoardPost.title.trim() || !newBoardPost.body.trim()) return;
+    const postItem = {
+      ...newBoardPost,
+      id: `board-${Date.now()}`,
+      title: newBoardPost.title.trim(),
+      body: newBoardPost.body.trim(),
+      imageUrl: newBoardPost.imageUrl.trim(),
+      createdAt: Date.now(),
+      author: userData?.usuario || 'Administración',
+    };
+    setBoardPosts(posts => [postItem, ...posts]);
+    setNewBoardPost({ type: 'comunicado', title: '', body: '', imageUrl: '' });
+    try {
+      const r = await post({ action: 'addBoardPost', postData: postItem });
+      if (r.status === 'success') await fetchBoardPosts();
+    } catch { /* la publicación permanece en el respaldo local */ }
+  };
+
+  const deleteBoardPost = async (id) => {
+    setBoardPosts(posts => posts.filter(post => post.id !== id));
+    try {
+      const r = await post({ action: 'deleteBoardPost', id });
+      if (r.status === 'success') await fetchBoardPosts();
+    } catch { /* conservar eliminación local */ }
+  };
 
   /* ---------------- CRUD ---------------- */
   const handleAddApp = async (e) => {
@@ -348,7 +540,10 @@ export default function App() {
     if (e) e.stopPropagation();
     const rest = openApps.filter(a => a.id !== appId);
     setOpenApps(rest);
-    if (activeAppId === appId) setActiveAppId(rest.length ? rest[rest.length - 1].id : null);
+    if (activeAppId === appId) {
+      const next = [...rest].reverse().find(app => !minimizedApps[app.id]);
+      setActiveAppId(next?.id || null);
+    }
   };
 
   const toggleMinimize = (e, appId) => {
@@ -364,9 +559,17 @@ export default function App() {
       }));
     }
     setMinimizedApps(p => ({ ...p, [appId]: true }));
+    if (activeAppId === appId) {
+      const next = [...openApps].reverse().find(app => app.id !== appId && !minimizedApps[app.id]);
+      setActiveAppId(next?.id || null);
+    }
   };
 
-  const toggleMaximize = (e, appId) => { e.stopPropagation(); setMaximizedApps(p => ({ ...p, [appId]: !p[appId] })); };
+  const toggleMaximize = (e, appId) => {
+    e.stopPropagation();
+    if (openApps.find(app => app.id === appId)?.sys === 'calculator') return;
+    setMaximizedApps(p => ({ ...p, [appId]: !p[appId] }));
+  };
 
   const handleDockClick = (appId) => {
     if (minimizedApps[appId]) { setMinimizedApps(p => ({ ...p, [appId]: false })); setActiveAppId(appId); return; }
@@ -375,10 +578,18 @@ export default function App() {
   };
 
   const goDesktop = () => { setActiveAppId(null); setCurrentView('dashboard'); };
+  const handleWorkspaceBackground = (e) => {
+    if (workspaceMode !== 'desktop') return;
+    const surface = e.target;
+    if (surface === e.currentTarget || surface.classList?.contains('workspace-inner') || surface.classList?.contains('bento')) goDesktop();
+  };
 
   /* ---------------- Derivados ---------------- */
   const isAdmin = userData?.rolGlobal === 'Administrador';
-  const pendingTasks = tasks.filter(t => !t.done).length;
+  const todayKey = dateKey(currentTime);
+  const dashboardTasks = tasks.filter(task => !task.dueDate || task.dueDate <= todayKey);
+  const pendingTasks = dashboardTasks.filter(t => !t.done).length;
+  const scheduledTasks = tasks.filter(task => !task.done && task.dueDate && task.dueDate > todayKey).length;
 
   const greeting = useMemo(() => {
     const h = currentTime.getHours();
@@ -396,6 +607,20 @@ export default function App() {
       return d;
     });
   }, [currentTime]);
+
+  const calendarDays = useMemo(() => {
+    const first = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+    const offset = (first.getDay() + 6) % 7;
+    const gridStart = new Date(first);
+    gridStart.setDate(first.getDate() - offset);
+    return Array.from({ length: 42 }, (_, index) => {
+      const day = new Date(gridStart);
+      day.setDate(gridStart.getDate() + index);
+      return day;
+    });
+  }, [calendarMonth]);
+
+  const tasksForSelectedDate = tasks.filter(task => task.dueDate === selectedDate);
 
   const launchpadEntries = useMemo(() => {
     const sys = SYSTEM_APPS.map(s => ({
@@ -418,29 +643,38 @@ export default function App() {
   if (!isLoggedIn) {
     return (
       <div className="login-root">
+        <div className="login-grid" />
+        <span className="login-motion login-motion-a" />
+        <span className="login-motion login-motion-b" />
+        <span className="login-motion login-motion-c" />
         <div className="login-card">
           <div className="login-aside">
+            <div className="login-aside-sheen" />
             <div className="login-brand">
               <img src="/logo_compañias.png" alt="Multival" className="login-logo" />
+              <span className="login-secure"><IcoShield s={13} /> Entorno protegido</span>
             </div>
             <div className="login-copy">
-              <h1 className="login-title">Ágora OS</h1>
+              <span className="login-eyebrow">Un acceso. Todas tus herramientas.</span>
+              <h1 className="login-title">Ágora <span>OS</span></h1>
               <p className="login-text">
-                Hub central de innovación. Un único acceso para todo el ecosistema
-                de aplicativos corporativos.
+                Tu espacio de trabajo corporativo, diseñado para acceder a las aplicaciones
+                que necesitas de forma simple, segura y personalizada.
               </p>
             </div>
             <div className="login-chips">
-              <span className="login-chip">One-Login SSO</span>
-              <span className="login-chip">Gobierno de accesos</span>
-              <span className="login-chip">Multival · Reval · Multipagas</span>
+              <span className="login-chip"><strong>01</strong> Una sola identidad</span>
+              <span className="login-chip"><strong>02</strong> Accesos por perfil</span>
+              <span className="login-chip"><strong>03</strong> Sesión protegida</span>
             </div>
           </div>
 
           <div className="login-form-side">
             <div className="login-form">
-              <span className="login-kicker">Acceso autorizado</span>
-              <h2 className="login-heading">Inicia sesión</h2>
+              <div className="login-form-brand"><span>Á</span><strong>Ágora OS</strong></div>
+              <span className="login-kicker">Acceso corporativo seguro</span>
+              <h2 className="login-heading">Bienvenido de nuevo</h2>
+              <p className="login-helper">Ingresa con tus credenciales de red.</p>
 
               <form onSubmit={handleLogin}>
                 <div className="input-wrap">
@@ -463,10 +697,10 @@ export default function App() {
                 </div>
 
                 <button type="submit" className="login-submit" disabled={loading}>
-                  {loading ? 'Validando…' : 'Entrar'}
+                  {loading ? 'Validando acceso…' : 'Ingresar a Ágora'}
                 </button>
               </form>
-              <p className="login-foot">Gestión Administrativa, Transformación y Desarrollo de Personas</p>
+              <p className="login-foot"><IcoShield s={12} /> Conexión cifrada · Acceso exclusivo para personal autorizado</p>
             </div>
           </div>
         </div>
@@ -505,7 +739,10 @@ export default function App() {
 
       {/* ---- Calendario monocromático ---- */}
       <section className="card b3">
-        <div className="card-label" style={{ marginBottom: 12 }}><IcoCal s={13} /> Calendario</div>
+        <div className="card-head" style={{ marginBottom: 10 }}>
+          <div className="card-label"><IcoCal s={13} /> Calendario</div>
+          <button className="ghost-btn" onClick={() => openCalendar(currentTime)}>Expandir</button>
+        </div>
         <span className="cal-month">{currentTime.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</span>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
           <span className="cal-day">{currentTime.getDate()}</span>
@@ -515,12 +752,39 @@ export default function App() {
           {weekDays.map(d => {
             const isToday = d.toDateString() === currentTime.toDateString();
             return (
-              <div key={d.toISOString()} className={`cal-cell ${isToday ? 'today' : ''}`}>
+              <button key={d.toISOString()} className={`cal-cell ${isToday ? 'today' : ''}`} onClick={() => openCalendar(d)}>
                 <span className="cal-cell-dow">{d.toLocaleDateString('es-ES', { weekday: 'narrow' })}</span>
                 <span className="cal-cell-num">{d.getDate()}</span>
-              </div>
+              </button>
             );
           })}
+        </div>
+        {scheduledTasks > 0 && <button className="calendar-scheduled" onClick={() => openCalendar(currentTime)}>{scheduledTasks} programada{scheduledTasks === 1 ? '' : 's'}</button>}
+      </section>
+
+      {/* ---- Tablón corporativo: segunda fila del escritorio ---- */}
+      <section className="card b12 corporate-board flat">
+        <div className="card-head">
+          <div>
+            <div className="card-label"><IcoBell s={13} /> Tablón corporativo</div>
+            <p className="board-subtitle">Novedades, banners e incidencias internas en un solo lugar.</p>
+          </div>
+          {isAdmin && <button className="btn btn-primary board-manage" onClick={() => setShowBoardManager(true)}><IcoPlus s={14} /> Administrar</button>}
+        </div>
+        <div className="board-feed">
+          {boardPosts.length === 0
+            ? <p className="empty-note">No hay publicaciones activas.</p>
+            : boardPosts.slice(0, 4).map(post => (
+              <article key={post.id} className={`board-post ${post.type}`}>
+                {post.imageUrl && <div className="board-post-image" style={{ backgroundImage: `linear-gradient(90deg, rgba(14,17,37,.80), rgba(14,17,37,.18)), url(${getValidImageUrl(post.imageUrl)})` }} />}
+                <div className="board-post-content">
+                  <span className="board-type">{post.type}</span>
+                  <h3>{post.title}</h3>
+                  <p>{post.body}</p>
+                  <small>{post.author} · {new Date(post.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</small>
+                </div>
+              </article>
+            ))}
         </div>
       </section>
 
@@ -552,51 +816,34 @@ export default function App() {
       </section>
 
       {/* ---- Tareas ---- */}
-      <section className="card b4 r2 flat">
+      <section className="card b4 flat">
         <div className="card-head">
           <div className="card-label"><IcoCheck s={12} /> Pendientes</div>
           {tasks.some(t => t.done) && <button className="ghost-btn" onClick={clearDone}>Limpiar</button>}
         </div>
         <div className="task-list">
-          {tasks.length === 0
-            ? <p className="empty-note" style={{ padding: '28px 0' }}>Todo en orden. No hay pendientes.</p>
-            : tasks.map(t => (
-              <div key={t.id} className={`task-row ${t.done ? 'done' : ''}`}>
+          {dashboardTasks.length === 0
+            ? <p className="empty-note" style={{ padding: '28px 0' }}>{scheduledTasks > 0 ? 'No hay pendientes para hoy.' : 'Todo en orden. No hay pendientes.'}</p>
+            : dashboardTasks.map(t => (
+              <div key={t.id} className={`task-row color-${t.color || 'navy'} ${t.done ? 'done' : ''}`}>
+                <button className="task-color" onClick={() => cycleTaskColor(t.id)} title="Cambiar clasificación" aria-label="Cambiar color de la tarea" />
                 <button className="task-box" onClick={() => toggleTask(t.id)}>{t.done && <IcoCheck s={11} />}</button>
-                <span className="task-text">{t.text}</span>
+                <span className="task-text">{t.text}{t.dueDate && <small>{t.dueDate < todayKey ? 'Vencida' : 'Hoy'}</small>}</span>
                 <button className="task-del" onClick={() => deleteTask(t.id)}><IcoX s={11} /></button>
               </div>
             ))}
         </div>
-        <input className="field" placeholder="Nueva tarea…" value={newTask}
-          onChange={e => setNewTask(e.target.value)} onKeyDown={addTask} />
-      </section>
-
-      {/* ---- Tablón corporativo ---- */}
-      <section className="card b6">
-        <div className="card-label"><IcoBell s={13} /> Tablón corporativo</div>
-        <span className="pill">Nuevo</span>
-        <h3 className="note-title">Actualización de políticas de teletrabajo</h3>
-        <p className="note-body">
-          Los nuevos lineamientos ya están publicados en el portal de Gestión de Personas.
-          La lectura y aceptación es requisito antes del cierre de mes.
-        </p>
-        <p className="note-meta">Publicado por Gestión Administrativa · Multival</p>
-      </section>
-
-      {/* ---- Estado del ecosistema ---- */}
-      <section className="card b3 flat">
-        <div className="card-label"><IcoPulse s={13} /> Ecosistema</div>
-        <div className="metric-list">
-          <div className="metric-row"><span className="metric-key">Aplicativos</span><span className="metric-val">{appsList.length}</span></div>
-          <div className="metric-row"><span className="metric-key">Identidades</span><span className="metric-val">{usersList.length || '—'}</span></div>
-          <div className="metric-row"><span className="metric-key">Ventanas activas</span><span className="metric-val">{openApps.length}</span></div>
-          <div className="metric-row"><span className="metric-key">Pendientes</span><span className="metric-val">{pendingTasks}</span></div>
+        <div className="task-composer">
+          <div className="task-palette" aria-label="Color de la nueva tarea">
+            {TASK_COLORS.map(color => <button key={color.id} className={`task-swatch ${newTaskColor === color.id ? 'active' : ''}`} style={{ '--swatch': color.hex }} onClick={() => setNewTaskColor(color.id)} title={color.label} />)}
+          </div>
+          <input className="field" placeholder="Nueva tarea para hoy…" value={newTask}
+            onChange={e => setNewTask(e.target.value)} onKeyDown={addTask} />
         </div>
       </section>
 
       {/* ---- Recientes ---- */}
-      <section className="card b3 flat">
+      <section className="card b4 flat">
         <div className="card-label"><IcoHistory s={13} /> Recientes</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 'auto' }}>
           {recents.length === 0
@@ -668,7 +915,7 @@ export default function App() {
             <span className="kbd">esc</span>
           </div>
           <div className="spot-results">
-            {!q && <p className="empty-note" style={{ padding: '34px 0' }}>Escribe para buscar en todo el ecosistema.</p>}
+            {!q && <p className="empty-note" style={{ padding: '34px 0' }}>Escribe para buscar en Ágora.</p>}
 
             {appRes.length > 0 && <div className="spot-group">Aplicativos</div>}
             {appRes.map(a => (
@@ -700,6 +947,126 @@ export default function App() {
             {nothing && <p className="empty-note" style={{ padding: '34px 0' }}>Sin resultados para “{searchQuery}”.</p>}
           </div>
         </div>
+      </div>
+    );
+  };
+
+  /* ======================================================================
+     CALENDARIO EXPANDIDO
+     ====================================================================== */
+  const renderCalendarModal = () => {
+    if (!isCalendarOpen) return null;
+    const selected = new Date(`${selectedDate}T12:00:00`);
+    return (
+      <div className="modal-overlay" onMouseDown={() => setIsCalendarOpen(false)}>
+        <section className="calendar-modal" onMouseDown={e => e.stopPropagation()}>
+          <div className="modal-head">
+            <div>
+              <span className="login-kicker">Planificación personal</span>
+              <h2>Calendario y tareas</h2>
+            </div>
+            <button className="modal-close" onClick={() => setIsCalendarOpen(false)}><IcoX s={14} /></button>
+          </div>
+          <div className="calendar-layout">
+            <div className="calendar-main">
+              <div className="calendar-nav">
+                <button onClick={() => setCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>
+                <strong>{calendarMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</strong>
+                <button onClick={() => setCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
+              </div>
+              <div className="calendar-dow">{['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div>
+              <div className="calendar-grid">
+                {calendarDays.map(day => {
+                  const key = dateKey(day);
+                  const inMonth = day.getMonth() === calendarMonth.getMonth();
+                  const dayTasks = tasks.filter(task => task.dueDate === key);
+                  return (
+                    <button key={key} className={`${inMonth ? '' : 'outside'} ${key === selectedDate ? 'selected' : ''} ${key === todayKey ? 'today' : ''}`}
+                      onClick={() => setSelectedDate(key)}>
+                      <span>{day.getDate()}</span>
+                      {dayTasks.length > 0 && <i style={{ '--day-color': TASK_COLORS.find(color => color.id === dayTasks[0].color)?.hex || '#25294F' }} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <aside className="calendar-agenda">
+              <div className="agenda-date">
+                <span>{selected.toLocaleDateString('es-ES', { weekday: 'long' })}</span>
+                <strong>{selected.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</strong>
+              </div>
+              <div className="agenda-list">
+                {tasksForSelectedDate.length === 0
+                  ? <p className="empty-note">No hay tareas programadas.</p>
+                  : tasksForSelectedDate.map(task => (
+                    <div key={task.id} className={`agenda-task color-${task.color || 'navy'} ${task.done ? 'done' : ''}`}>
+                      <button className="task-box" onClick={() => toggleTask(task.id)}>{task.done && <IcoCheck s={10} />}</button>
+                      <span>{task.text}</span>
+                      <button onClick={() => deleteTask(task.id)}><IcoX s={10} /></button>
+                    </div>
+                  ))}
+              </div>
+              <form className="agenda-form" onSubmit={addScheduledTask}>
+                <label>Nueva tarea para esta fecha</label>
+                <input className="field" value={calendarTaskText} onChange={e => setCalendarTaskText(e.target.value)} placeholder="Escribe la tarea…" autoFocus />
+                <div className="agenda-form-row">
+                  <div className="task-palette">
+                    {TASK_COLORS.map(color => <button type="button" key={color.id} className={`task-swatch ${calendarTaskColor === color.id ? 'active' : ''}`} style={{ '--swatch': color.hex }} onClick={() => setCalendarTaskColor(color.id)} title={color.label} />)}
+                  </div>
+                  <button className="btn btn-primary" type="submit">Programar</button>
+                </div>
+              </form>
+            </aside>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  /* ======================================================================
+     ADMINISTRACIÓN DEL TABLÓN
+     ====================================================================== */
+  const renderBoardManager = () => {
+    if (!showBoardManager || !isAdmin) return null;
+    return (
+      <div className="modal-overlay" onMouseDown={() => setShowBoardManager(false)}>
+        <section className="board-modal" onMouseDown={e => e.stopPropagation()}>
+          <div className="modal-head">
+            <div>
+              <span className="login-kicker">Administración</span>
+              <h2>Tablón corporativo</h2>
+            </div>
+            <button className="modal-close" onClick={() => setShowBoardManager(false)}><IcoX s={14} /></button>
+          </div>
+          <div className="board-admin-layout">
+            <form className="board-form" onSubmit={addBoardPost}>
+              <label className="form-label">Tipo de publicación</label>
+              <select className="field" value={newBoardPost.type} onChange={e => setNewBoardPost({ ...newBoardPost, type: e.target.value })}>
+                <option value="comunicado">Comunicado</option>
+                <option value="banner">Banner</option>
+                <option value="incidencia">Incidencia</option>
+              </select>
+              <label className="form-label">Título</label>
+              <input className="field" value={newBoardPost.title} onChange={e => setNewBoardPost({ ...newBoardPost, title: e.target.value })} placeholder="Título de la publicación" required />
+              <label className="form-label">Mensaje</label>
+              <textarea className="field" value={newBoardPost.body} onChange={e => setNewBoardPost({ ...newBoardPost, body: e.target.value })} placeholder="Información para los colaboradores" required />
+              <label className="form-label">Imagen o banner (URL opcional)</label>
+              <input className="field" type="url" value={newBoardPost.imageUrl} onChange={e => setNewBoardPost({ ...newBoardPost, imageUrl: e.target.value })} placeholder="https://…" />
+              <button className="btn btn-primary" type="submit"><IcoPlus s={14} /> Publicar</button>
+            </form>
+            <div className="board-admin-list">
+              <h3>Publicaciones activas</h3>
+              {boardPosts.map(post => (
+                <article key={post.id}>
+                  <span className={`board-type ${post.type}`}>{post.type}</span>
+                  <strong>{post.title}</strong>
+                  <p>{post.body}</p>
+                  <button className="icon-btn danger" onClick={() => deleteBoardPost(post.id)} title="Retirar publicación"><IcoTrash s={15} /></button>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
       </div>
     );
   };
@@ -847,7 +1214,7 @@ export default function App() {
 
   const renderWindowBody = (app) => {
     if (app.sys === 'notes') return <textarea className="notes-pad" placeholder="Escribe algo…" />;
-    if (app.sys === 'calculator') return <NativeCalculator />;
+    if (app.sys === 'calculator') return <NativeCalculator isActive={activeAppId === app.id && !minimizedApps[app.id]} />;
     if (app.sys === 'todo') return (
       <div className="sticky-wrap">
         <textarea className="sticky warm" placeholder="Urgente…" />
@@ -863,6 +1230,7 @@ export default function App() {
     );
     return (
       <iframe
+        className="app-frame"
         src={`${app.url}?usuario=${userData.usuario}`}
         title={app.nombre}
         onLoad={() => setLoadingApps(p => ({ ...p, [app.id]: false }))}
@@ -875,6 +1243,8 @@ export default function App() {
     <div className="os-root">
       {renderSpotlight()}
       {renderLaunchpad()}
+      {renderCalendarModal()}
+      {renderBoardManager()}
 
       {/* ================= MENU BAR ================= */}
       <header className="menubar">
@@ -936,9 +1306,9 @@ export default function App() {
 
       {/* ================= WORKSPACE ================= */}
       <main className="workspace">
-        <div className="workspace-scroll" style={{
+        <div className="workspace-scroll" onMouseDown={handleWorkspaceBackground} style={{
           opacity: activeAppId === null || workspaceMode === 'desktop' ? 1 : 0,
-          pointerEvents: activeAppId === null ? 'auto' : 'none',
+          pointerEvents: activeAppId === null || workspaceMode === 'desktop' ? 'auto' : 'none',
         }}>
           <div className="workspace-inner">
             {currentView === 'dashboard' && renderDashboard()}
@@ -953,10 +1323,12 @@ export default function App() {
           workspaceMode === 'desktop' ? (
             <Rnd key={app.id} id={`window-${app.id}`}
               default={{ x: 48 + (hashOf(app.id) % 60), y: 28 + (hashOf(app.id) % 40), width: app.defaultWidth, height: app.defaultHeight }}
-              minWidth={330} minHeight={280} bounds="parent"
+              minWidth={app.sys === 'calculator' ? 340 : 330} minHeight={app.sys === 'calculator' ? 560 : 280}
+              maxWidth={app.sys === 'calculator' ? 340 : undefined} maxHeight={app.sys === 'calculator' ? 560 : undefined}
+              bounds="parent"
               dragHandleClassName={maximizedApps[app.id] ? 'no-drag' : 'titlebar'}
-              enableResizing={!maximizedApps[app.id]}
-              style={{ zIndex: activeAppId === app.id ? 60 : 20, display: activeAppId === null ? 'none' : 'block' }}
+              enableResizing={app.sys !== 'calculator' && !maximizedApps[app.id]}
+              style={{ zIndex: activeAppId === app.id ? 60 : 20, display: activeAppId === null || minimizedApps[app.id] ? 'none' : 'block' }}
               onMouseDownCapture={() => { if (!minimizedApps[app.id]) setActiveAppId(app.id); }}
             >
               <div
@@ -973,7 +1345,7 @@ export default function App() {
                   <div className="traffic">
                     <button className="tl close" onClick={e => closeApp(e, app.id)} title="Cerrar"><IcoX s={8} /></button>
                     <button className="tl min" onClick={e => toggleMinimize(e, app.id)} title="Minimizar"><IcoMinus s={8} /></button>
-                    <button className="tl max" onClick={e => toggleMaximize(e, app.id)} title="Pantalla completa"><IcoExpand s={7} /></button>
+                    {app.sys !== 'calculator' && <button className="tl max" onClick={e => toggleMaximize(e, app.id)} title="Pantalla completa"><IcoExpand s={7} /></button>}
                   </div>
                   <span className="title-text">{app.nombre}</span>
                 </div>
@@ -984,14 +1356,24 @@ export default function App() {
               </div>
             </Rnd>
           ) : (
-            <div key={app.id} style={{
-              position: 'absolute', inset: 0,
+            <div key={app.id} className={`focus-app-layer ${app.sys === 'calculator' ? 'compact-calculator' : ''}`} style={{
               opacity: activeAppId === app.id ? 1 : 0,
               pointerEvents: activeAppId === app.id ? 'auto' : 'none',
-              transition: 'opacity 0.3s ease', background: 'var(--wall-a)',
             }}>
-              {loadingApps[app.id] && !app.sys && <div className="loader-veil"><div className="spinner" /></div>}
-              <div style={{ width: '100%', height: '100%' }}>{renderWindowBody(app)}</div>
+              {app.sys === 'calculator' ? (
+                <div className="focus-compact-window">
+                  <div className="titlebar no-drag">
+                    <div className="traffic"><button className="tl close" onClick={e => closeApp(e, app.id)} title="Cerrar"><IcoX s={8} /></button></div>
+                    <span className="title-text">Calculadora</span>
+                  </div>
+                  <div className="win-body">{renderWindowBody(app)}</div>
+                </div>
+              ) : (
+                <>
+                  {loadingApps[app.id] && !app.sys && <div className="loader-veil"><div className="spinner" /></div>}
+                  <div className="focus-app-content">{renderWindowBody(app)}</div>
+                </>
+              )}
             </div>
           )
         ))}
