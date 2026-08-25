@@ -1187,6 +1187,12 @@ textarea.field { resize: vertical; min-height: 92px; line-height: 1.55; }
     inset 0 0 0 1px rgba(255,255,255,.88);
   animation: loginIn 0.7s var(--ease) both;
 }
+.login-card::after {
+  content: ''; position: absolute; z-index: 4; top: -5%; bottom: -5%; left: 51.5%; width: 118px;
+  transform: translateX(-50%); pointer-events: none;
+  background: linear-gradient(90deg, rgba(20,23,51,.76), rgba(34,40,78,.24) 48%, rgba(255,255,255,0) 100%);
+  filter: blur(18px); opacity: .78;
+}
 [data-theme='dark'] .login-card { background: rgba(31,32,38,.72); box-shadow: 0 70px 150px -46px rgba(0,0,0,.8), inset 0 0 0 1px rgba(255,255,255,.08); }
 @keyframes loginIn { from { opacity: 0; transform: translateY(22px) scale(0.985); } to { opacity: 1; transform: none; } }
 
@@ -1301,6 +1307,7 @@ textarea.field { resize: vertical; min-height: 92px; line-height: 1.55; }
 @media (max-width: 860px) {
   .login-aside { display: none; }
   .login-card { width: 94vw; height: auto; max-height: 92vh; }
+  .login-card::after { display: none; }
   .login-form-side { padding: 38px 26px; }
   .login-form-side::before { display: none; }
 }
