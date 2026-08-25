@@ -38,6 +38,12 @@ const IcoWidgets = ({ s = 16 }) => <svg width={s} height={s} {...S}><rect x="3" 
 const IcoPlay = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="m8 5 11 7-11 7z" /></svg>;
 const IcoPause = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M9 5v14M15 5v14" /></svg>;
 const IcoRefresh = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M20 7v5h-5M4 17v-5h5" /><path d="M18.2 9A7 7 0 0 0 6.1 6.1L4 8M5.8 15A7 7 0 0 0 17.9 17.9L20 16" /></svg>;
+const IcoChart = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /><path d="m3 7 6-4 6 7 6-5" /></svg>;
+const IcoUsers = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
+const IcoKey = ({ s = 18 }) => <svg width={s} height={s} {...S}><circle cx="7.5" cy="15.5" r="4.5" /><path d="m11 12 9-9M15 8l3 3M17 6l2 2" /></svg>;
+const IcoSwap = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M7 7h13l-3-3M17 17H4l3 3" /></svg>;
+const IcoPulse = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M3 12h4l2.5-7 5 14 2.5-7h4" /></svg>;
+const IcoLoginArrow = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="m10 17 5-5-5-5M15 12H3" /></svg>;
 
 /* ==========================================================================
    UTILIDADES
@@ -85,6 +91,14 @@ const dateKey = (date = new Date()) => {
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
+};
+
+const formatUsageTime = (seconds = 0) => {
+  const totalSeconds = Math.max(0, Number(seconds) || 0);
+  if (totalSeconds < 60) return `${Math.round(totalSeconds)} s`;
+  if (totalSeconds < 3600) return `${Math.round(totalSeconds / 60)} min`;
+  const hours = totalSeconds / 3600;
+  return `${hours.toLocaleString('es-CO', { minimumFractionDigits: hours < 10 ? 1 : 0, maximumFractionDigits: 1 })} h`;
 };
 
 const TASK_COLORS = [
@@ -149,7 +163,11 @@ const SYSTEM_APPS = [
   { sys: 'notes', nombre: 'Notas', grad: 'linear-gradient(150deg,#E8C766,#C9A23B)', icon: IcoNotes, w: 720, h: 520 },
   { sys: 'calculator', nombre: 'Calculadora', grad: 'linear-gradient(150deg,#7C7C86,#4A4A52)', icon: IcoCalc, w: 340, h: 560 },
   { sys: 'todo', nombre: 'Post-its', grad: 'linear-gradient(150deg,#6E9BD1,#3E6BA0)', icon: IcoSticky, w: 440, h: 620 },
+  { sys: 'converter', nombre: 'Conversor', grad: 'linear-gradient(150deg,#5F8F91,#315E63)', icon: IcoSwap, w: 520, h: 480 },
+  { sys: 'passwords', nombre: 'Clave segura', grad: 'linear-gradient(150deg,#6271A7,#343F73)', icon: IcoKey, w: 520, h: 470 },
+  { sys: 'stopwatch', nombre: 'Cronómetro', grad: 'linear-gradient(150deg,#C17B5E,#7C4937)', icon: IcoClock, w: 500, h: 520 },
 ];
+const COMPACT_SYSTEM_TOOLS = new Set(['calculator', 'converter', 'passwords', 'stopwatch']);
 
 /* ==========================================================================
    ÍCONO DE APLICACIÓN (squircle)
@@ -355,7 +373,133 @@ const NativeCalculator = ({ isActive }) => {
   );
 };
 
-/* ==========================================================================
+const UNIT_GROUPS = {
+  longitud: {
+    label: 'Longitud', units: { m: ['Metros', 1], km: ['Kilómetros', 1000], cm: ['Centímetros', .01], mi: ['Millas', 1609.344] },
+  },
+  peso: {
+    label: 'Peso', units: { kg: ['Kilogramos', 1], g: ['Gramos', .001], lb: ['Libras', .45359237], oz: ['Onzas', .0283495] },
+  },
+  temperatura: {
+    label: 'Temperatura', units: { c: ['Celsius', 1], f: ['Fahrenheit', 1], k: ['Kelvin', 1] },
+  },
+};
+
+const UnitConverter = () => {
+  const [group, setGroup] = useState('longitud');
+  const [amount, setAmount] = useState('1');
+  const [from, setFrom] = useState('m');
+  const [to, setTo] = useState('km');
+
+  const changeGroup = (next) => {
+    const keys = Object.keys(UNIT_GROUPS[next].units);
+    setGroup(next); setFrom(keys[0]); setTo(keys[1]);
+  };
+
+  const result = useMemo(() => {
+    const number = Number(String(amount).replace(',', '.'));
+    if (!Number.isFinite(number)) return '—';
+    if (group === 'temperatura') {
+      const celsius = from === 'c' ? number : from === 'f' ? (number - 32) * 5 / 9 : number - 273.15;
+      const converted = to === 'c' ? celsius : to === 'f' ? celsius * 9 / 5 + 32 : celsius + 273.15;
+      return converted.toLocaleString('es-CO', { maximumFractionDigits: 4 });
+    }
+    const units = UNIT_GROUPS[group].units;
+    const converted = number * units[from][1] / units[to][1];
+    return converted.toLocaleString('es-CO', { maximumFractionDigits: 6 });
+  }, [amount, from, group, to]);
+
+  const units = UNIT_GROUPS[group].units;
+  return (
+    <div className="utility-tool converter-tool">
+      <div className="utility-intro"><span className="utility-icon"><IcoSwap s={20} /></span><div><strong>Conversor rápido</strong><p>Longitud, peso y temperatura sin salir del Hub.</p></div></div>
+      <div className="utility-segments">
+        {Object.entries(UNIT_GROUPS).map(([id, item]) => <button key={id} className={group === id ? 'active' : ''} onClick={() => changeGroup(id)}>{item.label}</button>)}
+      </div>
+      <div className="converter-grid">
+        <label><span>Valor</span><input className="field" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} /></label>
+        <label><span>Desde</span><select className="field" value={from} onChange={e => setFrom(e.target.value)}>{Object.entries(units).map(([id, item]) => <option key={id} value={id}>{item[0]}</option>)}</select></label>
+        <button className="converter-swap" onClick={() => { setFrom(to); setTo(from); }} aria-label="Intercambiar unidades"><IcoSwap s={16} /></button>
+        <label><span>Hacia</span><select className="field" value={to} onChange={e => setTo(e.target.value)}>{Object.entries(units).map(([id, item]) => <option key={id} value={id}>{item[0]}</option>)}</select></label>
+      </div>
+      <div className="converter-result"><span>Resultado</span><strong>{result}</strong><small>{units[to][0]}</small></div>
+    </div>
+  );
+};
+
+const createSecurePassword = (length, symbols) => {
+  const alphabet = `ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789${symbols ? '!@#$%&*+-=?' : ''}`;
+  const bytes = new Uint32Array(length);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, value => alphabet[value % alphabet.length]).join('');
+};
+
+const PasswordGenerator = () => {
+  const [length, setLength] = useState(16);
+  const [symbols, setSymbols] = useState(true);
+  const [passwordValue, setPasswordValue] = useState(() => createSecurePassword(16, true));
+  const [copied, setCopied] = useState(false);
+  const generate = (nextLength = length, nextSymbols = symbols) => {
+    setPasswordValue(createSecurePassword(nextLength, nextSymbols)); setCopied(false);
+  };
+  const copyPassword = async () => {
+    await navigator.clipboard.writeText(passwordValue); setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+  return (
+    <div className="utility-tool password-tool">
+      <div className="utility-intro"><span className="utility-icon"><IcoKey s={20} /></span><div><strong>Generador de claves</strong><p>Crea contraseñas robustas directamente en tu equipo.</p></div></div>
+      <div className="password-output"><code>{passwordValue}</code><button onClick={copyPassword}>{copied ? 'Copiada' : 'Copiar'}</button></div>
+      <label className="range-field"><span>Longitud <strong>{length}</strong></span><input type="range" min="10" max="32" value={length} onChange={e => { const next = Number(e.target.value); setLength(next); generate(next, symbols); }} /></label>
+      <label className="utility-toggle"><span><strong>Incluir símbolos</strong><small>Mejora la complejidad de la contraseña</small></span><input type="checkbox" checked={symbols} onChange={e => { setSymbols(e.target.checked); generate(length, e.target.checked); }} /></label>
+      <button className="utility-primary" onClick={() => generate()}><IcoRefresh s={15} /> Generar otra clave</button>
+      <p className="utility-privacy"><IcoShield s={13} /> La contraseña se genera localmente y no se envía al servidor.</p>
+    </div>
+  );
+};
+
+const stopwatchLabel = (milliseconds) => {
+  const totalCentiseconds = Math.floor(milliseconds / 10);
+  const minutes = Math.floor(totalCentiseconds / 6000);
+  const seconds = Math.floor((totalCentiseconds % 6000) / 100);
+  const centiseconds = totalCentiseconds % 100;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
+};
+
+const StopwatchTool = () => {
+  const [elapsed, setElapsed] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [laps, setLaps] = useState([]);
+  const startedAt = useRef(0);
+
+  useEffect(() => {
+    if (!running) return undefined;
+    const timer = window.setInterval(() => setElapsed(Date.now() - startedAt.current), 40);
+    return () => window.clearInterval(timer);
+  }, [running]);
+
+  const toggle = () => {
+    if (!running) startedAt.current = Date.now() - elapsed;
+    setRunning(value => !value);
+  };
+  const reset = () => { setRunning(false); setElapsed(0); setLaps([]); };
+  return (
+    <div className="utility-tool stopwatch-tool">
+      <div className="utility-intro"><span className="utility-icon"><IcoClock s={20} /></span><div><strong>Cronómetro</strong><p>Mide actividades y registra vueltas durante tu jornada.</p></div></div>
+      <div className={`stopwatch-display ${running ? 'running' : ''}`}><span>{stopwatchLabel(elapsed)}</span><small>{running ? 'EN CURSO' : elapsed ? 'EN PAUSA' : 'LISTO'}</small></div>
+      <div className="stopwatch-actions">
+        <button className="secondary" onClick={() => setLaps(items => elapsed ? [elapsed, ...items].slice(0, 5) : items)} disabled={!elapsed}><IcoPlus s={14} /> Vuelta</button>
+        <button className="primary" onClick={toggle}>{running ? <IcoPause s={14} /> : <IcoPlay s={14} />}{running ? 'Pausar' : 'Iniciar'}</button>
+        <button className="secondary" onClick={reset} disabled={!elapsed}><IcoRefresh s={14} /> Reiniciar</button>
+      </div>
+      <div className="stopwatch-laps">
+        {laps.length === 0 ? <p>Aquí aparecerán tus últimas vueltas.</p> : laps.map((lap, index) => <div key={`${lap}-${index}`}><span>Vuelta {laps.length - index}</span><strong>{stopwatchLabel(lap)}</strong></div>)}
+      </div>
+    </div>
+  );
+};
+
+/* ========================================================================== 
    APP
    ========================================================================== */
 export default function App() {
@@ -402,6 +546,8 @@ export default function App() {
   const [loadingApps, setLoadingApps] = useState({});
   const [windowLayers, setWindowLayers] = useState({});
   const windowLayerCounter = useRef(100);
+  const sessionIdRef = useRef('');
+  const sessionStartedAtRef = useRef(0);
 
   /* --- Datos --- */
   const [appsList, setAppsList] = useState([]);
@@ -433,6 +579,10 @@ export default function App() {
   const [pomodoroSeconds, setPomodoroSeconds] = useState(25 * 60);
   const [pomodoroRunning, setPomodoroRunning] = useState(false);
   const [userPreferencesReady, setUserPreferencesReady] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState('');
+  const [analyticsRange, setAnalyticsRange] = useState(30);
 
   /* --- CRUD --- */
   const [newApp, setNewApp] = useState({ nombre: '', url: '', desc: '', icono: '', grupo: '' });
@@ -440,11 +590,7 @@ export default function App() {
   const [editingAppId, setEditingAppId] = useState(null);
 
   /* ---------------- Efectos ---------------- */
-  useEffect(() => { document.body.setAttribute('data-theme', theme); }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem('agora_workspace_appearance', JSON.stringify(workspaceAppearance));
-  }, [workspaceAppearance]);
+  useEffect(() => { document.body.setAttribute('data-theme', isLoggedIn ? theme : 'light'); }, [isLoggedIn, theme]);
 
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -494,16 +640,22 @@ export default function App() {
       const key = userData.usuario;
       const savedWidgets = JSON.parse(localStorage.getItem(`agora_widgets_${key}`) || '[]');
       const savedProfile = JSON.parse(localStorage.getItem(`agora_profile_${key}`) || 'null');
+      const savedAppearance = JSON.parse(localStorage.getItem(`agora_appearance_${key}`) || localStorage.getItem('agora_workspace_appearance') || 'null');
+      const savedTheme = localStorage.getItem(`agora_theme_${key}`) || 'light';
       const savedFocus = Number(localStorage.getItem(`agora_focus_minutes_${key}`) || 25);
       const validFocus = Number.isFinite(savedFocus) ? Math.min(120, Math.max(5, Math.round(savedFocus / 5) * 5)) : 25;
       setEnabledWidgets(Array.isArray(savedWidgets) ? savedWidgets.filter(id => WIDGET_CATALOG.some(widget => widget.id === id)) : []);
       setProfilePreferences(savedProfile ? { displayName: '', roleLabel: '', welcomeMessage: '', ...savedProfile } : { displayName: '', roleLabel: '', welcomeMessage: '' });
+      setWorkspaceAppearance(savedAppearance ? { ...DEFAULT_APPEARANCE, ...savedAppearance } : DEFAULT_APPEARANCE);
+      setTheme(savedTheme === 'dark' ? 'dark' : 'light');
       setQuickNote(localStorage.getItem(`agora_quick_note_${key}`) || '');
       setFocusMinutes(validFocus);
       setPomodoroSeconds(validFocus * 60);
     } catch {
       setEnabledWidgets([]);
       setProfilePreferences({ displayName: '', roleLabel: '', welcomeMessage: '' });
+      setWorkspaceAppearance(DEFAULT_APPEARANCE);
+      setTheme('light');
       setQuickNote('');
       setFocusMinutes(25);
       setPomodoroSeconds(25 * 60);
@@ -524,9 +676,11 @@ export default function App() {
     const key = userData.usuario;
     localStorage.setItem(`agora_widgets_${key}`, JSON.stringify(enabledWidgets));
     localStorage.setItem(`agora_profile_${key}`, JSON.stringify(profilePreferences));
+    localStorage.setItem(`agora_appearance_${key}`, JSON.stringify(workspaceAppearance));
+    localStorage.setItem(`agora_theme_${key}`, theme);
     localStorage.setItem(`agora_quick_note_${key}`, quickNote);
     localStorage.setItem(`agora_focus_minutes_${key}`, String(focusMinutes));
-  }, [enabledWidgets, profilePreferences, quickNote, focusMinutes, userPreferencesReady, userData]);
+  }, [enabledWidgets, profilePreferences, workspaceAppearance, theme, quickNote, focusMinutes, userPreferencesReady, userData]);
 
   useEffect(() => {
     if (!pomodoroRunning) return undefined;
@@ -563,6 +717,27 @@ export default function App() {
     return res.json();
   };
 
+  const emitAnalytics = (event, details = {}) => {
+    const actor = details.usuario || userData?.usuario;
+    if (!actor) return;
+    const eventData = {
+      event,
+      usuario: actor,
+      appId: details.appId || '',
+      appName: details.appName || '',
+      group: details.group || '',
+      durationSeconds: Math.max(0, Math.round(Number(details.durationSeconds) || 0)),
+      view: details.view || '',
+      sessionId: details.sessionId || sessionIdRef.current || '',
+      authToken: details.authToken || userData?.sessionToken || '',
+      detail: details.detail || '',
+    };
+    fetch(GAS_API_URL, {
+      method: 'POST', body: JSON.stringify({ action: 'trackEvent', eventData }),
+      headers: { 'Content-Type': 'text/plain' }, keepalive: true,
+    }).catch(() => {});
+  };
+
   const fetchApps = async () => {
     try {
       const r = await post({ action: 'getApps' });
@@ -581,23 +756,85 @@ export default function App() {
     } catch { /* respaldo local */ }
   };
 
+  const fetchAnalytics = async () => {
+    if (userData?.rolGlobal !== 'Administrador') return;
+    setAnalyticsLoading(true); setAnalyticsError('');
+    try {
+      const response = await post({ action: 'getAnalytics', usuario: userData.usuario, authToken: userData.sessionToken, days: analyticsRange });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible consultar la analítica.');
+      setAnalyticsData(response.data);
+    } catch (analyticsRequestError) {
+      setAnalyticsError(analyticsRequestError.message || 'No fue posible conectar con la analítica.');
+    } finally { setAnalyticsLoading(false); }
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn || !userData || currentView !== 'analytics' || userData.rolGlobal !== 'Administrador') return;
+    fetchAnalytics();
+  }, [analyticsRange, currentView, isLoggedIn, userData]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !userData) return;
+    emitAnalytics('view_open', { view: currentView });
+  }, [currentView, isLoggedIn, userData]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !userData || !activeAppId) return undefined;
+    const app = openApps.find(item => item.id === activeAppId);
+    if (!app) return undefined;
+    let lastStartedAt = Date.now();
+    let visible = !document.hidden;
+
+    const flushUsage = () => {
+      if (!visible) return;
+      const now = Date.now();
+      const seconds = Math.floor((now - lastStartedAt) / 1000);
+      if (seconds > 0) emitAnalytics('app_usage', {
+        appId: app.sys ? `sys-${app.sys}` : app.id, appName: app.nombre, group: app.grupo || (app.sys ? 'Utilidades del sistema' : 'Sin grupo'), durationSeconds: seconds,
+      });
+      lastStartedAt = now;
+    };
+    const handleVisibility = () => {
+      if (document.hidden) { flushUsage(); visible = false; }
+      else { visible = true; lastStartedAt = Date.now(); }
+    };
+    const heartbeat = window.setInterval(flushUsage, 60000);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.clearInterval(heartbeat);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      flushUsage();
+    };
+  }, [activeAppId, isLoggedIn, userData]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!captchaVerified) { setError('Resuelve la verificación de seguridad para continuar.'); return; }
     setLoading(true); setError('');
     try {
       const r = await post({ action: 'login', usuario, password });
-      if (r.status === 'success') { setIsLoggedIn(true); setUserData(r); fetchApps(); fetchUsers(); fetchBoardPosts(); }
+      if (r.status === 'success') {
+        const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        sessionIdRef.current = sessionId; sessionStartedAtRef.current = Date.now();
+        setIsLoggedIn(true); setUserData(r); fetchApps(); fetchUsers(); fetchBoardPosts();
+        emitAnalytics('session_start', { usuario: r.usuario, authToken: r.sessionToken, sessionId, detail: r.rolGlobal || '' });
+      }
       else setError(r.message || 'Credenciales no válidas.');
     } catch { setError('Servidor no disponible en este momento.'); }
     finally { setLoading(false); }
   };
 
   const handleLogout = () => {
+    if (userData?.usuario && sessionStartedAtRef.current) emitAnalytics('session_end', {
+      durationSeconds: Math.floor((Date.now() - sessionStartedAtRef.current) / 1000),
+    });
+    document.body.setAttribute('data-theme', 'light');
     setIsLoggedIn(false); setUserData(null); setOpenApps([]); setActiveAppId(null);
     setShowUserMenu(false); setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
     setShowBoardManager(false); setPublicationTypeOpen(false); setBoardCarouselPaused(false);
     setCurrentView('dashboard'); setPassword(''); setCaptchaVerified(false); setPomodoroRunning(false);
+    setTheme('light'); setWorkspaceAppearance(DEFAULT_APPEARANCE); setAnalyticsData(null); setAnalyticsError('');
+    sessionIdRef.current = ''; sessionStartedAtRef.current = 0;
   };
 
   /* ---------------- Tareas ---------------- */
@@ -714,6 +951,7 @@ export default function App() {
   const launchApp = (app) => {
     closeOverlays();
     pushRecent(app);
+    emitAnalytics('app_open', { appId: app.id, appName: app.nombre, group: app.grupo || 'Sin grupo' });
     const existing = openApps.find(a => a.id === app.id);
     if (existing) { setMinimizedApps(p => ({ ...p, [app.id]: false })); prioritizeWindow(app.id); return; }
     const toOpen = { ...app, isAuthorized: true, sys: false, defaultWidth: 1040, defaultHeight: 660 };
@@ -724,9 +962,10 @@ export default function App() {
 
   const launchSystemApp = (type) => {
     closeOverlays();
+    const def = SYSTEM_APPS.find(s => s.sys === type);
+    emitAnalytics('app_open', { appId: `sys-${type}`, appName: def?.nombre || type, group: 'Utilidades del sistema' });
     const existing = openApps.find(a => a.sys === type);
     if (existing) { setMinimizedApps(p => ({ ...p, [existing.id]: false })); prioritizeWindow(existing.id); return; }
-    const def = SYSTEM_APPS.find(s => s.sys === type);
     const win = {
       id: `sys-${type}-${Date.now()}`, nombre: def.nombre, sys: type, isAuthorized: true,
       icono: '', grad: def.grad, sysIcon: def.icon, defaultWidth: def.w, defaultHeight: def.h,
@@ -737,6 +976,8 @@ export default function App() {
 
   const closeApp = (e, appId) => {
     if (e) e.stopPropagation();
+    const closingApp = openApps.find(app => app.id === appId);
+    if (closingApp) emitAnalytics('app_close', { appId: closingApp.sys ? `sys-${closingApp.sys}` : closingApp.id, appName: closingApp.nombre, group: closingApp.grupo || (closingApp.sys ? 'Utilidades del sistema' : 'Sin grupo') });
     const rest = openApps.filter(a => a.id !== appId);
     const next = topVisibleWindow(rest);
     setOpenApps(rest);
@@ -1121,7 +1362,8 @@ export default function App() {
 
     if (!hasLink) return article;
     return (
-      <a className="board-slide-link board-slide-enter" href={normalizeExternalUrl(post.linkUrl)} target="_blank" rel="noopener noreferrer" aria-label="Abrir comunicación enlazada">
+      <a className="board-slide-link board-slide-enter" href={normalizeExternalUrl(post.linkUrl)} target="_blank" rel="noopener noreferrer" aria-label="Abrir comunicación enlazada"
+        onClick={() => emitAnalytics('board_click', { detail: post.id || post.title || post.type })}>
         {article}
         <span className="board-link-hint">Abrir comunicación <IcoChevron s={12} /></span>
       </a>
@@ -1178,11 +1420,11 @@ export default function App() {
         {scheduledTasks > 0 && <button className="calendar-scheduled" onClick={() => openCalendar(currentTime)}>{scheduledTasks} programada{scheduledTasks === 1 ? '' : 's'}</button>}
       </section>
 
-      {/* ---- Tablón corporativo: segunda fila del escritorio ---- */}
+      {/* ---- Tablero corporativo: segunda fila del escritorio ---- */}
       <section className="card b12 corporate-board flat">
         <div className="card-head">
           <div className="board-title-group">
-            <div className="card-label"><IcoBell s={13} /> Tablón corporativo</div>
+            <div className="card-label"><IcoBell s={13} /> Tablero corporativo</div>
             <p className="board-subtitle">Novedades, banners e incidencias internas en un solo lugar.</p>
           </div>
           {isAdmin && <button className="btn btn-primary board-manage" onClick={() => setShowBoardManager(true)}><IcoPlus s={14} /> Administrar</button>}
@@ -1194,7 +1436,7 @@ export default function App() {
           {boardPosts.length > 1 && (
             <div className="board-carousel-controls">
               <button className="board-arrow previous" onClick={() => changeBoardSlide(-1)} aria-label="Publicación anterior"><IcoChevron s={14} /></button>
-              <div className="board-dots" role="tablist" aria-label="Publicaciones del tablón">
+              <div className="board-dots" role="tablist" aria-label="Publicaciones del tablero">
                 {boardPosts.map((post, index) => (
                   <button key={post.id} className={index === boardSlide ? 'active' : ''} onClick={() => setBoardSlide(index)} aria-label={`Ver publicación ${index + 1}`} aria-selected={index === boardSlide} role="tab" />
                 ))}
@@ -1244,12 +1486,12 @@ export default function App() {
       </section>
 
       {/* ---- Tareas ---- */}
-      <section className="card b4 flat">
+      <section className="card b4 flat pending-card">
         <div className="card-head">
           <div className="card-label"><IcoCheck s={12} /> Pendientes</div>
           {tasks.some(t => t.done) && <button className="ghost-btn" onClick={clearDone}>Limpiar</button>}
         </div>
-        <div className="task-list">
+        <div className="task-list pending-task-list">
           {dashboardTasks.length === 0
             ? <p className="empty-note" style={{ padding: '28px 0' }}>{scheduledTasks > 0 ? 'No hay pendientes para hoy.' : 'Todo en orden. No hay pendientes.'}</p>
             : dashboardTasks.map(t => (
@@ -1472,7 +1714,7 @@ export default function App() {
           <div className="modal-head">
             <div>
               <span className="login-kicker">Administración</span>
-              <h2>Tablón corporativo</h2>
+              <h2>Tablero corporativo</h2>
             </div>
             <button className="modal-close" onClick={() => { setPublicationTypeOpen(false); setShowBoardManager(false); }}><IcoX s={14} /></button>
           </div>
@@ -1714,6 +1956,113 @@ export default function App() {
   /* ======================================================================
      VISTAS ADMIN
      ====================================================================== */
+  const renderAnalytics = () => {
+    const summary = analyticsData?.summary || {};
+    const daily = analyticsData?.daily || [];
+    const topApps = analyticsData?.topApps || [];
+    const views = analyticsData?.views || [];
+    const recentEvents = analyticsData?.recent || [];
+    const leadingApp = topApps[0];
+    const leadingCatalogApp = leadingApp ? appsList.find(app => String(app.id) === String(leadingApp.id)) : null;
+    const leadingSystemApp = leadingApp ? SYSTEM_APPS.find(app => `sys-${app.sys}` === String(leadingApp.id)) : null;
+    const leadingIconApp = leadingCatalogApp || (leadingSystemApp ? { nombre: leadingSystemApp.nombre, grad: leadingSystemApp.grad, sysIcon: leadingSystemApp.icon } : { nombre: leadingApp?.name || 'App' });
+    const maxDaily = Math.max(1, ...daily.map(day => Math.max(day.totalSeconds || 0, (day.appOpens || 0) * 60)));
+    const maxAppUsage = Math.max(1, ...topApps.map(app => app.totalSeconds || 0));
+    const maxViewCount = Math.max(1, ...views.map(view => view.count || 0));
+    const eventLabels = {
+      session_start: 'Inició sesión', session_end: 'Cerró sesión', app_open: 'Abrió una aplicación',
+      app_close: 'Cerró una aplicación', app_usage: 'Usó una aplicación', view_open: 'Visitó una sección', board_click: 'Abrió una publicación',
+    };
+
+    return (
+      <div className="analytics-page enter">
+        <section className="analytics-header">
+          <div>
+            <span className="analytics-eyebrow"><IcoPulse s={14} /> Inteligencia del ecosistema</span>
+            <h2>Dashboard administrativo</h2>
+            <p>Adopción, actividad y tiempo efectivo de uso de todo el Hub en una sola vista.</p>
+          </div>
+          <div className="analytics-actions">
+            <div className="analytics-range" aria-label="Periodo de análisis">
+              {[7, 30, 90].map(days => <button key={days} className={analyticsRange === days ? 'active' : ''} onClick={() => setAnalyticsRange(days)}>{days} días</button>)}
+            </div>
+            <button className="analytics-refresh" onClick={fetchAnalytics} disabled={analyticsLoading}><IcoRefresh s={15} /> {analyticsLoading ? 'Actualizando…' : 'Actualizar'}</button>
+          </div>
+        </section>
+
+        {analyticsError && <div className="analytics-alert"><IcoShield s={16} /><span><strong>La analítica aún no está disponible.</strong>{analyticsError} Verifica que el nuevo <code>Code.gs</code> esté desplegado.</span></div>}
+        {analyticsLoading && !analyticsData && <div className="analytics-loading"><span className="spinner" /><div><strong>Preparando la inteligencia del ecosistema</strong><small>Consolidando sesiones, aplicaciones y tiempos de uso…</small></div></div>}
+
+        <section className="analytics-metrics">
+          <article><span className="metric-icon green"><IcoUsers s={19} /></span><div><small>Usuarios únicos</small><strong>{summary.uniqueUsers || 0}</strong><p>{summary.activeToday || 0} activos hoy</p></div></article>
+          <article><span className="metric-icon navy"><IcoLoginArrow /></span><div><small>Sesiones iniciadas</small><strong>{summary.sessions || 0}</strong><p>En los últimos {analyticsRange} días</p></div></article>
+          <article><span className="metric-icon violet"><IcoGrid s={19} /></span><div><small>Aperturas de apps</small><strong>{summary.appOpens || 0}</strong><p>{topApps.length} herramientas utilizadas</p></div></article>
+          <article><span className="metric-icon gold"><IcoClock s={19} /></span><div><small>Tiempo efectivo</small><strong>{formatUsageTime(summary.totalSeconds || 0)}</strong><p>Solo ventanas activas y visibles</p></div></article>
+          <article><span className="metric-icon coral"><IcoBell s={19} /></span><div><small>Comunicaciones abiertas</small><strong>{summary.boardClicks || 0}</strong><p>Interacciones con el tablero</p></div></article>
+        </section>
+
+        <section className="analytics-main-grid">
+          <article className="analytics-card usage-leader">
+            <div className="analytics-card-head"><div><span>Mayor uso acumulado</span><h3>Aplicativo líder</h3></div><IcoChart s={20} /></div>
+            {leadingApp ? (
+              <>
+                <div className="leader-app"><AppIcon app={leadingIconApp} size={58} /><div><small>{leadingApp.group || 'Sin grupo'}</small><strong>{leadingApp.name}</strong><span>{leadingApp.users || 0} usuarios · {leadingApp.opens || 0} aperturas</span></div></div>
+                <div className="leader-time"><strong>{formatUsageTime(leadingApp.totalSeconds)}</strong><span>de uso efectivo</span></div>
+                <div className="leader-progress"><i style={{ width: `${Math.max(6, (leadingApp.totalSeconds / maxAppUsage) * 100)}%` }} /></div>
+              </>
+            ) : <div className="analytics-empty"><IcoChart s={28} /><span>Aún no hay tiempo de uso registrado.</span></div>}
+          </article>
+
+          <article className="analytics-card activity-chart-card">
+            <div className="analytics-card-head"><div><span>Comportamiento diario</span><h3>Actividad del ecosistema</h3></div><small>Tiempo y aperturas</small></div>
+            <div className="activity-chart">
+              {daily.length === 0 ? <div className="analytics-empty"><IcoPulse s={28} /><span>Los datos diarios aparecerán aquí.</span></div> : daily.map(day => {
+                const chartValue = Math.max(day.totalSeconds || 0, (day.appOpens || 0) * 60);
+                return <div key={day.date} className="activity-bar" title={`${day.appOpens || 0} aperturas · ${formatUsageTime(day.totalSeconds || 0)}`}><span><i style={{ height: `${Math.max(5, chartValue / maxDaily * 100)}%` }} /></span><small>{new Date(`${day.date}T12:00:00`).toLocaleDateString('es-CO', { weekday: 'narrow', day: 'numeric' })}</small></div>;
+              })}
+            </div>
+            <div className="chart-legend"><span><i /> Tiempo efectivo / actividad</span><strong>{formatUsageTime(summary.totalSeconds || 0)} acumuladas</strong></div>
+          </article>
+        </section>
+
+        <section className="analytics-detail-grid">
+          <article className="analytics-card top-apps-card">
+            <div className="analytics-card-head"><div><span>Portafolio digital</span><h3>Uso por aplicativo</h3></div><small>Top {Math.min(topApps.length, 8)}</small></div>
+            <div className="top-app-list">
+              {topApps.length === 0 ? <div className="analytics-empty"><IcoGrid s={25} /><span>Sin aplicativos utilizados en este periodo.</span></div> : topApps.slice(0, 8).map((app, index) => (
+                <div className="top-app-row" key={`${app.id}-${app.name}`}>
+                  <span className="top-position">{String(index + 1).padStart(2, '0')}</span>
+                  <div className="top-app-copy"><strong>{app.name}</strong><small>{app.group || 'Sin grupo'} · {app.opens || 0} aperturas · {app.users || 0} usuarios</small><span><i style={{ width: `${Math.max(4, (app.totalSeconds || 0) / maxAppUsage * 100)}%` }} /></span></div>
+                  <b>{formatUsageTime(app.totalSeconds || 0)}</b>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="analytics-card view-card">
+            <div className="analytics-card-head"><div><span>Navegación interna</span><h3>Secciones más visitadas</h3></div><IcoDesktopIco s={19} /></div>
+            <div className="view-list">
+              {views.length === 0 ? <div className="analytics-empty"><IcoDesktopIco s={25} /><span>Sin navegación registrada.</span></div> : views.slice(0, 6).map(view => (
+                <div key={view.name}><span><strong>{view.label || view.name}</strong><small>{view.count} visitas</small></span><i><b style={{ width: `${Math.max(5, view.count / maxViewCount * 100)}%` }} /></i></div>
+              ))}
+            </div>
+          </article>
+        </section>
+
+        <section className="analytics-card recent-activity-card">
+          <div className="analytics-card-head"><div><span>Trazabilidad</span><h3>Actividad reciente</h3></div><small>Últimos {recentEvents.length} movimientos</small></div>
+          <div className="analytics-table-wrap">
+            <table className="analytics-table"><thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Actividad</th><th>Recurso</th><th>Duración</th></tr></thead><tbody>
+              {recentEvents.length === 0 ? <tr><td colSpan="5"><div className="analytics-empty"><IcoHistory s={24} /><span>No hay movimientos registrados.</span></div></td></tr> : recentEvents.map((event, index) => (
+                <tr key={`${event.timestamp}-${index}`}><td>{new Date(event.timestamp).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td><span className="analytics-user"><i>{initialsOf(event.user)}</i>{event.user}</span></td><td>{eventLabels[event.event] || event.event}</td><td>{event.appName || event.view || event.detail || 'Ecosistema'}</td><td>{event.durationSeconds ? formatUsageTime(event.durationSeconds) : '—'}</td></tr>
+              ))}
+            </tbody></table>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
   const renderCatalog = () => (
     <div className="panel enter">
       <div className="panel-head">
@@ -1721,7 +2070,6 @@ export default function App() {
           <h2 className="panel-title">Catálogo de aplicativos</h2>
           <p className="panel-sub">{appsList.length} sistemas registrados en el Hub</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setCurrentView('addApp')}><IcoPlus s={15} /> Nuevo</button>
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table className="table">
@@ -1853,6 +2201,7 @@ export default function App() {
      ====================================================================== */
   const menuItems = [
     { id: 'dashboard', label: 'Escritorio', admin: false },
+    { id: 'analytics', label: 'Dashboard', admin: true },
     { id: 'catalog', label: 'Catálogo', admin: true },
     { id: 'addApp', label: 'Desplegar', admin: true },
     { id: 'users', label: 'Identidades', admin: true },
@@ -1862,6 +2211,9 @@ export default function App() {
   const renderWindowBody = (app) => {
     if (app.sys === 'notes') return <textarea className="notes-pad" placeholder="Escribe algo…" />;
     if (app.sys === 'calculator') return <NativeCalculator isActive={activeAppId === app.id && !minimizedApps[app.id]} />;
+    if (app.sys === 'converter') return <UnitConverter />;
+    if (app.sys === 'passwords') return <PasswordGenerator />;
+    if (app.sys === 'stopwatch') return <StopwatchTool />;
     if (app.sys === 'todo') return (
       <div className="sticky-wrap">
         <textarea className="sticky warm" placeholder="Urgente…" />
@@ -1973,6 +2325,7 @@ export default function App() {
         }}>
           <div className="workspace-inner">
             {currentView === 'dashboard' && renderDashboard()}
+            {currentView === 'analytics' && renderAnalytics()}
             {currentView === 'catalog' && renderCatalog()}
             {currentView === 'addApp' && renderAddApp()}
             {currentView === 'users' && renderUsers()}
@@ -2026,15 +2379,15 @@ export default function App() {
               </div>
             </Rnd>
           ) : (
-            <div key={app.id} className={`focus-app-layer ${app.sys === 'calculator' ? 'compact-calculator' : ''}`} style={{
+            <div key={app.id} className={`focus-app-layer ${COMPACT_SYSTEM_TOOLS.has(app.sys) ? 'compact-utility' : ''}`} style={{
               opacity: activeAppId === app.id ? 1 : 0,
               pointerEvents: activeAppId === app.id ? 'auto' : 'none',
             }}>
-              {app.sys === 'calculator' ? (
-                <div className="focus-compact-window">
+              {COMPACT_SYSTEM_TOOLS.has(app.sys) ? (
+                <div className="focus-compact-window" style={{ width: `min(${app.defaultWidth}px, calc(100vw - 40px))`, height: `min(${app.defaultHeight}px, calc(100vh - 136px))` }}>
                   <div className="titlebar no-drag">
                     <div className="traffic"><button className="tl close" onClick={e => closeApp(e, app.id)} title="Cerrar"><IcoX s={8} /></button></div>
-                    <span className="title-text">Calculadora</span>
+                    <span className="title-text">{app.nombre}</span>
                   </div>
                   <div className="win-body">{renderWindowBody(app)}</div>
                 </div>
