@@ -34,6 +34,10 @@ const IcoHistory = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M3 
 const IcoChevron = ({ s = 14 }) => <svg width={s} height={s} {...S} strokeWidth="2"><path d="M9 6l6 6-6 6" /></svg>;
 const IcoShield = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M12 2.5 4.5 6v6c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z" /><path d="M9.2 12.2l2 2 3.6-3.8" /></svg>;
 const IcoSliders = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg>;
+const IcoWidgets = ({ s = 16 }) => <svg width={s} height={s} {...S}><rect x="3" y="3" width="8" height="8" rx="2" /><rect x="14" y="3" width="7" height="5" rx="1.6" /><rect x="14" y="11" width="7" height="10" rx="2" /><rect x="3" y="14" width="8" height="7" rx="2" /></svg>;
+const IcoPlay = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="m8 5 11 7-11 7z" /></svg>;
+const IcoPause = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M9 5v14M15 5v14" /></svg>;
+const IcoRefresh = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M20 7v5h-5M4 17v-5h5" /><path d="M18.2 9A7 7 0 0 0 6.1 6.1L4 8M5.8 15A7 7 0 0 0 17.9 17.9L20 16" /></svg>;
 
 /* ==========================================================================
    UTILIDADES
@@ -96,7 +100,17 @@ const DEFAULT_APPEARANCE = {
   accent: 'green',
   contrast: 'balanced',
   transparency: 'glass',
+  clockStyle: 'minimal',
 };
+
+const WIDGET_CATALOG = [
+  { id: 'pomodoro', label: 'Tiempo de enfoque', detail: 'Temporizador Pomodoro de 25 minutos', icon: IcoClock },
+  { id: 'quick-note', label: 'Nota rápida', detail: 'Un espacio para guardar ideas al instante', icon: IcoNotes },
+  { id: 'productivity', label: 'Productividad', detail: 'Resumen visual de tus tareas completadas', icon: IcoCheck },
+  { id: 'upcoming', label: 'Próxima agenda', detail: 'Tareas programadas para los siguientes días', icon: IcoCal },
+  { id: 'shortcuts', label: 'Herramientas rápidas', detail: 'Acceso directo a las utilidades del sistema', icon: IcoGrid },
+  { id: 'activity', label: 'Mi actividad', detail: 'Aplicaciones abiertas y accesos recientes', icon: IcoHistory },
+];
 
 const DEFAULT_BOARD_POSTS = [{
   id: 'welcome-board',
@@ -304,6 +318,8 @@ export default function App() {
   const [currentView, setCurrentView] = useState('dashboard');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showAppearancePanel, setShowAppearancePanel] = useState(false);
+  const [showWidgetGallery, setShowWidgetGallery] = useState(false);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [workspaceAppearance, setWorkspaceAppearance] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('agora_workspace_appearance') || 'null');
@@ -324,8 +340,9 @@ export default function App() {
   const [openApps, setOpenApps] = useState([]);
   const [activeAppId, setActiveAppId] = useState(null);
   const [minimizedApps, setMinimizedApps] = useState({});
+  const [windowMotion, setWindowMotion] = useState({});
+  const [minimizeVectors, setMinimizeVectors] = useState({});
   const [maximizedApps, setMaximizedApps] = useState({});
-  const [minimizeOrigins, setMinimizeOrigins] = useState({});
   const [loadingApps, setLoadingApps] = useState({});
 
   /* --- Datos --- */
@@ -348,6 +365,12 @@ export default function App() {
   });
   const [showBoardManager, setShowBoardManager] = useState(false);
   const [newBoardPost, setNewBoardPost] = useState({ type: 'comunicado', title: '', body: '', imageUrl: '' });
+  const [enabledWidgets, setEnabledWidgets] = useState([]);
+  const [profilePreferences, setProfilePreferences] = useState({ displayName: '', roleLabel: '', welcomeMessage: '' });
+  const [quickNote, setQuickNote] = useState('');
+  const [pomodoroSeconds, setPomodoroSeconds] = useState(25 * 60);
+  const [pomodoroRunning, setPomodoroRunning] = useState(false);
+  const [userPreferencesReady, setUserPreferencesReady] = useState(false);
 
   /* --- CRUD --- */
   const [newApp, setNewApp] = useState({ nombre: '', url: '', desc: '', icono: '' });
@@ -380,7 +403,8 @@ export default function App() {
         setSearchQuery(''); setIsLaunchpadOpen(false); setIsSpotlightOpen(v => !v);
       }
       if (e.key === 'Escape') {
-        setIsSpotlightOpen(false); setIsLaunchpadOpen(false); setShowUserMenu(false); setShowAppearancePanel(false);
+        setIsSpotlightOpen(false); setIsLaunchpadOpen(false); setShowUserMenu(false);
+        setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -401,12 +425,49 @@ export default function App() {
   }, [isLoggedIn, userData]);
 
   useEffect(() => {
+    if (!isLoggedIn || !userData) { setUserPreferencesReady(false); return; }
+    setUserPreferencesReady(false);
+    try {
+      const key = userData.usuario;
+      const savedWidgets = JSON.parse(localStorage.getItem(`agora_widgets_${key}`) || '[]');
+      const savedProfile = JSON.parse(localStorage.getItem(`agora_profile_${key}`) || 'null');
+      setEnabledWidgets(Array.isArray(savedWidgets) ? savedWidgets.filter(id => WIDGET_CATALOG.some(widget => widget.id === id)) : []);
+      setProfilePreferences(savedProfile ? { displayName: '', roleLabel: '', welcomeMessage: '', ...savedProfile } : { displayName: '', roleLabel: '', welcomeMessage: '' });
+      setQuickNote(localStorage.getItem(`agora_quick_note_${key}`) || '');
+    } catch {
+      setEnabledWidgets([]);
+      setProfilePreferences({ displayName: '', roleLabel: '', welcomeMessage: '' });
+      setQuickNote('');
+    }
+    setUserPreferencesReady(true);
+  }, [isLoggedIn, userData]);
+
+  useEffect(() => {
     if (isLoggedIn && userData) localStorage.setItem(`agora_tasks_${userData.usuario}`, JSON.stringify(tasks));
   }, [tasks, isLoggedIn, userData]);
 
   useEffect(() => {
     if (isLoggedIn && userData) localStorage.setItem(`agora_recent_${userData.usuario}`, JSON.stringify(recents));
   }, [recents, isLoggedIn, userData]);
+
+  useEffect(() => {
+    if (!userPreferencesReady || !userData) return;
+    const key = userData.usuario;
+    localStorage.setItem(`agora_widgets_${key}`, JSON.stringify(enabledWidgets));
+    localStorage.setItem(`agora_profile_${key}`, JSON.stringify(profilePreferences));
+    localStorage.setItem(`agora_quick_note_${key}`, quickNote);
+  }, [enabledWidgets, profilePreferences, quickNote, userPreferencesReady, userData]);
+
+  useEffect(() => {
+    if (!pomodoroRunning) return undefined;
+    const timer = setInterval(() => {
+      setPomodoroSeconds(seconds => {
+        if (seconds <= 1) { setPomodoroRunning(false); return 0; }
+        return seconds - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [pomodoroRunning]);
 
   useEffect(() => {
     localStorage.setItem('agora_corporate_board', JSON.stringify(boardPosts));
@@ -449,7 +510,8 @@ export default function App() {
 
   const handleLogout = () => {
     setIsLoggedIn(false); setUserData(null); setOpenApps([]); setActiveAppId(null);
-    setShowUserMenu(false); setCurrentView('dashboard'); setPassword(''); setCaptchaVerified(false);
+    setShowUserMenu(false); setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
+    setCurrentView('dashboard'); setPassword(''); setCaptchaVerified(false); setPomodoroRunning(false);
   };
 
   /* ---------------- Tareas ---------------- */
@@ -488,12 +550,13 @@ export default function App() {
 
   const addBoardPost = async (e) => {
     e.preventDefault();
-    if (!newBoardPost.title.trim() || !newBoardPost.body.trim()) return;
+    const isBanner = newBoardPost.type === 'banner';
+    if (isBanner ? !newBoardPost.imageUrl.trim() : (!newBoardPost.title.trim() || !newBoardPost.body.trim())) return;
     const postItem = {
       ...newBoardPost,
       id: `board-${Date.now()}`,
-      title: newBoardPost.title.trim(),
-      body: newBoardPost.body.trim(),
+      title: isBanner ? '' : newBoardPost.title.trim(),
+      body: isBanner ? '' : newBoardPost.body.trim(),
       imageUrl: newBoardPost.imageUrl.trim(),
       createdAt: Date.now(),
       author: userData?.usuario || 'Administración',
@@ -581,21 +644,37 @@ export default function App() {
 
   const toggleMinimize = (e, appId) => {
     e.stopPropagation();
+    if (windowMotion[appId]) return;
     const winEl = document.getElementById(`window-${appId}`);
     const dockEl = document.getElementById(`dock-${appId}`);
+    let vector = { x: 0, y: window.innerHeight, scaleX: .06, scaleY: .04 };
     if (winEl && dockEl) {
       const w = winEl.getBoundingClientRect();
       const d = dockEl.getBoundingClientRect();
-      setMinimizeOrigins(p => ({
-        ...p,
-        [appId]: `${d.left + d.width / 2 - w.left}px ${d.top + d.height / 2 - w.top}px`,
-      }));
+      vector = {
+        x: d.left + d.width / 2 - (w.left + w.width / 2),
+        y: d.top + d.height / 2 - (w.top + w.height / 2),
+        scaleX: Math.max(.045, d.width / Math.max(w.width, 1)),
+        scaleY: Math.max(.025, d.height / Math.max(w.height, 1)),
+      };
     }
-    setMinimizedApps(p => ({ ...p, [appId]: true }));
+    setMinimizeVectors(vectors => ({ ...vectors, [appId]: vector }));
+    setWindowMotion(motion => ({ ...motion, [appId]: { phase: 'minimizing', ...vector } }));
     if (activeAppId === appId) {
       const next = [...openApps].reverse().find(app => app.id !== appId && !minimizedApps[app.id]);
       setActiveAppId(next?.id || null);
     }
+  };
+
+  const finishWindowMotion = (appId) => {
+    const motion = windowMotion[appId];
+    if (!motion) return;
+    if (motion.phase === 'minimizing') setMinimizedApps(items => ({ ...items, [appId]: true }));
+    setWindowMotion(items => {
+      const next = { ...items };
+      delete next[appId];
+      return next;
+    });
   };
 
   const toggleMaximize = (e, appId) => {
@@ -605,7 +684,14 @@ export default function App() {
   };
 
   const handleDockClick = (appId) => {
-    if (minimizedApps[appId]) { setMinimizedApps(p => ({ ...p, [appId]: false })); setActiveAppId(appId); return; }
+    if (windowMotion[appId]) return;
+    if (minimizedApps[appId]) {
+      const vector = minimizeVectors[appId] || { x: 0, y: window.innerHeight, scaleX: .06, scaleY: .04 };
+      setMinimizedApps(p => ({ ...p, [appId]: false }));
+      setActiveAppId(appId);
+      setWindowMotion(motion => ({ ...motion, [appId]: { phase: 'restoring', ...vector } }));
+      return;
+    }
     if (activeAppId === appId && workspaceMode === 'desktop') { toggleMinimize({ stopPropagation() {} }, appId); return; }
     setActiveAppId(appId);
   };
@@ -669,6 +755,86 @@ export default function App() {
   }, [launchpadEntries, lpQuery]);
 
   const openEntry = (entry) => entry.sysType ? launchSystemApp(entry.sysType) : launchApp(entry);
+  const welcomeName = profilePreferences.displayName.trim() || userData?.usuario || '';
+  const completedTasks = tasks.filter(task => task.done).length;
+  const productivityPercent = tasks.length ? Math.round((completedTasks / tasks.length) * 100) : 0;
+  const upcomingTasks = tasks
+    .filter(task => !task.done && task.dueDate && task.dueDate > todayKey)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    .slice(0, 3);
+  const pomodoroLabel = `${String(Math.floor(pomodoroSeconds / 60)).padStart(2, '0')}:${String(pomodoroSeconds % 60).padStart(2, '0')}`;
+
+  const toggleWidget = (widgetId) => setEnabledWidgets(items => (
+    items.includes(widgetId) ? items.filter(id => id !== widgetId) : [...items, widgetId]
+  ));
+
+  const renderOptionalWidget = (widgetId) => {
+    const widget = WIDGET_CATALOG.find(item => item.id === widgetId);
+    if (!widget) return null;
+    const WidgetIcon = widget.icon;
+    let content = null;
+
+    if (widgetId === 'pomodoro') content = (
+      <div className="pomodoro-widget">
+        <div className={`pomodoro-ring ${pomodoroRunning ? 'running' : ''}`}><strong>{pomodoroLabel}</strong><span>ENFOQUE</span></div>
+        <div className="widget-actions">
+          <button className="widget-action primary" onClick={() => { if (pomodoroSeconds === 0) setPomodoroSeconds(25 * 60); setPomodoroRunning(value => !value); }}>
+            {pomodoroRunning ? <IcoPause s={14} /> : <IcoPlay s={14} />} {pomodoroRunning ? 'Pausar' : 'Iniciar'}
+          </button>
+          <button className="widget-action" onClick={() => { setPomodoroRunning(false); setPomodoroSeconds(25 * 60); }}><IcoRefresh s={14} /> Reiniciar</button>
+        </div>
+      </div>
+    );
+
+    if (widgetId === 'quick-note') content = (
+      <textarea className="quick-note-widget" value={quickNote} onChange={e => setQuickNote(e.target.value)} placeholder="Escribe una idea, recordatorio o dato importante…" />
+    );
+
+    if (widgetId === 'productivity') content = (
+      <div className="productivity-widget">
+        <div className="productivity-score" style={{ '--progress': `${productivityPercent * 3.6}deg` }}><strong>{productivityPercent}%</strong></div>
+        <div><strong>{completedTasks} de {tasks.length}</strong><span>Tareas completadas</span><small>{pendingTasks ? `${pendingTasks} pendientes para hoy` : 'Tu agenda de hoy está al día'}</small></div>
+      </div>
+    );
+
+    if (widgetId === 'upcoming') content = (
+      <div className="upcoming-widget">
+        {upcomingTasks.length === 0
+          ? <p className="empty-note">No tienes tareas próximas.</p>
+          : upcomingTasks.map(task => (
+            <button key={task.id} onClick={() => openCalendar(new Date(`${task.dueDate}T12:00:00`))}>
+              <i className={`color-${task.color || 'navy'}`} /><span><strong>{task.text}</strong><small>{new Date(`${task.dueDate}T12:00:00`).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })}</small></span><IcoChevron s={12} />
+            </button>
+          ))}
+      </div>
+    );
+
+    if (widgetId === 'shortcuts') content = (
+      <div className="shortcut-widget">
+        {SYSTEM_APPS.map(app => (
+          <button key={app.sys} onClick={() => launchSystemApp(app.sys)}><AppIcon app={{ nombre: app.nombre, grad: app.grad, sysIcon: app.icon }} size={42} /><span>{app.nombre}</span></button>
+        ))}
+      </div>
+    );
+
+    if (widgetId === 'activity') content = (
+      <div className="activity-widget">
+        <div><strong>{recents.length}</strong><span>Accesos recientes</span></div>
+        <div><strong>{openApps.length}</strong><span>Apps en sesión</span></div>
+        <div><strong>{appsList.length + SYSTEM_APPS.length}</strong><span>Herramientas</span></div>
+      </div>
+    );
+
+    return (
+      <section key={widgetId} className="card b4 optional-widget flat">
+        <div className="card-head widget-head">
+          <div className="card-label"><WidgetIcon s={13} /> {widget.label}</div>
+          <button className="widget-remove" onClick={() => toggleWidget(widgetId)} title="Quitar del escritorio"><IcoX s={11} /></button>
+        </div>
+        {content}
+      </section>
+    );
+  };
 
   const handleLoginPointerMove = (e) => {
     const bounds = e.currentTarget.getBoundingClientRect();
@@ -778,10 +944,9 @@ export default function App() {
 
       {/* ---- Hero ---- */}
       <section className="card b6 flat">
-        <h1 className="hero-greet">{greeting}, <span>{userData.usuario}</span></h1>
+        <h1 className="hero-greet">{greeting}, <span>{welcomeName}</span></h1>
         <p className="hero-sub">
-          Tienes {appsList.length} aplicativo{appsList.length === 1 ? '' : 's'} disponible{appsList.length === 1 ? '' : 's'}
-          {pendingTasks > 0 ? ` y ${pendingTasks} tarea${pendingTasks === 1 ? '' : 's'} pendiente${pendingTasks === 1 ? '' : 's'}` : ' y ninguna tarea pendiente'}.
+          {profilePreferences.welcomeMessage.trim() || `Tienes ${appsList.length} aplicativo${appsList.length === 1 ? '' : 's'} disponible${appsList.length === 1 ? '' : 's'}${pendingTasks > 0 ? ` y ${pendingTasks} tarea${pendingTasks === 1 ? '' : 's'} pendiente${pendingTasks === 1 ? '' : 's'}` : ' y ninguna tarea pendiente'}.`}
         </p>
         <button className="search-trigger" onClick={openSpotlight}>
           <IcoSearch s={15} /> Buscar en Ágora <span className="kbd">⌘K</span>
@@ -836,7 +1001,13 @@ export default function App() {
         <div className="board-feed">
           {boardPosts.length === 0
             ? <p className="empty-note">No hay publicaciones activas.</p>
-            : boardPosts.slice(0, 4).map(post => (
+            : boardPosts.slice(0, 6).map(post => post.type === 'banner' ? (
+              <article key={post.id} className="board-post banner" title="Banner corporativo">
+                {post.imageUrl
+                  ? <img className="board-banner-image" src={getValidImageUrl(post.imageUrl)} alt="Banner corporativo" />
+                  : <div className="board-banner-empty">Banner sin imagen</div>}
+              </article>
+            ) : (
               <article key={post.id} className={`board-post ${post.type}`}>
                 {post.imageUrl && <div className="board-post-image" style={{ backgroundImage: `linear-gradient(90deg, rgba(14,17,37,.80), rgba(14,17,37,.18)), url(${getValidImageUrl(post.imageUrl)})` }} />}
                 <div className="board-post-content">
@@ -928,6 +1099,8 @@ export default function App() {
             })}
         </div>
       </section>
+
+      {enabledWidgets.map(renderOptionalWidget)}
     </div>
   );
 
@@ -1108,12 +1281,18 @@ export default function App() {
                 <option value="banner">Banner</option>
                 <option value="incidencia">Incidencia</option>
               </select>
-              <label className="form-label">Título</label>
-              <input className="field" value={newBoardPost.title} onChange={e => setNewBoardPost({ ...newBoardPost, title: e.target.value })} placeholder="Título de la publicación" required />
-              <label className="form-label">Mensaje</label>
-              <textarea className="field" value={newBoardPost.body} onChange={e => setNewBoardPost({ ...newBoardPost, body: e.target.value })} placeholder="Información para los colaboradores" required />
-              <label className="form-label">Imagen o banner (URL opcional)</label>
-              <input className="field" type="url" value={newBoardPost.imageUrl} onChange={e => setNewBoardPost({ ...newBoardPost, imageUrl: e.target.value })} placeholder="https://…" />
+              {newBoardPost.type === 'banner' ? (
+                <div className="banner-form-note"><IcoGrid s={16} /><span><strong>Banner gráfico</strong>Se mostrará completo, sin título, texto ni filtros de color.</span></div>
+              ) : (
+                <>
+                  <label className="form-label">Título</label>
+                  <input className="field" value={newBoardPost.title} onChange={e => setNewBoardPost({ ...newBoardPost, title: e.target.value })} placeholder="Título de la publicación" required />
+                  <label className="form-label">Mensaje</label>
+                  <textarea className="field" value={newBoardPost.body} onChange={e => setNewBoardPost({ ...newBoardPost, body: e.target.value })} placeholder="Información para los colaboradores" required />
+                </>
+              )}
+              <label className="form-label">{newBoardPost.type === 'banner' ? 'Imagen del banner (URL obligatoria)' : 'Imagen (URL opcional)'}</label>
+              <input className="field" type="url" value={newBoardPost.imageUrl} onChange={e => setNewBoardPost({ ...newBoardPost, imageUrl: e.target.value })} placeholder="https://…" required={newBoardPost.type === 'banner'} />
               <button className="btn btn-primary" type="submit"><IcoPlus s={14} /> Publicar</button>
             </form>
             <div className="board-admin-list">
@@ -1121,8 +1300,8 @@ export default function App() {
               {boardPosts.map(post => (
                 <article key={post.id}>
                   <span className={`board-type ${post.type}`}>{post.type}</span>
-                  <strong>{post.title}</strong>
-                  <p>{post.body}</p>
+                  <strong>{post.type === 'banner' ? 'Banner gráfico' : post.title}</strong>
+                  <p>{post.type === 'banner' ? 'La imagen se presenta completa en el escritorio.' : post.body}</p>
                   <button className="icon-btn danger" onClick={() => deleteBoardPost(post.id)} title="Retirar publicación"><IcoTrash s={15} /></button>
                 </article>
               ))}
@@ -1210,11 +1389,85 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            <div className="appearance-section clock-style-section">
+              <div className="appearance-section-head"><strong>Estilo del reloj</strong><span>Personalízalo como en la pantalla del iPhone</span></div>
+              <div className="clock-style-options">
+                {[
+                  ['minimal', 'Minimal', '09:41'],
+                  ['rounded', 'Redondo', '09:41'],
+                  ['mono', 'Digital', '09:41'],
+                  ['outline', 'Contorno', '09:41'],
+                ].map(([id, label, sample]) => (
+                  <button key={id} className={`${id} ${workspaceAppearance.clockStyle === id ? 'selected' : ''}`}
+                    onClick={() => setWorkspaceAppearance(current => ({ ...current, clockStyle: id }))}>
+                    <strong>{sample}</strong><span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="appearance-footer">
             <button className="btn btn-secondary" onClick={() => { setWorkspaceAppearance(DEFAULT_APPEARANCE); setTheme('light'); }}>Restaurar</button>
             <button className="btn btn-primary" onClick={() => setShowAppearancePanel(false)}>Listo</button>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  const renderWidgetGallery = () => {
+    if (!showWidgetGallery) return null;
+    return (
+      <div className="modal-overlay widget-overlay" onMouseDown={() => setShowWidgetGallery(false)}>
+        <section className="widget-gallery-modal" onMouseDown={e => e.stopPropagation()}>
+          <div className="modal-head">
+            <div><span className="login-kicker">Tu escritorio</span><h2>Galería de widgets</h2></div>
+            <button className="modal-close" onClick={() => setShowWidgetGallery(false)}><IcoX s={14} /></button>
+          </div>
+          <div className="widget-gallery-intro">
+            <strong>Haz que el escritorio trabaje para ti.</strong>
+            <span>Añade o retira widgets cuando quieras. La selección queda guardada en tu perfil.</span>
+          </div>
+          <div className="widget-gallery-grid">
+            {WIDGET_CATALOG.map(widget => {
+              const WidgetIcon = widget.icon;
+              const added = enabledWidgets.includes(widget.id);
+              return (
+                <article key={widget.id} className={added ? 'added' : ''}>
+                  <div className="widget-gallery-icon"><WidgetIcon s={22} /></div>
+                  <div><strong>{widget.label}</strong><p>{widget.detail}</p></div>
+                  <button className={added ? 'remove' : ''} onClick={() => toggleWidget(widget.id)}>{added ? 'Quitar' : 'Añadir'}</button>
+                </article>
+              );
+            })}
+          </div>
+          <div className="widget-gallery-footer"><span>{enabledWidgets.length} widget{enabledWidgets.length === 1 ? '' : 's'} en tu escritorio</span><button className="btn btn-primary" onClick={() => setShowWidgetGallery(false)}>Listo</button></div>
+        </section>
+      </div>
+    );
+  };
+
+  const renderProfileEditor = () => {
+    if (!showProfileEditor) return null;
+    return (
+      <div className="modal-overlay profile-overlay" onMouseDown={() => setShowProfileEditor(false)}>
+        <section className="profile-modal" onMouseDown={e => e.stopPropagation()}>
+          <div className="profile-cover"><span className="profile-avatar-large">{initialsOf(welcomeName)}</span></div>
+          <div className="modal-head profile-modal-head">
+            <div><span className="login-kicker">Perfil personal</span><h2>Personaliza tu bienvenida</h2></div>
+            <button className="modal-close" onClick={() => setShowProfileEditor(false)}><IcoX s={14} /></button>
+          </div>
+          <div className="profile-form">
+            <label><span>Nombre que quieres ver</span><input className="field" value={profilePreferences.displayName} maxLength={40} onChange={e => setProfilePreferences(current => ({ ...current, displayName: e.target.value }))} placeholder={userData.usuario} /></label>
+            <label><span>Cargo o área</span><input className="field" value={profilePreferences.roleLabel} maxLength={60} onChange={e => setProfilePreferences(current => ({ ...current, roleLabel: e.target.value }))} placeholder={userData.rolGlobal} /></label>
+            <label><span>Mensaje personal del escritorio</span><textarea className="field" value={profilePreferences.welcomeMessage} maxLength={150} onChange={e => setProfilePreferences(current => ({ ...current, welcomeMessage: e.target.value }))} placeholder="Ejemplo: Hoy es un buen día para convertir ideas en resultados." /></label>
+            <p>Tu usuario de red y tus permisos no cambian. Esta información solo personaliza tu experiencia.</p>
+          </div>
+          <div className="appearance-footer">
+            <button className="btn btn-secondary" onClick={() => setProfilePreferences({ displayName: '', roleLabel: '', welcomeMessage: '' })}>Restaurar</button>
+            <button className="btn btn-primary" onClick={() => setShowProfileEditor(false)}>Guardar perfil</button>
           </div>
         </section>
       </div>
@@ -1395,12 +1648,15 @@ export default function App() {
       data-wallpaper={workspaceAppearance.wallpaper}
       data-contrast={workspaceAppearance.contrast}
       data-transparency={workspaceAppearance.transparency}
+      data-clock-style={workspaceAppearance.clockStyle}
       style={{ '--brand-green': activeAccent.hex }}>
       {renderSpotlight()}
       {renderLaunchpad()}
       {renderCalendarModal()}
       {renderBoardManager()}
       {renderAppearancePanel()}
+      {renderWidgetGallery()}
+      {renderProfileEditor()}
 
       {/* ================= MENU BAR ================= */}
       <header className="menubar">
@@ -1425,13 +1681,16 @@ export default function App() {
           <button className="menu-icon-btn" title="Personalizar escritorio" onClick={() => { setShowUserMenu(false); setShowAppearancePanel(true); }}>
             <IcoSliders s={16} />
           </button>
+          <button className="menu-icon-btn" title="Añadir widgets" onClick={() => { setShowUserMenu(false); setShowWidgetGallery(true); }}>
+            <IcoWidgets s={16} />
+          </button>
           <span className="menu-clock">
             {currentTime.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}{'  '}
             {currentTime.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
           </span>
           <button className="menu-user" onClick={() => setShowUserMenu(v => !v)}>
-            <span className="menu-avatar">{initialsOf(userData.usuario)}</span>
-            <span className="menu-user-name">{userData.usuario}</span>
+            <span className="menu-avatar">{initialsOf(welcomeName)}</span>
+            <span className="menu-user-name">{welcomeName}</span>
           </button>
         </div>
       </header>
@@ -1441,11 +1700,17 @@ export default function App() {
           <div style={{ position: 'fixed', inset: 0, zIndex: 550 }} onClick={() => setShowUserMenu(false)} />
           <div className="popover">
             <div className="popover-head">
-              <div style={{ fontSize: 14, fontWeight: 600 }}>{userData.usuario}</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{userData.rolGlobal}</div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{welcomeName}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{profilePreferences.roleLabel.trim() || userData.rolGlobal}</div>
             </div>
+            <button className="popover-item" onClick={() => { setShowUserMenu(false); setShowProfileEditor(true); }}>
+              <IcoUser s={15} /> Editar mi perfil
+            </button>
             <button className="popover-item" onClick={() => { setShowUserMenu(false); setShowAppearancePanel(true); }}>
               <IcoSliders s={15} /> Personalizar escritorio
+            </button>
+            <button className="popover-item" onClick={() => { setShowUserMenu(false); setShowWidgetGallery(true); }}>
+              <IcoWidgets s={15} /> Gestionar widgets
             </button>
             <button className="popover-item" onClick={() => { setShowUserMenu(false); openLaunchpad(); }}>
               <IcoGrid s={15} /> Abrir Launchpad
@@ -1481,18 +1746,27 @@ export default function App() {
               bounds="parent"
               dragHandleClassName={maximizedApps[app.id] ? 'no-drag' : 'titlebar'}
               enableResizing={app.sys !== 'calculator' && !maximizedApps[app.id]}
-              style={{ zIndex: activeAppId === app.id ? 60 : 20, display: activeAppId === null || minimizedApps[app.id] ? 'none' : 'block' }}
+              style={{
+                zIndex: activeAppId === app.id || windowMotion[app.id] ? 60 : 20,
+                display: ((activeAppId === null && !windowMotion[app.id]) || (minimizedApps[app.id] && windowMotion[app.id]?.phase !== 'restoring')) ? 'none' : 'block',
+              }}
               onMouseDownCapture={() => { if (!minimizedApps[app.id]) setActiveAppId(app.id); }}
             >
               <div
-                className={`win ${minimizedApps[app.id] ? 'minimized' : ''} ${maximizedApps[app.id] ? 'maxed' : ''}`}
+                className={`win ${maximizedApps[app.id] ? 'maxed' : ''} ${windowMotion[app.id]?.phase === 'minimizing' ? 'genie-minimizing' : ''} ${windowMotion[app.id]?.phase === 'restoring' ? 'genie-restoring' : ''}`}
                 style={{
-                  transformOrigin: minimizeOrigins[app.id] || 'center bottom',
+                  '--genie-x': `${windowMotion[app.id]?.x || minimizeVectors[app.id]?.x || 0}px`,
+                  '--genie-y': `${windowMotion[app.id]?.y || minimizeVectors[app.id]?.y || 0}px`,
+                  '--genie-mid-x': `${(windowMotion[app.id]?.x || minimizeVectors[app.id]?.x || 0) * .42}px`,
+                  '--genie-mid-y': `${(windowMotion[app.id]?.y || minimizeVectors[app.id]?.y || 0) * .68}px`,
+                  '--genie-scale-x': windowMotion[app.id]?.scaleX || minimizeVectors[app.id]?.scaleX || .06,
+                  '--genie-scale-y': windowMotion[app.id]?.scaleY || minimizeVectors[app.id]?.scaleY || .04,
                   ...(maximizedApps[app.id] && {
                     position: 'fixed', top: 'var(--menubar-h)', left: 0,
                     width: '100vw', height: 'calc(100vh - var(--menubar-h))', zIndex: 90, transform: 'none',
                   }),
                 }}
+                onAnimationEnd={e => { if (e.target === e.currentTarget) finishWindowMotion(app.id); }}
               >
                 <div className={`titlebar ${maximizedApps[app.id] ? 'no-drag' : 'grab'}`}>
                   <div className="traffic">
