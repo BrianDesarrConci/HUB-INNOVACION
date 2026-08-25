@@ -33,6 +33,7 @@ const IcoCheck = ({ s = 11 }) => <svg width={s} height={s} {...S} strokeWidth="3
 const IcoHistory = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 8v4.5l3.2 1.9" /></svg>;
 const IcoChevron = ({ s = 14 }) => <svg width={s} height={s} {...S} strokeWidth="2"><path d="M9 6l6 6-6 6" /></svg>;
 const IcoShield = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M12 2.5 4.5 6v6c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z" /><path d="M9.2 12.2l2 2 3.6-3.8" /></svg>;
+const IcoSliders = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg>;
 
 /* ==========================================================================
    UTILIDADES
@@ -75,6 +76,27 @@ const TASK_COLORS = [
   { id: 'amber', label: 'Amarillo', hex: '#E0A32E' },
   { id: 'red', label: 'Rojo', hex: '#D9534F' },
 ];
+
+const ACCENT_COLORS = [
+  { id: 'green', label: 'Verde', hex: '#3D8A44' },
+  { id: 'navy', label: 'Azul', hex: '#3F4A8A' },
+  { id: 'gold', label: 'Dorado', hex: '#C18D20' },
+  { id: 'violet', label: 'Violeta', hex: '#7554A6' },
+];
+
+const WALLPAPER_OPTIONS = [
+  { id: 'aurora', label: 'Aurora', detail: 'Orgánico y suave' },
+  { id: 'neural', label: 'Red neuronal', detail: 'IA e innovación' },
+  { id: 'minimal', label: 'Minimal', detail: 'Enfoque limpio' },
+  { id: 'depth', label: 'Profundidad', detail: 'Color inmersivo' },
+];
+
+const DEFAULT_APPEARANCE = {
+  wallpaper: 'aurora',
+  accent: 'green',
+  contrast: 'balanced',
+  transparency: 'glass',
+};
 
 const DEFAULT_BOARD_POSTS = [{
   id: 'welcome-board',
@@ -281,6 +303,13 @@ export default function App() {
   const [workspaceMode, setWorkspaceMode] = useState('focus');
   const [currentView, setCurrentView] = useState('dashboard');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showAppearancePanel, setShowAppearancePanel] = useState(false);
+  const [workspaceAppearance, setWorkspaceAppearance] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('agora_workspace_appearance') || 'null');
+      return saved ? { ...DEFAULT_APPEARANCE, ...saved } : DEFAULT_APPEARANCE;
+    } catch { return DEFAULT_APPEARANCE; }
+  });
   const [currentTime, setCurrentTime] = useState(new Date());
 
   /* --- Launchpad / Spotlight --- */
@@ -329,6 +358,10 @@ export default function App() {
   useEffect(() => { document.body.setAttribute('data-theme', theme); }, [theme]);
 
   useEffect(() => {
+    localStorage.setItem('agora_workspace_appearance', JSON.stringify(workspaceAppearance));
+  }, [workspaceAppearance]);
+
+  useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
@@ -347,7 +380,7 @@ export default function App() {
         setSearchQuery(''); setIsLaunchpadOpen(false); setIsSpotlightOpen(v => !v);
       }
       if (e.key === 'Escape') {
-        setIsSpotlightOpen(false); setIsLaunchpadOpen(false); setShowUserMenu(false);
+        setIsSpotlightOpen(false); setIsLaunchpadOpen(false); setShowUserMenu(false); setShowAppearancePanel(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -637,13 +670,43 @@ export default function App() {
 
   const openEntry = (entry) => entry.sysType ? launchSystemApp(entry.sysType) : launchApp(entry);
 
+  const handleLoginPointerMove = (e) => {
+    const bounds = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - bounds.left) / bounds.width;
+    const y = (e.clientY - bounds.top) / bounds.height;
+    e.currentTarget.style.setProperty('--pointer-x', `${x * 100}%`);
+    e.currentTarget.style.setProperty('--pointer-y', `${y * 100}%`);
+    e.currentTarget.style.setProperty('--login-shift-x', `${(x - 0.5) * 22}px`);
+    e.currentTarget.style.setProperty('--login-shift-y', `${(y - 0.5) * 16}px`);
+  };
+
   /* ======================================================================
      LOGIN
      ====================================================================== */
   if (!isLoggedIn) {
     return (
-      <div className="login-root">
+      <div className="login-root" onPointerMove={handleLoginPointerMove}>
         <div className="login-grid" />
+        <div className="login-intelligence" aria-hidden="true">
+          <svg className="ai-network" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+            <g className="ai-network-lines">
+              <path d="M-30 650 C180 520 210 290 430 330 S730 610 930 430 1190 120 1480 260" />
+              <path d="M40 180 C250 260 330 90 520 190 S770 410 1010 280 1250 510 1490 390" />
+              <path d="M130 820 C360 650 510 760 650 580 S920 610 1110 720 1340 620 1500 690" />
+              <path d="M270 -40 C240 210 480 300 600 470 S690 830 850 950" />
+              <path d="M1110 -50 C980 160 1080 330 930 470 S720 640 760 930" />
+            </g>
+            <g className="ai-network-nodes">
+              {[[130,180],[310,265],[430,330],[520,190],[650,580],[760,410],[930,430],[1010,280],[1110,720],[1225,510],[1340,260],[360,650]].map(([cx, cy], index) => (
+                <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={index % 3 === 0 ? 7 : 4} />
+              ))}
+            </g>
+          </svg>
+          <div className="ai-orbit ai-orbit-main"><span>AI</span></div>
+          <span className="ai-signal ai-signal-data">DATOS</span>
+          <span className="ai-signal ai-signal-ideas">IDEAS</span>
+          <span className="ai-signal ai-signal-growth">CRECIMIENTO</span>
+        </div>
         <span className="login-motion login-motion-a" />
         <span className="login-motion login-motion-b" />
         <span className="login-motion login-motion-c" />
@@ -662,16 +725,15 @@ export default function App() {
                 que necesitas de forma simple, segura y personalizada.
               </p>
             </div>
-            <div className="login-chips">
-              <span className="login-chip"><strong>01</strong> Una sola identidad</span>
-              <span className="login-chip"><strong>02</strong> Accesos por perfil</span>
-              <span className="login-chip"><strong>03</strong> Sesión protegida</span>
+            <div className="login-benefits">
+              <div className="login-benefit"><IcoUser s={16} /><span><strong>Una sola identidad</strong><small>Tu perfil conecta todas las herramientas.</small></span></div>
+              <div className="login-benefit"><IcoGrid s={16} /><span><strong>Accesos por perfil</strong><small>Solo ves lo que necesitas para trabajar.</small></span></div>
+              <div className="login-benefit"><IcoShield s={16} /><span><strong>Sesión protegida</strong><small>Seguridad corporativa en todo momento.</small></span></div>
             </div>
           </div>
 
           <div className="login-form-side">
             <div className="login-form">
-              <div className="login-form-brand"><span>Á</span><strong>Ágora OS</strong></div>
               <span className="login-kicker">Acceso corporativo seguro</span>
               <h2 className="login-heading">Bienvenido de nuevo</h2>
               <p className="login-helper">Ingresa con tus credenciales de red.</p>
@@ -765,7 +827,7 @@ export default function App() {
       {/* ---- Tablón corporativo: segunda fila del escritorio ---- */}
       <section className="card b12 corporate-board flat">
         <div className="card-head">
-          <div>
+          <div className="board-title-group">
             <div className="card-label"><IcoBell s={13} /> Tablón corporativo</div>
             <p className="board-subtitle">Novedades, banners e incidencias internas en un solo lugar.</p>
           </div>
@@ -1072,6 +1134,94 @@ export default function App() {
   };
 
   /* ======================================================================
+     PERSONALIZACIÓN DEL ESCRITORIO
+     ====================================================================== */
+  const renderAppearancePanel = () => {
+    if (!showAppearancePanel) return null;
+    return (
+      <div className="modal-overlay appearance-overlay" onMouseDown={() => setShowAppearancePanel(false)}>
+        <section className="appearance-modal" onMouseDown={e => e.stopPropagation()}>
+          <div className="modal-head">
+            <div>
+              <span className="login-kicker">Tu espacio de trabajo</span>
+              <h2>Personalizar escritorio</h2>
+            </div>
+            <button className="modal-close" onClick={() => setShowAppearancePanel(false)}><IcoX s={14} /></button>
+          </div>
+
+          <div className="appearance-content">
+            <div className={`appearance-live-preview wallpaper-${workspaceAppearance.wallpaper}`}>
+              <div className="appearance-preview-bar" />
+              <div className="appearance-preview-grid"><i /><i /><i /></div>
+              <span>Vista previa en tiempo real</span>
+            </div>
+
+            <div className="appearance-section">
+              <div className="appearance-section-head"><strong>Fondo</strong><span>Elige la atmósfera del escritorio</span></div>
+              <div className="wallpaper-options">
+                {WALLPAPER_OPTIONS.map(option => (
+                  <button key={option.id} className={`wallpaper-option ${workspaceAppearance.wallpaper === option.id ? 'selected' : ''}`}
+                    onClick={() => setWorkspaceAppearance(current => ({ ...current, wallpaper: option.id }))}>
+                    <span className={`wallpaper-thumb wallpaper-${option.id}`} />
+                    <strong>{option.label}</strong><small>{option.detail}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="appearance-columns">
+              <div className="appearance-section compact">
+                <div className="appearance-section-head"><strong>Color de acento</strong><span>Botones y elementos activos</span></div>
+                <div className="accent-options">
+                  {ACCENT_COLORS.map(color => (
+                    <button key={color.id} title={color.label} aria-label={color.label}
+                      className={workspaceAppearance.accent === color.id ? 'selected' : ''}
+                      style={{ '--accent-choice': color.hex }}
+                      onClick={() => setWorkspaceAppearance(current => ({ ...current, accent: color.id }))} />
+                  ))}
+                </div>
+              </div>
+              <div className="appearance-section compact">
+                <div className="appearance-section-head"><strong>Tema</strong><span>Claridad general</span></div>
+                <div className="segmented-control">
+                  <button className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}><IcoSun s={14} /> Claro</button>
+                  <button className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}><IcoMoon s={14} /> Oscuro</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="appearance-columns">
+              <div className="appearance-section compact">
+                <div className="appearance-section-head"><strong>Contraste</strong><span>Legibilidad de superficies</span></div>
+                <div className="segmented-control three">
+                  {[['soft', 'Suave'], ['balanced', 'Medio'], ['high', 'Alto']].map(([id, label]) => (
+                    <button key={id} className={workspaceAppearance.contrast === id ? 'active' : ''}
+                      onClick={() => setWorkspaceAppearance(current => ({ ...current, contrast: id }))}>{label}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="appearance-section compact">
+                <div className="appearance-section-head"><strong>Transparencia</strong><span>Profundidad del cristal</span></div>
+                <div className="segmented-control">
+                  <button className={workspaceAppearance.transparency === 'glass' ? 'active' : ''}
+                    onClick={() => setWorkspaceAppearance(current => ({ ...current, transparency: 'glass' }))}>Cristal</button>
+                  <button className={workspaceAppearance.transparency === 'solid' ? 'active' : ''}
+                    onClick={() => setWorkspaceAppearance(current => ({ ...current, transparency: 'solid' }))}>Sólido</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="appearance-footer">
+            <button className="btn btn-secondary" onClick={() => { setWorkspaceAppearance(DEFAULT_APPEARANCE); setTheme('light'); }}>Restaurar</button>
+            <button className="btn btn-primary" onClick={() => setShowAppearancePanel(false)}>Listo</button>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  /* ======================================================================
      VISTAS ADMIN
      ====================================================================== */
   const renderCatalog = () => (
@@ -1211,6 +1361,7 @@ export default function App() {
     { id: 'addApp', label: 'Desplegar', admin: true },
     { id: 'users', label: 'Identidades', admin: true },
   ];
+  const activeAccent = ACCENT_COLORS.find(color => color.id === workspaceAppearance.accent) || ACCENT_COLORS[0];
 
   const renderWindowBody = (app) => {
     if (app.sys === 'notes') return <textarea className="notes-pad" placeholder="Escribe algo…" />;
@@ -1240,19 +1391,21 @@ export default function App() {
   };
 
   return (
-    <div className="os-root">
+    <div className="os-root"
+      data-wallpaper={workspaceAppearance.wallpaper}
+      data-contrast={workspaceAppearance.contrast}
+      data-transparency={workspaceAppearance.transparency}
+      style={{ '--brand-green': activeAccent.hex }}>
       {renderSpotlight()}
       {renderLaunchpad()}
       {renderCalendarModal()}
       {renderBoardManager()}
+      {renderAppearancePanel()}
 
       {/* ================= MENU BAR ================= */}
       <header className="menubar">
         <div className="menubar-left">
-          <div className="menu-logo">
-            <div className="menu-logo-mark">Á</div>
-            <span className="menu-logo-text">Ágora</span>
-          </div>
+          <div className="menu-logo-spacer" aria-hidden="true" />
           {menuItems.filter(m => !m.admin || isAdmin).map(m => (
             <button key={m.id}
               className={`menu-item ${currentView === m.id && activeAppId === null ? 'active' : ''}`}
@@ -1269,8 +1422,8 @@ export default function App() {
             onClick={() => setWorkspaceMode(m => m === 'focus' ? 'desktop' : 'focus')}>
             {workspaceMode === 'focus' ? <IcoWindows s={16} /> : <IcoFocus s={16} />}
           </button>
-          <button className="menu-icon-btn" title="Apariencia" onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}>
-            {theme === 'light' ? <IcoMoon s={16} /> : <IcoSun s={16} />}
+          <button className="menu-icon-btn" title="Personalizar escritorio" onClick={() => { setShowUserMenu(false); setShowAppearancePanel(true); }}>
+            <IcoSliders s={16} />
           </button>
           <span className="menu-clock">
             {currentTime.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}{'  '}
@@ -1291,8 +1444,8 @@ export default function App() {
               <div style={{ fontSize: 14, fontWeight: 600 }}>{userData.usuario}</div>
               <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{userData.rolGlobal}</div>
             </div>
-            <button className="popover-item" onClick={() => { setTheme(t => t === 'light' ? 'dark' : 'light'); }}>
-              {theme === 'light' ? <IcoMoon s={15} /> : <IcoSun s={15} />} Cambiar apariencia
+            <button className="popover-item" onClick={() => { setShowUserMenu(false); setShowAppearancePanel(true); }}>
+              <IcoSliders s={15} /> Personalizar escritorio
             </button>
             <button className="popover-item" onClick={() => { setShowUserMenu(false); openLaunchpad(); }}>
               <IcoGrid s={15} /> Abrir Launchpad
