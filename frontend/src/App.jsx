@@ -48,6 +48,19 @@ const getValidImageUrl = (url) => {
   return m ? `https://drive.google.com/uc?export=view&id=${m[1]}` : url;
 };
 
+const normalizeExternalUrl = (value) => {
+  if (!value) return '';
+  try {
+    const url = new URL(String(value).trim());
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch { return ''; }
+};
+
+const canonicalGroupName = (value, groups = []) => {
+  const cleaned = String(value || '').trim();
+  return groups.find(group => group.toLowerCase() === cleaned.toLowerCase()) || cleaned;
+};
+
 // Paleta desaturada estilo iconos macOS
 const ICON_GRADIENTS = [
   'linear-gradient(150deg,#4F7CAC,#31527A)',
@@ -125,6 +138,7 @@ const DEFAULT_BOARD_POSTS = [{
   title: 'Actualización de políticas de teletrabajo',
   body: 'Los nuevos lineamientos ya están publicados en el portal de Gestión de Personas.',
   imageUrl: '',
+  linkUrl: '',
   createdAt: Date.now(),
   author: 'Gestión Administrativa',
 }];
@@ -156,6 +170,41 @@ const AppIcon = ({ app, size = 58 }) => {
         : SysIcon
           ? <SysIcon s={Math.round(size * 0.46)} />
           : <span className="app-icon-letter" style={{ fontSize: Math.round(size * 0.36) }}>{initialsOf(app.nombre)}</span>}
+    </div>
+  );
+};
+
+const AppGroupPicker = ({ value, onChange, groups, compact = false }) => {
+  const [open, setOpen] = useState(false);
+  const query = String(value || '').trim();
+  const filteredGroups = groups.filter(group => group.toLowerCase().includes(query.toLowerCase()));
+  const exactMatch = groups.some(group => group.toLowerCase() === query.toLowerCase());
+
+  return (
+    <div className={`app-group-picker ${compact ? 'compact' : ''}`} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}>
+      <div className="app-group-input">
+        <IcoGrid s={14} />
+        <input value={value || ''} onChange={e => { onChange(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)}
+          placeholder="Ej. Gestión Administrativa" aria-label="Grupo del aplicativo" required />
+        <IcoChevron s={12} />
+      </div>
+      {open && (
+        <div className="app-group-options">
+          {filteredGroups.map(group => (
+            <button key={group} type="button" onClick={() => { onChange(group); setOpen(false); }}>
+              <span className="group-option-icon"><IcoGrid s={13} /></span><span>{group}</span>
+              {group.toLowerCase() === query.toLowerCase() && <IcoCheck s={11} />}
+            </button>
+          ))}
+          {query && !exactMatch && (
+            <button className="create-group-option" type="button" onClick={() => { onChange(query); setOpen(false); }}>
+              <span className="group-option-icon"><IcoPlus s={13} /></span><span><strong>Crear grupo</strong> “{query}”</span>
+            </button>
+          )}
+          {!query && groups.length === 0 && <p>Escribe el nombre del primer grupo.</p>}
+        </div>
+      )}
+      {!compact && <small>Selecciona un grupo existente o escribe uno nuevo para crearlo.</small>}
     </div>
   );
 };
@@ -373,7 +422,7 @@ export default function App() {
     } catch { return DEFAULT_BOARD_POSTS; }
   });
   const [showBoardManager, setShowBoardManager] = useState(false);
-  const [newBoardPost, setNewBoardPost] = useState({ type: 'comunicado', title: '', body: '', imageUrl: '' });
+  const [newBoardPost, setNewBoardPost] = useState({ type: 'comunicado', title: '', body: '', imageUrl: '', linkUrl: '' });
   const [publicationTypeOpen, setPublicationTypeOpen] = useState(false);
   const [boardSlide, setBoardSlide] = useState(0);
   const [boardCarouselPaused, setBoardCarouselPaused] = useState(false);
@@ -386,7 +435,7 @@ export default function App() {
   const [userPreferencesReady, setUserPreferencesReady] = useState(false);
 
   /* --- CRUD --- */
-  const [newApp, setNewApp] = useState({ nombre: '', url: '', desc: '', icono: '' });
+  const [newApp, setNewApp] = useState({ nombre: '', url: '', desc: '', icono: '', grupo: '' });
   const [isAddingApp, setIsAddingApp] = useState(false);
   const [editingAppId, setEditingAppId] = useState(null);
 
@@ -515,7 +564,10 @@ export default function App() {
   };
 
   const fetchApps = async () => {
-    try { const r = await post({ action: 'getApps' }); if (r.status === 'success') setAppsList(r.data || []); }
+    try {
+      const r = await post({ action: 'getApps' });
+      if (r.status === 'success') setAppsList((r.data || []).map(app => ({ ...app, grupo: app.grupo?.trim() || 'Sin grupo' })));
+    }
     catch { /* offline */ }
   };
   const fetchUsers = async () => {
@@ -525,7 +577,7 @@ export default function App() {
   const fetchBoardPosts = async () => {
     try {
       const r = await post({ action: 'getBoardPosts' });
-      if (r.status === 'success' && Array.isArray(r.data)) setBoardPosts(r.data);
+      if (r.status === 'success' && Array.isArray(r.data)) setBoardPosts(r.data.map(item => ({ linkUrl: '', ...item })));
     } catch { /* respaldo local */ }
   };
 
@@ -592,11 +644,12 @@ export default function App() {
       title: isBanner ? '' : newBoardPost.title.trim(),
       body: isBanner ? '' : newBoardPost.body.trim(),
       imageUrl: newBoardPost.imageUrl.trim(),
+      linkUrl: normalizeExternalUrl(newBoardPost.linkUrl),
       createdAt: Date.now(),
       author: userData?.usuario || 'Administración',
     };
     setBoardPosts(posts => [postItem, ...posts]);
-    setNewBoardPost({ type: 'comunicado', title: '', body: '', imageUrl: '' });
+    setNewBoardPost({ type: 'comunicado', title: '', body: '', imageUrl: '', linkUrl: '' });
     setBoardSlide(0);
     setPublicationTypeOpen(false);
     try {
@@ -615,10 +668,13 @@ export default function App() {
 
   /* ---------------- CRUD ---------------- */
   const handleAddApp = async (e) => {
-    e.preventDefault(); setIsAddingApp(true);
+    e.preventDefault();
+    if (!newApp.grupo.trim()) return;
+    setIsAddingApp(true);
     try {
-      const r = await post({ action: 'addApp', appData: newApp });
-      if (r.status === 'success') { await fetchApps(); setNewApp({ nombre: '', url: '', desc: '', icono: '' }); setCurrentView('dashboard'); }
+      const appData = { ...newApp, grupo: canonicalGroupName(newApp.grupo, appGroups) };
+      const r = await post({ action: 'addApp', appData });
+      if (r.status === 'success') { await fetchApps(); setNewApp({ nombre: '', url: '', desc: '', icono: '', grupo: '' }); setCurrentView('dashboard'); }
     } catch { /* noop */ } finally { setIsAddingApp(false); }
   };
   const handleDeleteApp = async (id) => {
@@ -629,7 +685,8 @@ export default function App() {
     e.preventDefault();
     try {
       const appToUpdate = appsList.find(a => a.id === id);
-      const r = await post({ action: 'updateApp', appData: appToUpdate });
+      if (!appToUpdate?.grupo?.trim()) return;
+      const r = await post({ action: 'updateApp', appData: { ...appToUpdate, grupo: canonicalGroupName(appToUpdate.grupo, appGroups) } });
       if (r.status === 'success') { setEditingAppId(null); await fetchApps(); }
     } catch { /* noop */ }
   };
@@ -796,9 +853,21 @@ export default function App() {
 
   const tasksForSelectedDate = tasks.filter(task => task.dueDate === selectedDate);
 
+  const appGroups = useMemo(() => [...new Set(appsList.map(app => app.grupo?.trim() || 'Sin grupo'))]
+    .sort((a, b) => {
+      if (a === 'Sin grupo') return 1;
+      if (b === 'Sin grupo') return -1;
+      return a.localeCompare(b, 'es', { sensitivity: 'base' });
+    }), [appsList]);
+
+  const groupedApps = useMemo(() => appGroups.map(group => ({
+    group,
+    apps: appsList.filter(app => (app.grupo?.trim() || 'Sin grupo') === group),
+  })), [appGroups, appsList]);
+
   const launchpadEntries = useMemo(() => {
     const sys = SYSTEM_APPS.map(s => ({
-      id: `lp-${s.sys}`, nombre: s.nombre, grad: s.grad, sysIcon: s.icon, sysType: s.sys, desc: 'Utilidad del sistema',
+      id: `lp-${s.sys}`, nombre: s.nombre, grad: s.grad, sysIcon: s.icon, sysType: s.sys, desc: 'Utilidad del sistema', grupo: 'Utilidades del sistema',
     }));
     return [...appsList.map(a => ({ ...a })), ...sys];
   }, [appsList]);
@@ -806,8 +875,13 @@ export default function App() {
   const lpFiltered = useMemo(() => {
     const q = lpQuery.trim().toLowerCase();
     if (!q) return launchpadEntries;
-    return launchpadEntries.filter(a => (a.nombre || '').toLowerCase().includes(q));
+    return launchpadEntries.filter(a => (a.nombre || '').toLowerCase().includes(q) || (a.grupo || '').toLowerCase().includes(q));
   }, [launchpadEntries, lpQuery]);
+
+  const lpGrouped = useMemo(() => {
+    const groups = [...new Set(lpFiltered.map(entry => entry.grupo?.trim() || 'Sin grupo'))];
+    return groups.map(group => ({ group, entries: lpFiltered.filter(entry => (entry.grupo?.trim() || 'Sin grupo') === group) }));
+  }, [lpFiltered]);
 
   const openEntry = (entry) => entry.sysType ? launchSystemApp(entry.sysType) : launchApp(entry);
   const welcomeName = profilePreferences.displayName.trim() || userData?.usuario || '';
@@ -1024,6 +1098,36 @@ export default function App() {
   /* ======================================================================
      DASHBOARD · BENTO GRID
      ====================================================================== */
+  const renderBoardSlide = (post) => {
+    if (!post) return <p className="empty-note">No hay publicaciones activas.</p>;
+    const hasLink = Boolean(normalizeExternalUrl(post.linkUrl));
+    const article = post.type === 'banner' ? (
+      <article className={`board-post banner ${hasLink ? '' : 'board-slide-enter'}`} aria-label="Banner corporativo">
+        {post.imageUrl
+          ? <img className="board-banner-image" src={getValidImageUrl(post.imageUrl)} alt="Banner corporativo" />
+          : <div className="board-banner-empty">Banner sin imagen</div>}
+      </article>
+    ) : (
+      <article className={`board-post ${post.type} ${hasLink ? '' : 'board-slide-enter'}`}>
+        {post.imageUrl && <div className="board-post-image" style={{ backgroundImage: `linear-gradient(90deg, rgba(14,17,37,.80), rgba(14,17,37,.18)), url(${getValidImageUrl(post.imageUrl)})` }} />}
+        <div className="board-post-content">
+          <span className="board-type">{post.type}</span>
+          <h3>{post.title}</h3>
+          <p>{post.body}</p>
+          <small>{post.author} · {new Date(post.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</small>
+        </div>
+      </article>
+    );
+
+    if (!hasLink) return article;
+    return (
+      <a className="board-slide-link board-slide-enter" href={normalizeExternalUrl(post.linkUrl)} target="_blank" rel="noopener noreferrer" aria-label="Abrir comunicación enlazada">
+        {article}
+        <span className="board-link-hint">Abrir comunicación <IcoChevron s={12} /></span>
+      </a>
+    );
+  };
+
   const renderDashboard = () => (
     <div className="bento enter">
 
@@ -1085,25 +1189,7 @@ export default function App() {
         </div>
         <div className="board-carousel" onMouseEnter={() => setBoardCarouselPaused(true)} onMouseLeave={() => setBoardCarouselPaused(false)} onFocusCapture={() => setBoardCarouselPaused(true)} onBlurCapture={() => setBoardCarouselPaused(false)}>
           <div className="board-feed" aria-live="polite">
-            {!activeBoardPost
-              ? <p className="empty-note">No hay publicaciones activas.</p>
-              : activeBoardPost.type === 'banner' ? (
-                <article key={activeBoardPost.id} className="board-post banner board-slide-enter" aria-label="Banner corporativo">
-                  {activeBoardPost.imageUrl
-                    ? <img className="board-banner-image" src={getValidImageUrl(activeBoardPost.imageUrl)} alt="Banner corporativo" />
-                    : <div className="board-banner-empty">Banner sin imagen</div>}
-                </article>
-              ) : (
-                <article key={activeBoardPost.id} className={`board-post ${activeBoardPost.type} board-slide-enter`}>
-                  {activeBoardPost.imageUrl && <div className="board-post-image" style={{ backgroundImage: `linear-gradient(90deg, rgba(14,17,37,.80), rgba(14,17,37,.18)), url(${getValidImageUrl(activeBoardPost.imageUrl)})` }} />}
-                  <div className="board-post-content">
-                    <span className="board-type">{activeBoardPost.type}</span>
-                    <h3>{activeBoardPost.title}</h3>
-                    <p>{activeBoardPost.body}</p>
-                    <small>{activeBoardPost.author} · {new Date(activeBoardPost.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</small>
-                  </div>
-                </article>
-              )}
+            <div key={activeBoardPost?.id || 'empty'} className="board-slide-frame">{renderBoardSlide(activeBoardPost)}</div>
           </div>
           {boardPosts.length > 1 && (
             <div className="board-carousel-controls">
@@ -1127,22 +1213,32 @@ export default function App() {
           <button className="ghost-btn" onClick={openLaunchpad}>Abrir Launchpad</button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', margin: '0 -8px', padding: '2px 8px 4px' }}>
-          <div className="lp-grid">
-            {appsList.length === 0 && (
-              <p className="empty-note">Sincronizando el portafolio de sistemas…</p>
-            )}
-            {appsList.map(app => (
-              <button key={app.id} className="lp-item" onClick={() => launchApp(app)} title={app.desc || app.nombre}>
-                <AppIcon app={app} size={58} />
-                <span className="lp-name">{app.nombre}</span>
-              </button>
+          <div className="desktop-app-groups">
+            {appsList.length === 0 && <p className="empty-note">Sincronizando el portafolio de sistemas…</p>}
+            {groupedApps.map(({ group, apps }) => (
+              <section key={group} className="desktop-app-group">
+                <div className="app-group-heading"><span>{group}</span><small>{apps.length}</small></div>
+                <div className="lp-grid">
+                  {apps.map(app => (
+                    <button key={app.id} className="lp-item" onClick={() => launchApp(app)} title={app.desc || app.nombre}>
+                      <AppIcon app={app} size={58} />
+                      <span className="lp-name">{app.nombre}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
             ))}
-            {SYSTEM_APPS.map(s => (
-              <button key={s.sys} className="lp-item" onClick={() => launchSystemApp(s.sys)}>
-                <AppIcon app={{ nombre: s.nombre, grad: s.grad, sysIcon: s.icon }} size={58} />
-                <span className="lp-name">{s.nombre}</span>
-              </button>
-            ))}
+            <section className="desktop-app-group system-group">
+              <div className="app-group-heading"><span>Utilidades del sistema</span><small>{SYSTEM_APPS.length}</small></div>
+              <div className="lp-grid">
+                {SYSTEM_APPS.map(s => (
+                  <button key={s.sys} className="lp-item" onClick={() => launchSystemApp(s.sys)}>
+                    <AppIcon app={{ nombre: s.nombre, grad: s.grad, sysIcon: s.icon }} size={58} />
+                    <span className="lp-name">{s.nombre}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
           </div>
         </div>
       </section>
@@ -1216,12 +1312,19 @@ export default function App() {
         </div>
         <div className="lp-canvas" onClick={e => e.stopPropagation()}>
           {lpFiltered.length === 0 && <p className="empty-note">Sin resultados para “{lpQuery}”.</p>}
-          {lpFiltered.map((entry, i) => (
-            <button key={entry.id} className="lp-item" style={{ animationDelay: `${Math.min(i * 22, 400)}ms` }}
-              onClick={() => openEntry(entry)}>
-              <AppIcon app={entry} size={76} />
-              <span className="lp-name">{entry.nombre}</span>
-            </button>
+          {lpGrouped.map(({ group, entries }, groupIndex) => (
+            <section key={group} className="lp-group-section">
+              <div className="lp-group-heading"><span>{group}</span><small>{entries.length} aplicativo{entries.length === 1 ? '' : 's'}</small></div>
+              <div className="lp-group-grid">
+                {entries.map((entry, index) => (
+                  <button key={entry.id} className="lp-item" style={{ animationDelay: `${Math.min((groupIndex * 4 + index) * 22, 400)}ms` }}
+                    onClick={() => openEntry(entry)}>
+                    <AppIcon app={entry} size={76} />
+                    <span className="lp-name">{entry.nombre}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       </div>
@@ -1234,7 +1337,7 @@ export default function App() {
   const renderSpotlight = () => {
     if (!isSpotlightOpen) return null;
     const q = searchQuery.trim().toLowerCase();
-    const appRes = q ? appsList.filter(a => (a.nombre || '').toLowerCase().includes(q) || (a.desc || '').toLowerCase().includes(q)) : [];
+    const appRes = q ? appsList.filter(a => (a.nombre || '').toLowerCase().includes(q) || (a.desc || '').toLowerCase().includes(q) || (a.grupo || '').toLowerCase().includes(q)) : [];
     const sysRes = q ? SYSTEM_APPS.filter(s => s.nombre.toLowerCase().includes(q)) : [];
     const taskRes = q ? tasks.filter(t => t.text.toLowerCase().includes(q)) : [];
     const nothing = q && !appRes.length && !sysRes.length && !taskRes.length;
@@ -1257,7 +1360,7 @@ export default function App() {
                 <AppIcon app={a} size={34} />
                 <span>
                   <span className="spot-row-title" style={{ display: 'block' }}>{a.nombre}</span>
-                  {a.desc && <span className="spot-row-sub">{String(a.desc).slice(0, 68)}</span>}
+                  <span className="spot-row-sub">{a.grupo || 'Sin grupo'}{a.desc ? ` · ${String(a.desc).slice(0, 54)}` : ''}</span>
                 </span>
               </button>
             ))}
@@ -1411,6 +1514,12 @@ export default function App() {
               )}
               <label className="form-label">{newBoardPost.type === 'banner' ? 'Imagen del banner (URL obligatoria)' : 'Imagen (URL opcional)'}</label>
               <input className="field" type="url" value={newBoardPost.imageUrl} onChange={e => setNewBoardPost({ ...newBoardPost, imageUrl: e.target.value })} placeholder="https://…" required={newBoardPost.type === 'banner'} />
+              <label className="form-label">LINK URL <span className="optional-label">Opcional</span></label>
+              <div className="link-url-field">
+                <IcoChevron s={14} />
+                <input className="field mono" type="url" value={newBoardPost.linkUrl} onChange={e => setNewBoardPost({ ...newBoardPost, linkUrl: e.target.value })} placeholder="https://portal.multival.com/comunicado" />
+              </div>
+              <p className="field-help">Si agregas un enlace, toda la publicación será interactiva y abrirá la comunicación en una pestaña nueva.</p>
               <button className="btn btn-primary" type="submit"><IcoPlus s={14} /> Publicar</button>
             </form>
             <div className="board-admin-list">
@@ -1420,6 +1529,7 @@ export default function App() {
                   <span className={`board-type ${post.type}`}>{post.type}</span>
                   <strong>{post.type === 'banner' ? 'Banner gráfico' : post.title}</strong>
                   <p>{post.type === 'banner' ? 'La imagen se presenta completa en el escritorio.' : post.body}</p>
+                  {normalizeExternalUrl(post.linkUrl) && <a className="board-admin-link" href={normalizeExternalUrl(post.linkUrl)} target="_blank" rel="noopener noreferrer">Enlace configurado <IcoChevron s={10} /></a>}
                   <button className="icon-btn danger" onClick={() => deleteBoardPost(post.id)} title="Retirar publicación"><IcoTrash s={15} /></button>
                 </article>
               ))}
@@ -1615,10 +1725,10 @@ export default function App() {
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table className="table">
-          <thead><tr><th>App</th><th>Endpoint</th><th style={{ width: 120 }}>Acciones</th></tr></thead>
+          <thead><tr><th>App</th><th>Grupo</th><th>Endpoint</th><th style={{ width: 120 }}>Acciones</th></tr></thead>
           <tbody>
             {appsList.length === 0 ? (
-              <tr><td colSpan="3" style={{ textAlign: 'center', color: 'var(--ink-3)', padding: 40 }}>Sin aplicativos registrados.</td></tr>
+              <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--ink-3)', padding: 40 }}>Sin aplicativos registrados.</td></tr>
             ) : appsList.map(app => (
               <tr key={app.id}>
                 {editingAppId === app.id ? (
@@ -1629,10 +1739,11 @@ export default function App() {
                         <input className="field" value={app.icono || ''} onChange={e => handleEditChange(app.id, 'icono', e.target.value)} placeholder="URL ícono" />
                       </div>
                     </td>
+                    <td style={{ minWidth: 230 }}><AppGroupPicker compact value={app.grupo || ''} groups={appGroups.filter(group => group !== 'Sin grupo')} onChange={value => handleEditChange(app.id, 'grupo', value)} /></td>
                     <td><input className="field mono" value={app.url} onChange={e => handleEditChange(app.id, 'url', e.target.value)} /></td>
                     <td>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn btn-primary" style={{ padding: '7px 14px' }} onClick={e => handleUpdateApp(e, app.id)}>Guardar</button>
+                        <button className="btn btn-primary" style={{ padding: '7px 14px' }} disabled={!app.grupo?.trim()} onClick={e => handleUpdateApp(e, app.id)}>Guardar</button>
                         <button className="btn btn-secondary" style={{ padding: '7px 14px' }} onClick={() => { setEditingAppId(null); fetchApps(); }}>Cancelar</button>
                       </div>
                     </td>
@@ -1648,6 +1759,7 @@ export default function App() {
                         </div>
                       </div>
                     </td>
+                    <td><span className="app-group-tag"><IcoGrid s={11} /> {app.grupo || 'Sin grupo'}</span></td>
                     <td className="mono" style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>{String(app.url || '').slice(0, 46)}…</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
@@ -1679,6 +1791,10 @@ export default function App() {
           <input className="field" required value={newApp.nombre} onChange={e => setNewApp({ ...newApp, nombre: e.target.value })} />
         </div>
         <div>
+          <label className="form-label">Grupo del aplicativo</label>
+          <AppGroupPicker value={newApp.grupo} groups={appGroups.filter(group => group !== 'Sin grupo')} onChange={value => setNewApp({ ...newApp, grupo: value })} />
+        </div>
+        <div>
           <label className="form-label">URL del endpoint</label>
           <input className="field mono" type="url" required value={newApp.url} onChange={e => setNewApp({ ...newApp, url: e.target.value })} />
         </div>
@@ -1692,7 +1808,7 @@ export default function App() {
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
           <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: 13 }} onClick={() => setCurrentView('dashboard')}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: 13 }} disabled={isAddingApp}>
+          <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: 13 }} disabled={isAddingApp || !newApp.grupo.trim()}>
             {isAddingApp ? 'Desplegando…' : 'Guardar y desplegar'}
           </button>
         </div>
