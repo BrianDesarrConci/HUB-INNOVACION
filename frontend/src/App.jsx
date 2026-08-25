@@ -30,10 +30,20 @@ const IcoClock = ({ s = 16 }) => <svg width={s} height={s} {...S}><circle cx="12
 const IcoCal = ({ s = 16 }) => <svg width={s} height={s} {...S}><rect x="3" y="4.5" width="18" height="17" rx="2.5" /><path d="M8 2.5v4M16 2.5v4M3 10h18" /></svg>;
 const IcoBell = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>;
 const IcoCheck = ({ s = 11 }) => <svg width={s} height={s} {...S} strokeWidth="3"><path d="M20 6 9 17l-5-5" /></svg>;
-const IcoPulse = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M3 12h4l2.5-7 4 14 2.5-7H21" /></svg>;
 const IcoHistory = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 8v4.5l3.2 1.9" /></svg>;
 const IcoChevron = ({ s = 14 }) => <svg width={s} height={s} {...S} strokeWidth="2"><path d="M9 6l6 6-6 6" /></svg>;
 const IcoShield = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M12 2.5 4.5 6v6c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z" /><path d="M9.2 12.2l2 2 3.6-3.8" /></svg>;
+const IcoSliders = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg>;
+const IcoWidgets = ({ s = 16 }) => <svg width={s} height={s} {...S}><rect x="3" y="3" width="8" height="8" rx="2" /><rect x="14" y="3" width="7" height="5" rx="1.6" /><rect x="14" y="11" width="7" height="10" rx="2" /><rect x="3" y="14" width="8" height="7" rx="2" /></svg>;
+const IcoPlay = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="m8 5 11 7-11 7z" /></svg>;
+const IcoPause = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M9 5v14M15 5v14" /></svg>;
+const IcoRefresh = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M20 7v5h-5M4 17v-5h5" /><path d="M18.2 9A7 7 0 0 0 6.1 6.1L4 8M5.8 15A7 7 0 0 0 17.9 17.9L20 16" /></svg>;
+const IcoChart = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /><path d="m3 7 6-4 6 7 6-5" /></svg>;
+const IcoUsers = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
+const IcoKey = ({ s = 18 }) => <svg width={s} height={s} {...S}><circle cx="7.5" cy="15.5" r="4.5" /><path d="m11 12 9-9M15 8l3 3M17 6l2 2" /></svg>;
+const IcoSwap = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M7 7h13l-3-3M17 17H4l3 3" /></svg>;
+const IcoPulse = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M3 12h4l2.5-7 5 14 2.5-7h4" /></svg>;
+const IcoLoginArrow = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="m10 17 5-5-5-5M15 12H3" /></svg>;
 
 /* ==========================================================================
    UTILIDADES
@@ -42,6 +52,19 @@ const getValidImageUrl = (url) => {
   if (!url) return '';
   const m = String(url).match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
   return m ? `https://drive.google.com/uc?export=view&id=${m[1]}` : url;
+};
+
+const normalizeExternalUrl = (value) => {
+  if (!value) return '';
+  try {
+    const url = new URL(String(value).trim());
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch { return ''; }
+};
+
+const canonicalGroupName = (value, groups = []) => {
+  const cleaned = String(value || '').trim();
+  return groups.find(group => group.toLowerCase() === cleaned.toLowerCase()) || cleaned;
 };
 
 // Paleta desaturada estilo iconos macOS
@@ -63,14 +86,88 @@ const hashOf = (str = '') => {
 };
 const gradientFor = (name) => ICON_GRADIENTS[hashOf(name) % ICON_GRADIENTS.length];
 const initialsOf = (name = '') => name.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'A';
+const dateKey = (date = new Date()) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const formatUsageTime = (seconds = 0) => {
+  const totalSeconds = Math.max(0, Number(seconds) || 0);
+  if (totalSeconds < 60) return `${Math.round(totalSeconds)} s`;
+  if (totalSeconds < 3600) return `${Math.round(totalSeconds / 60)} min`;
+  const hours = totalSeconds / 3600;
+  return `${hours.toLocaleString('es-CO', { minimumFractionDigits: hours < 10 ? 1 : 0, maximumFractionDigits: 1 })} h`;
+};
+
+const TASK_COLORS = [
+  { id: 'navy', label: 'Azul', hex: '#25294F' },
+  { id: 'green', label: 'Verde', hex: '#3D8A44' },
+  { id: 'amber', label: 'Amarillo', hex: '#E0A32E' },
+  { id: 'red', label: 'Rojo', hex: '#D9534F' },
+];
+
+const ACCENT_COLORS = [
+  { id: 'green', label: 'Verde', hex: '#3D8A44' },
+  { id: 'navy', label: 'Azul', hex: '#3F4A8A' },
+  { id: 'gold', label: 'Dorado', hex: '#C18D20' },
+  { id: 'violet', label: 'Violeta', hex: '#7554A6' },
+];
+
+const WALLPAPER_OPTIONS = [
+  { id: 'aurora', label: 'Aurora', detail: 'Orgánico y suave' },
+  { id: 'neural', label: 'Red neuronal', detail: 'IA e innovación' },
+  { id: 'minimal', label: 'Minimal', detail: 'Enfoque limpio' },
+  { id: 'depth', label: 'Profundidad', detail: 'Color inmersivo' },
+];
+
+const DEFAULT_APPEARANCE = {
+  wallpaper: 'aurora',
+  accent: 'green',
+  contrast: 'balanced',
+  transparency: 'glass',
+  clockStyle: 'minimal',
+  clockFormat: '24',
+};
+
+const WIDGET_CATALOG = [
+  { id: 'pomodoro', label: 'Tiempo de enfoque', detail: 'Temporizador con duración ajustable', icon: IcoClock },
+  { id: 'quick-note', label: 'Nota rápida', detail: 'Un espacio para guardar ideas al instante', icon: IcoNotes },
+  { id: 'productivity', label: 'Productividad', detail: 'Resumen visual de tus tareas completadas', icon: IcoCheck },
+  { id: 'upcoming', label: 'Próxima agenda', detail: 'Tareas programadas para los siguientes días', icon: IcoCal },
+  { id: 'shortcuts', label: 'Herramientas rápidas', detail: 'Acceso directo a las utilidades del sistema', icon: IcoGrid },
+  { id: 'activity', label: 'Mi actividad', detail: 'Aplicaciones abiertas y accesos recientes', icon: IcoHistory },
+];
+
+const BOARD_TYPES = [
+  { id: 'comunicado', label: 'Comunicado', detail: 'Novedades y anuncios internos', icon: IcoBell },
+  { id: 'banner', label: 'Banner gráfico', detail: 'Imagen completa de ancho total', icon: IcoGrid },
+  { id: 'incidencia', label: 'Incidencia', detail: 'Alertas operativas importantes', icon: IcoShield },
+];
+
+const DEFAULT_BOARD_POSTS = [{
+  id: 'welcome-board',
+  type: 'comunicado',
+  title: 'Actualización de políticas de teletrabajo',
+  body: 'Los nuevos lineamientos ya están publicados en el portal de Gestión de Personas.',
+  imageUrl: '',
+  linkUrl: '',
+  createdAt: Date.now(),
+  author: 'Gestión Administrativa',
+}];
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxYszzacLW5AbwolurkZFX2_lq_m2qk3JDWokDpo_DitmquPojP-KGmllamG0xayGlabA/exec';
 
 const SYSTEM_APPS = [
   { sys: 'notes', nombre: 'Notas', grad: 'linear-gradient(150deg,#E8C766,#C9A23B)', icon: IcoNotes, w: 720, h: 520 },
-  { sys: 'calculator', nombre: 'Calculadora', grad: 'linear-gradient(150deg,#7C7C86,#4A4A52)', icon: IcoCalc, w: 340, h: 500 },
+  { sys: 'calculator', nombre: 'Calculadora', grad: 'linear-gradient(150deg,#7C7C86,#4A4A52)', icon: IcoCalc, w: 340, h: 560 },
   { sys: 'todo', nombre: 'Post-its', grad: 'linear-gradient(150deg,#6E9BD1,#3E6BA0)', icon: IcoSticky, w: 440, h: 620 },
+  { sys: 'converter', nombre: 'Conversor', grad: 'linear-gradient(150deg,#5F8F91,#315E63)', icon: IcoSwap, w: 520, h: 480 },
+  { sys: 'passwords', nombre: 'Clave segura', grad: 'linear-gradient(150deg,#6271A7,#343F73)', icon: IcoKey, w: 520, h: 470 },
+  { sys: 'stopwatch', nombre: 'Cronómetro', grad: 'linear-gradient(150deg,#C17B5E,#7C4937)', icon: IcoClock, w: 500, h: 520 },
 ];
+const COMPACT_SYSTEM_TOOLS = new Set(['calculator', 'converter', 'passwords', 'stopwatch']);
 
 /* ==========================================================================
    ÍCONO DE APLICACIÓN (squircle)
@@ -95,13 +192,64 @@ const AppIcon = ({ app, size = 58 }) => {
   );
 };
 
+const AppGroupPicker = ({ value, onChange, groups, compact = false }) => {
+  const [open, setOpen] = useState(false);
+  const query = String(value || '').trim();
+  const filteredGroups = groups.filter(group => group.toLowerCase().includes(query.toLowerCase()));
+  const exactMatch = groups.some(group => group.toLowerCase() === query.toLowerCase());
+
+  return (
+    <div className={`app-group-picker ${compact ? 'compact' : ''}`} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}>
+      <div className="app-group-input">
+        <IcoGrid s={14} />
+        <input value={value || ''} onChange={e => { onChange(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)}
+          placeholder="Ej. Gestión Administrativa" aria-label="Grupo del aplicativo" required />
+        <IcoChevron s={12} />
+      </div>
+      {open && (
+        <div className="app-group-options">
+          {filteredGroups.map(group => (
+            <button key={group} type="button" onClick={() => { onChange(group); setOpen(false); }}>
+              <span className="group-option-icon"><IcoGrid s={13} /></span><span>{group}</span>
+              {group.toLowerCase() === query.toLowerCase() && <IcoCheck s={11} />}
+            </button>
+          ))}
+          {query && !exactMatch && (
+            <button className="create-group-option" type="button" onClick={() => { onChange(query); setOpen(false); }}>
+              <span className="group-option-icon"><IcoPlus s={13} /></span><span><strong>Crear grupo</strong> “{query}”</span>
+            </button>
+          )}
+          {!query && groups.length === 0 && <p>Escribe el nombre del primer grupo.</p>}
+        </div>
+      )}
+      {!compact && <small>Selecciona un grupo existente o escribe uno nuevo para crearlo.</small>}
+    </div>
+  );
+};
+
 /* ==========================================================================
    CALCULADORA NATIVA
    ========================================================================== */
-const NativeCalculator = () => {
+const formatCalculatorValue = (raw) => {
+  if (raw === 'Error') return raw;
+  const sign = raw.startsWith('-') ? '-' : '';
+  const unsigned = sign ? raw.slice(1) : raw;
+  const [integer = '0', decimals] = unsigned.split('.');
+  const grouped = Number(integer || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+  if (decimals !== undefined) return `${sign}${grouped},${decimals}`;
+  return `${sign}${grouped}`;
+};
+
+const NativeCalculator = ({ isActive }) => {
   const [display, setDisplay] = useState('0');
   const [prev, setPrev] = useState(null);
   const [op, setOp] = useState(null);
+  const [waitingForOperand, setWaitingForOperand] = useState(false);
+  const [expression, setExpression] = useState('');
+  const [history, setHistory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('agora_calculator_history') || '[]'); }
+    catch { return []; }
+  });
 
   const compute = (a, b, o) => {
     if (o === '+') return a + b;
@@ -111,20 +259,83 @@ const NativeCalculator = () => {
     return b;
   };
 
+  const commitResult = (left, right, operator) => {
+    const res = compute(parseFloat(left), parseFloat(right), operator);
+    const result = Number.isFinite(res) ? String(parseFloat(res.toFixed(8))) : 'Error';
+    const statement = `${formatCalculatorValue(left)} ${operator} ${formatCalculatorValue(right)}`;
+    setDisplay(result);
+    setExpression(`${statement} =`);
+    setHistory(items => [{ id: Date.now(), expression: statement, result }, ...items].slice(0, 8));
+    setPrev(null);
+    setOp(null);
+    setWaitingForOperand(true);
+    return result;
+  };
+
   const press = (k) => {
-    if (k === 'AC') { setDisplay('0'); setPrev(null); setOp(null); return; }
-    if (k === '±') { setDisplay(d => (d.startsWith('-') ? d.slice(1) : d === '0' ? d : '-' + d)); return; }
-    if (k === '%') { setDisplay(d => String(parseFloat(d) / 100)); return; }
-    if (['+', '−', '×', '÷'].includes(k)) { setPrev(display); setOp(k); setDisplay('0'); return; }
+    if (k === 'AC') {
+      setDisplay('0'); setPrev(null); setOp(null); setExpression(''); setWaitingForOperand(false); return;
+    }
+    if (k === '⌫') {
+      if (waitingForOperand || display === 'Error') return;
+      setDisplay(d => d.length <= 1 || (d.length === 2 && d.startsWith('-')) ? '0' : d.slice(0, -1));
+      return;
+    }
+    if (k === '±') {
+      setDisplay(d => (d.startsWith('-') ? d.slice(1) : d === '0' || d === 'Error' ? d : '-' + d)); return;
+    }
+    if (k === '%') {
+      if (display === 'Error') return;
+      setDisplay(d => String(parseFloat(d) / 100)); return;
+    }
+    if (['+', '−', '×', '÷'].includes(k)) {
+      if (display === 'Error') return;
+      if (op && prev !== null && !waitingForOperand) {
+        const result = compute(parseFloat(prev), parseFloat(display), op);
+        const next = Number.isFinite(result) ? String(parseFloat(result.toFixed(8))) : 'Error';
+        setDisplay(next); setPrev(next);
+        setExpression(`${formatCalculatorValue(next)} ${k}`);
+      } else {
+        setPrev(display);
+        setExpression(`${formatCalculatorValue(display)} ${k}`);
+      }
+      setOp(k); setWaitingForOperand(true); return;
+    }
     if (k === '=') {
       if (op === null || prev === null) return;
-      const res = compute(parseFloat(prev), parseFloat(display), op);
-      setDisplay(Number.isFinite(res) ? String(parseFloat(res.toFixed(8))) : 'Error');
-      setPrev(null); setOp(null); return;
+      commitResult(prev, display, op); return;
     }
-    if (k === ',') { setDisplay(d => (d.includes('.') ? d : d + '.')); return; }
-    setDisplay(d => (d === '0' ? k : (d.length > 11 ? d : d + k)));
+    if (k === ',') {
+      if (waitingForOperand || display === 'Error') {
+        setDisplay('0.'); setWaitingForOperand(false);
+      } else if (!display.includes('.')) setDisplay(display + '.');
+      return;
+    }
+    if (waitingForOperand || display === '0' || display === 'Error') {
+      setDisplay(k); setWaitingForOperand(false);
+    } else if (display.replace(/[-.]/g, '').length < 14) setDisplay(display + k);
   };
+
+  useEffect(() => {
+    localStorage.setItem('agora_calculator_history', JSON.stringify(history));
+  }, [history]);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+    const onKeyDown = (e) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
+      const mapped = {
+        '/': '÷', '*': '×', '-': '−', '+': '+',
+        Enter: '=', '=': '=', ',': ',', '.': ',',
+        Backspace: '⌫', Delete: 'AC', Escape: 'AC',
+      }[e.key] || (/^\d$/.test(e.key) ? e.key : null);
+      if (!mapped) return;
+      e.preventDefault();
+      press(mapped);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
 
   const keys = [
     ['AC', 'fn'], ['±', 'fn'], ['%', 'fn'], ['÷', 'op'],
@@ -136,7 +347,23 @@ const NativeCalculator = () => {
 
   return (
     <div className="calc-shell">
-      <div className="calc-screen">{display}</div>
+      <div className="calc-history">
+        <div className="calc-history-head">
+          <span><IcoHistory s={12} /> Historial</span>
+          {history.length > 0 && <button onClick={() => setHistory([])}>Limpiar</button>}
+        </div>
+        <div className="calc-history-list">
+          {history.length === 0
+            ? <span className="calc-history-empty">Las operaciones aparecerán aquí.</span>
+            : history.slice(0, 3).map(item => (
+              <button key={item.id} className="calc-history-row" onClick={() => { setDisplay(item.result); setWaitingForOperand(true); }}>
+                <span>{item.expression}</span><strong>{formatCalculatorValue(item.result)}</strong>
+              </button>
+            ))}
+        </div>
+      </div>
+      <div className="calc-expression">{expression || ' '}</div>
+      <div className="calc-screen" title={formatCalculatorValue(display)}>{formatCalculatorValue(display)}</div>
       <div className="calc-pad">
         {keys.map(([k, cls, st], i) => (
           <button key={i} className={`calc-key ${cls}`} style={st || {}} onClick={() => press(k)}>{k}</button>
@@ -146,7 +373,133 @@ const NativeCalculator = () => {
   );
 };
 
-/* ==========================================================================
+const UNIT_GROUPS = {
+  longitud: {
+    label: 'Longitud', units: { m: ['Metros', 1], km: ['Kilómetros', 1000], cm: ['Centímetros', .01], mi: ['Millas', 1609.344] },
+  },
+  peso: {
+    label: 'Peso', units: { kg: ['Kilogramos', 1], g: ['Gramos', .001], lb: ['Libras', .45359237], oz: ['Onzas', .0283495] },
+  },
+  temperatura: {
+    label: 'Temperatura', units: { c: ['Celsius', 1], f: ['Fahrenheit', 1], k: ['Kelvin', 1] },
+  },
+};
+
+const UnitConverter = () => {
+  const [group, setGroup] = useState('longitud');
+  const [amount, setAmount] = useState('1');
+  const [from, setFrom] = useState('m');
+  const [to, setTo] = useState('km');
+
+  const changeGroup = (next) => {
+    const keys = Object.keys(UNIT_GROUPS[next].units);
+    setGroup(next); setFrom(keys[0]); setTo(keys[1]);
+  };
+
+  const result = useMemo(() => {
+    const number = Number(String(amount).replace(',', '.'));
+    if (!Number.isFinite(number)) return '—';
+    if (group === 'temperatura') {
+      const celsius = from === 'c' ? number : from === 'f' ? (number - 32) * 5 / 9 : number - 273.15;
+      const converted = to === 'c' ? celsius : to === 'f' ? celsius * 9 / 5 + 32 : celsius + 273.15;
+      return converted.toLocaleString('es-CO', { maximumFractionDigits: 4 });
+    }
+    const units = UNIT_GROUPS[group].units;
+    const converted = number * units[from][1] / units[to][1];
+    return converted.toLocaleString('es-CO', { maximumFractionDigits: 6 });
+  }, [amount, from, group, to]);
+
+  const units = UNIT_GROUPS[group].units;
+  return (
+    <div className="utility-tool converter-tool">
+      <div className="utility-intro"><span className="utility-icon"><IcoSwap s={20} /></span><div><strong>Conversor rápido</strong><p>Longitud, peso y temperatura sin salir del Hub.</p></div></div>
+      <div className="utility-segments">
+        {Object.entries(UNIT_GROUPS).map(([id, item]) => <button key={id} className={group === id ? 'active' : ''} onClick={() => changeGroup(id)}>{item.label}</button>)}
+      </div>
+      <div className="converter-grid">
+        <label><span>Valor</span><input className="field" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} /></label>
+        <label><span>Desde</span><select className="field" value={from} onChange={e => setFrom(e.target.value)}>{Object.entries(units).map(([id, item]) => <option key={id} value={id}>{item[0]}</option>)}</select></label>
+        <button className="converter-swap" onClick={() => { setFrom(to); setTo(from); }} aria-label="Intercambiar unidades"><IcoSwap s={16} /></button>
+        <label><span>Hacia</span><select className="field" value={to} onChange={e => setTo(e.target.value)}>{Object.entries(units).map(([id, item]) => <option key={id} value={id}>{item[0]}</option>)}</select></label>
+      </div>
+      <div className="converter-result"><span>Resultado</span><strong>{result}</strong><small>{units[to][0]}</small></div>
+    </div>
+  );
+};
+
+const createSecurePassword = (length, symbols) => {
+  const alphabet = `ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789${symbols ? '!@#$%&*+-=?' : ''}`;
+  const bytes = new Uint32Array(length);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, value => alphabet[value % alphabet.length]).join('');
+};
+
+const PasswordGenerator = () => {
+  const [length, setLength] = useState(16);
+  const [symbols, setSymbols] = useState(true);
+  const [passwordValue, setPasswordValue] = useState(() => createSecurePassword(16, true));
+  const [copied, setCopied] = useState(false);
+  const generate = (nextLength = length, nextSymbols = symbols) => {
+    setPasswordValue(createSecurePassword(nextLength, nextSymbols)); setCopied(false);
+  };
+  const copyPassword = async () => {
+    await navigator.clipboard.writeText(passwordValue); setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  };
+  return (
+    <div className="utility-tool password-tool">
+      <div className="utility-intro"><span className="utility-icon"><IcoKey s={20} /></span><div><strong>Generador de claves</strong><p>Crea contraseñas robustas directamente en tu equipo.</p></div></div>
+      <div className="password-output"><code>{passwordValue}</code><button onClick={copyPassword}>{copied ? 'Copiada' : 'Copiar'}</button></div>
+      <label className="range-field"><span>Longitud <strong>{length}</strong></span><input type="range" min="10" max="32" value={length} onChange={e => { const next = Number(e.target.value); setLength(next); generate(next, symbols); }} /></label>
+      <label className="utility-toggle"><span><strong>Incluir símbolos</strong><small>Mejora la complejidad de la contraseña</small></span><input type="checkbox" checked={symbols} onChange={e => { setSymbols(e.target.checked); generate(length, e.target.checked); }} /></label>
+      <button className="utility-primary" onClick={() => generate()}><IcoRefresh s={15} /> Generar otra clave</button>
+      <p className="utility-privacy"><IcoShield s={13} /> La contraseña se genera localmente y no se envía al servidor.</p>
+    </div>
+  );
+};
+
+const stopwatchLabel = (milliseconds) => {
+  const totalCentiseconds = Math.floor(milliseconds / 10);
+  const minutes = Math.floor(totalCentiseconds / 6000);
+  const seconds = Math.floor((totalCentiseconds % 6000) / 100);
+  const centiseconds = totalCentiseconds % 100;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
+};
+
+const StopwatchTool = () => {
+  const [elapsed, setElapsed] = useState(0);
+  const [running, setRunning] = useState(false);
+  const [laps, setLaps] = useState([]);
+  const startedAt = useRef(0);
+
+  useEffect(() => {
+    if (!running) return undefined;
+    const timer = window.setInterval(() => setElapsed(Date.now() - startedAt.current), 40);
+    return () => window.clearInterval(timer);
+  }, [running]);
+
+  const toggle = () => {
+    if (!running) startedAt.current = Date.now() - elapsed;
+    setRunning(value => !value);
+  };
+  const reset = () => { setRunning(false); setElapsed(0); setLaps([]); };
+  return (
+    <div className="utility-tool stopwatch-tool">
+      <div className="utility-intro"><span className="utility-icon"><IcoClock s={20} /></span><div><strong>Cronómetro</strong><p>Mide actividades y registra vueltas durante tu jornada.</p></div></div>
+      <div className={`stopwatch-display ${running ? 'running' : ''}`}><span>{stopwatchLabel(elapsed)}</span><small>{running ? 'EN CURSO' : elapsed ? 'EN PAUSA' : 'LISTO'}</small></div>
+      <div className="stopwatch-actions">
+        <button className="secondary" onClick={() => setLaps(items => elapsed ? [elapsed, ...items].slice(0, 5) : items)} disabled={!elapsed}><IcoPlus s={14} /> Vuelta</button>
+        <button className="primary" onClick={toggle}>{running ? <IcoPause s={14} /> : <IcoPlay s={14} />}{running ? 'Pausar' : 'Iniciar'}</button>
+        <button className="secondary" onClick={reset} disabled={!elapsed}><IcoRefresh s={14} /> Reiniciar</button>
+      </div>
+      <div className="stopwatch-laps">
+        {laps.length === 0 ? <p>Aquí aparecerán tus últimas vueltas.</p> : laps.map((lap, index) => <div key={`${lap}-${index}`}><span>Vuelta {laps.length - index}</span><strong>{stopwatchLabel(lap)}</strong></div>)}
+      </div>
+    </div>
+  );
+};
+
+/* ========================================================================== 
    APP
    ========================================================================== */
 export default function App() {
@@ -164,6 +517,15 @@ export default function App() {
   const [workspaceMode, setWorkspaceMode] = useState('focus');
   const [currentView, setCurrentView] = useState('dashboard');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showAppearancePanel, setShowAppearancePanel] = useState(false);
+  const [showWidgetGallery, setShowWidgetGallery] = useState(false);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [workspaceAppearance, setWorkspaceAppearance] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('agora_workspace_appearance') || 'null');
+      return saved ? { ...DEFAULT_APPEARANCE, ...saved } : DEFAULT_APPEARANCE;
+    } catch { return DEFAULT_APPEARANCE; }
+  });
   const [currentTime, setCurrentTime] = useState(new Date());
 
   /* --- Launchpad / Spotlight --- */
@@ -178,24 +540,57 @@ export default function App() {
   const [openApps, setOpenApps] = useState([]);
   const [activeAppId, setActiveAppId] = useState(null);
   const [minimizedApps, setMinimizedApps] = useState({});
+  const [windowMotion, setWindowMotion] = useState({});
+  const [minimizeVectors, setMinimizeVectors] = useState({});
   const [maximizedApps, setMaximizedApps] = useState({});
-  const [minimizeOrigins, setMinimizeOrigins] = useState({});
   const [loadingApps, setLoadingApps] = useState({});
+  const [windowLayers, setWindowLayers] = useState({});
+  const windowLayerCounter = useRef(100);
+  const sessionIdRef = useRef('');
+  const sessionStartedAtRef = useRef(0);
 
   /* --- Datos --- */
   const [appsList, setAppsList] = useState([]);
   const [usersList, setUsersList] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState('');
+  const [newTaskColor, setNewTaskColor] = useState('navy');
   const [recents, setRecents] = useState([]);
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(dateKey());
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [calendarTaskText, setCalendarTaskText] = useState('');
+  const [calendarTaskColor, setCalendarTaskColor] = useState('navy');
+  const [boardPosts, setBoardPosts] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('agora_corporate_board') || 'null');
+      return Array.isArray(saved) ? saved : DEFAULT_BOARD_POSTS;
+    } catch { return DEFAULT_BOARD_POSTS; }
+  });
+  const [showBoardManager, setShowBoardManager] = useState(false);
+  const [newBoardPost, setNewBoardPost] = useState({ type: 'comunicado', title: '', body: '', imageUrl: '', linkUrl: '' });
+  const [publicationTypeOpen, setPublicationTypeOpen] = useState(false);
+  const [boardSlide, setBoardSlide] = useState(0);
+  const [boardCarouselPaused, setBoardCarouselPaused] = useState(false);
+  const [enabledWidgets, setEnabledWidgets] = useState([]);
+  const [profilePreferences, setProfilePreferences] = useState({ displayName: '', roleLabel: '', welcomeMessage: '' });
+  const [quickNote, setQuickNote] = useState('');
+  const [focusMinutes, setFocusMinutes] = useState(25);
+  const [pomodoroSeconds, setPomodoroSeconds] = useState(25 * 60);
+  const [pomodoroRunning, setPomodoroRunning] = useState(false);
+  const [userPreferencesReady, setUserPreferencesReady] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState('');
+  const [analyticsRange, setAnalyticsRange] = useState(30);
 
   /* --- CRUD --- */
-  const [newApp, setNewApp] = useState({ nombre: '', url: '', desc: '', icono: '' });
+  const [newApp, setNewApp] = useState({ nombre: '', url: '', desc: '', icono: '', grupo: '' });
   const [isAddingApp, setIsAddingApp] = useState(false);
   const [editingAppId, setEditingAppId] = useState(null);
 
   /* ---------------- Efectos ---------------- */
-  useEffect(() => { document.body.setAttribute('data-theme', theme); }, [theme]);
+  useEffect(() => { document.body.setAttribute('data-theme', isLoggedIn ? theme : 'light'); }, [isLoggedIn, theme]);
 
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -217,6 +612,8 @@ export default function App() {
       }
       if (e.key === 'Escape') {
         setIsSpotlightOpen(false); setIsLaunchpadOpen(false); setShowUserMenu(false);
+        setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
+        setPublicationTypeOpen(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -230,10 +627,40 @@ export default function App() {
     if (!isLoggedIn || !userData) return;
     try {
       const t = localStorage.getItem(`agora_tasks_${userData.usuario}`);
-      if (t) setTasks(JSON.parse(t));
+      setTasks(t ? JSON.parse(t).map(task => ({ color: 'navy', dueDate: '', ...task })) : []);
       const r = localStorage.getItem(`agora_recent_${userData.usuario}`);
-      if (r) setRecents(JSON.parse(r));
+      setRecents(r ? JSON.parse(r) : []);
     } catch { /* ignorar almacenamiento corrupto */ }
+  }, [isLoggedIn, userData]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !userData) { setUserPreferencesReady(false); return; }
+    setUserPreferencesReady(false);
+    try {
+      const key = userData.usuario;
+      const savedWidgets = JSON.parse(localStorage.getItem(`agora_widgets_${key}`) || '[]');
+      const savedProfile = JSON.parse(localStorage.getItem(`agora_profile_${key}`) || 'null');
+      const savedAppearance = JSON.parse(localStorage.getItem(`agora_appearance_${key}`) || localStorage.getItem('agora_workspace_appearance') || 'null');
+      const savedTheme = localStorage.getItem(`agora_theme_${key}`) || 'light';
+      const savedFocus = Number(localStorage.getItem(`agora_focus_minutes_${key}`) || 25);
+      const validFocus = Number.isFinite(savedFocus) ? Math.min(120, Math.max(5, Math.round(savedFocus / 5) * 5)) : 25;
+      setEnabledWidgets(Array.isArray(savedWidgets) ? savedWidgets.filter(id => WIDGET_CATALOG.some(widget => widget.id === id)) : []);
+      setProfilePreferences(savedProfile ? { displayName: '', roleLabel: '', welcomeMessage: '', ...savedProfile } : { displayName: '', roleLabel: '', welcomeMessage: '' });
+      setWorkspaceAppearance(savedAppearance ? { ...DEFAULT_APPEARANCE, ...savedAppearance } : DEFAULT_APPEARANCE);
+      setTheme(savedTheme === 'dark' ? 'dark' : 'light');
+      setQuickNote(localStorage.getItem(`agora_quick_note_${key}`) || '');
+      setFocusMinutes(validFocus);
+      setPomodoroSeconds(validFocus * 60);
+    } catch {
+      setEnabledWidgets([]);
+      setProfilePreferences({ displayName: '', roleLabel: '', welcomeMessage: '' });
+      setWorkspaceAppearance(DEFAULT_APPEARANCE);
+      setTheme('light');
+      setQuickNote('');
+      setFocusMinutes(25);
+      setPomodoroSeconds(25 * 60);
+    }
+    setUserPreferencesReady(true);
   }, [isLoggedIn, userData]);
 
   useEffect(() => {
@@ -244,6 +671,44 @@ export default function App() {
     if (isLoggedIn && userData) localStorage.setItem(`agora_recent_${userData.usuario}`, JSON.stringify(recents));
   }, [recents, isLoggedIn, userData]);
 
+  useEffect(() => {
+    if (!userPreferencesReady || !userData) return;
+    const key = userData.usuario;
+    localStorage.setItem(`agora_widgets_${key}`, JSON.stringify(enabledWidgets));
+    localStorage.setItem(`agora_profile_${key}`, JSON.stringify(profilePreferences));
+    localStorage.setItem(`agora_appearance_${key}`, JSON.stringify(workspaceAppearance));
+    localStorage.setItem(`agora_theme_${key}`, theme);
+    localStorage.setItem(`agora_quick_note_${key}`, quickNote);
+    localStorage.setItem(`agora_focus_minutes_${key}`, String(focusMinutes));
+  }, [enabledWidgets, profilePreferences, workspaceAppearance, theme, quickNote, focusMinutes, userPreferencesReady, userData]);
+
+  useEffect(() => {
+    if (!pomodoroRunning) return undefined;
+    const timer = setInterval(() => {
+      setPomodoroSeconds(seconds => {
+        if (seconds <= 1) { setPomodoroRunning(false); return 0; }
+        return seconds - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [pomodoroRunning]);
+
+  useEffect(() => {
+    localStorage.setItem('agora_corporate_board', JSON.stringify(boardPosts));
+  }, [boardPosts]);
+
+  useEffect(() => {
+    setBoardSlide(index => boardPosts.length ? Math.min(index, boardPosts.length - 1) : 0);
+  }, [boardPosts.length]);
+
+  useEffect(() => {
+    if (boardPosts.length < 2 || boardCarouselPaused) return undefined;
+    const timer = setInterval(() => {
+      setBoardSlide(index => (index + 1) % boardPosts.length);
+    }, 6500);
+    return () => clearInterval(timer);
+  }, [boardPosts.length, boardCarouselPaused, boardSlide]);
+
   /* ---------------- API ---------------- */
   const post = async (payload) => {
     const res = await fetch(GAS_API_URL, {
@@ -252,14 +717,95 @@ export default function App() {
     return res.json();
   };
 
+  const emitAnalytics = (event, details = {}) => {
+    const actor = details.usuario || userData?.usuario;
+    if (!actor) return;
+    const eventData = {
+      event,
+      usuario: actor,
+      appId: details.appId || '',
+      appName: details.appName || '',
+      group: details.group || '',
+      durationSeconds: Math.max(0, Math.round(Number(details.durationSeconds) || 0)),
+      view: details.view || '',
+      sessionId: details.sessionId || sessionIdRef.current || '',
+      authToken: details.authToken || userData?.sessionToken || '',
+      detail: details.detail || '',
+    };
+    fetch(GAS_API_URL, {
+      method: 'POST', body: JSON.stringify({ action: 'trackEvent', eventData }),
+      headers: { 'Content-Type': 'text/plain' }, keepalive: true,
+    }).catch(() => {});
+  };
+
   const fetchApps = async () => {
-    try { const r = await post({ action: 'getApps' }); if (r.status === 'success') setAppsList(r.data || []); }
+    try {
+      const r = await post({ action: 'getApps' });
+      if (r.status === 'success') setAppsList((r.data || []).map(app => ({ ...app, grupo: app.grupo?.trim() || 'Sin grupo' })));
+    }
     catch { /* offline */ }
   };
   const fetchUsers = async () => {
     try { const r = await post({ action: 'getUsers' }); if (r.status === 'success') setUsersList(r.data || []); }
     catch { /* offline */ }
   };
+  const fetchBoardPosts = async () => {
+    try {
+      const r = await post({ action: 'getBoardPosts' });
+      if (r.status === 'success' && Array.isArray(r.data)) setBoardPosts(r.data.map(item => ({ linkUrl: '', ...item })));
+    } catch { /* respaldo local */ }
+  };
+
+  const fetchAnalytics = async () => {
+    if (userData?.rolGlobal !== 'Administrador') return;
+    setAnalyticsLoading(true); setAnalyticsError('');
+    try {
+      const response = await post({ action: 'getAnalytics', usuario: userData.usuario, authToken: userData.sessionToken, days: analyticsRange });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible consultar la analítica.');
+      setAnalyticsData(response.data);
+    } catch (analyticsRequestError) {
+      setAnalyticsError(analyticsRequestError.message || 'No fue posible conectar con la analítica.');
+    } finally { setAnalyticsLoading(false); }
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn || !userData || currentView !== 'analytics' || userData.rolGlobal !== 'Administrador') return;
+    fetchAnalytics();
+  }, [analyticsRange, currentView, isLoggedIn, userData]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !userData) return;
+    emitAnalytics('view_open', { view: currentView });
+  }, [currentView, isLoggedIn, userData]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !userData || !activeAppId) return undefined;
+    const app = openApps.find(item => item.id === activeAppId);
+    if (!app) return undefined;
+    let lastStartedAt = Date.now();
+    let visible = !document.hidden;
+
+    const flushUsage = () => {
+      if (!visible) return;
+      const now = Date.now();
+      const seconds = Math.floor((now - lastStartedAt) / 1000);
+      if (seconds > 0) emitAnalytics('app_usage', {
+        appId: app.sys ? `sys-${app.sys}` : app.id, appName: app.nombre, group: app.grupo || (app.sys ? 'Utilidades del sistema' : 'Sin grupo'), durationSeconds: seconds,
+      });
+      lastStartedAt = now;
+    };
+    const handleVisibility = () => {
+      if (document.hidden) { flushUsage(); visible = false; }
+      else { visible = true; lastStartedAt = Date.now(); }
+    };
+    const heartbeat = window.setInterval(flushUsage, 60000);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.clearInterval(heartbeat);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      flushUsage();
+    };
+  }, [activeAppId, isLoggedIn, userData]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -267,34 +813,105 @@ export default function App() {
     setLoading(true); setError('');
     try {
       const r = await post({ action: 'login', usuario, password });
-      if (r.status === 'success') { setIsLoggedIn(true); setUserData(r); fetchApps(); fetchUsers(); }
+      if (r.status === 'success') {
+        const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        sessionIdRef.current = sessionId; sessionStartedAtRef.current = Date.now();
+        setIsLoggedIn(true); setUserData(r); fetchApps(); fetchUsers(); fetchBoardPosts();
+        emitAnalytics('session_start', { usuario: r.usuario, authToken: r.sessionToken, sessionId, detail: r.rolGlobal || '' });
+      }
       else setError(r.message || 'Credenciales no válidas.');
     } catch { setError('Servidor no disponible en este momento.'); }
     finally { setLoading(false); }
   };
 
   const handleLogout = () => {
+    if (userData?.usuario && sessionStartedAtRef.current) emitAnalytics('session_end', {
+      durationSeconds: Math.floor((Date.now() - sessionStartedAtRef.current) / 1000),
+    });
+    document.body.setAttribute('data-theme', 'light');
     setIsLoggedIn(false); setUserData(null); setOpenApps([]); setActiveAppId(null);
-    setShowUserMenu(false); setCurrentView('dashboard'); setPassword(''); setCaptchaVerified(false);
+    setShowUserMenu(false); setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
+    setShowBoardManager(false); setPublicationTypeOpen(false); setBoardCarouselPaused(false);
+    setCurrentView('dashboard'); setPassword(''); setCaptchaVerified(false); setPomodoroRunning(false);
+    setTheme('light'); setWorkspaceAppearance(DEFAULT_APPEARANCE); setAnalyticsData(null); setAnalyticsError('');
+    sessionIdRef.current = ''; sessionStartedAtRef.current = 0;
   };
 
   /* ---------------- Tareas ---------------- */
   const addTask = (e) => {
     if (e.key === 'Enter' && newTask.trim()) {
-      setTasks(t => [...t, { id: Date.now(), text: newTask.trim(), done: false }]);
+      setTasks(t => [...t, {
+        id: Date.now(), text: newTask.trim(), done: false, color: newTaskColor, dueDate: dateKey(),
+      }]);
       setNewTask('');
     }
   };
   const toggleTask = (id) => setTasks(t => t.map(x => x.id === id ? { ...x, done: !x.done } : x));
   const deleteTask = (id) => setTasks(t => t.filter(x => x.id !== id));
   const clearDone = () => setTasks(t => t.filter(x => !x.done));
+  const cycleTaskColor = (id) => setTasks(list => list.map(task => {
+    if (task.id !== id) return task;
+    const index = TASK_COLORS.findIndex(color => color.id === task.color);
+    return { ...task, color: TASK_COLORS[(index + 1) % TASK_COLORS.length].id };
+  }));
+
+  const openCalendar = (date = new Date()) => {
+    setSelectedDate(dateKey(date));
+    setCalendarMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    setIsCalendarOpen(true);
+  };
+
+  const addScheduledTask = (e) => {
+    e.preventDefault();
+    if (!calendarTaskText.trim()) return;
+    setTasks(list => [...list, {
+      id: Date.now(), text: calendarTaskText.trim(), done: false,
+      color: calendarTaskColor, dueDate: selectedDate,
+    }]);
+    setCalendarTaskText('');
+  };
+
+  const addBoardPost = async (e) => {
+    e.preventDefault();
+    const isBanner = newBoardPost.type === 'banner';
+    if (isBanner ? !newBoardPost.imageUrl.trim() : (!newBoardPost.title.trim() || !newBoardPost.body.trim())) return;
+    const postItem = {
+      ...newBoardPost,
+      id: `board-${Date.now()}`,
+      title: isBanner ? '' : newBoardPost.title.trim(),
+      body: isBanner ? '' : newBoardPost.body.trim(),
+      imageUrl: newBoardPost.imageUrl.trim(),
+      linkUrl: normalizeExternalUrl(newBoardPost.linkUrl),
+      createdAt: Date.now(),
+      author: userData?.usuario || 'Administración',
+    };
+    setBoardPosts(posts => [postItem, ...posts]);
+    setNewBoardPost({ type: 'comunicado', title: '', body: '', imageUrl: '', linkUrl: '' });
+    setBoardSlide(0);
+    setPublicationTypeOpen(false);
+    try {
+      const r = await post({ action: 'addBoardPost', postData: postItem });
+      if (r.status === 'success') await fetchBoardPosts();
+    } catch { /* la publicación permanece en el respaldo local */ }
+  };
+
+  const deleteBoardPost = async (id) => {
+    setBoardPosts(posts => posts.filter(post => post.id !== id));
+    try {
+      const r = await post({ action: 'deleteBoardPost', id });
+      if (r.status === 'success') await fetchBoardPosts();
+    } catch { /* conservar eliminación local */ }
+  };
 
   /* ---------------- CRUD ---------------- */
   const handleAddApp = async (e) => {
-    e.preventDefault(); setIsAddingApp(true);
+    e.preventDefault();
+    if (!newApp.grupo.trim()) return;
+    setIsAddingApp(true);
     try {
-      const r = await post({ action: 'addApp', appData: newApp });
-      if (r.status === 'success') { await fetchApps(); setNewApp({ nombre: '', url: '', desc: '', icono: '' }); setCurrentView('dashboard'); }
+      const appData = { ...newApp, grupo: canonicalGroupName(newApp.grupo, appGroups) };
+      const r = await post({ action: 'addApp', appData });
+      if (r.status === 'success') { await fetchApps(); setNewApp({ nombre: '', url: '', desc: '', icono: '', grupo: '' }); setCurrentView('dashboard'); }
     } catch { /* noop */ } finally { setIsAddingApp(false); }
   };
   const handleDeleteApp = async (id) => {
@@ -305,7 +922,8 @@ export default function App() {
     e.preventDefault();
     try {
       const appToUpdate = appsList.find(a => a.id === id);
-      const r = await post({ action: 'updateApp', appData: appToUpdate });
+      if (!appToUpdate?.grupo?.trim()) return;
+      const r = await post({ action: 'updateApp', appData: { ...appToUpdate, grupo: canonicalGroupName(appToUpdate.grupo, appGroups) } });
       if (r.status === 'success') { setEditingAppId(null); await fetchApps(); }
     } catch { /* noop */ }
   };
@@ -320,65 +938,130 @@ export default function App() {
     ].slice(0, 5));
   };
 
+  const prioritizeWindow = (appId) => {
+    windowLayerCounter.current += 1;
+    setWindowLayers(layers => ({ ...layers, [appId]: windowLayerCounter.current }));
+    setActiveAppId(appId);
+  };
+
+  const topVisibleWindow = (apps, excludedId = null) => apps
+    .filter(app => app.id !== excludedId && !minimizedApps[app.id])
+    .sort((a, b) => (windowLayers[b.id] || 0) - (windowLayers[a.id] || 0))[0];
+
   const launchApp = (app) => {
     closeOverlays();
     pushRecent(app);
+    emitAnalytics('app_open', { appId: app.id, appName: app.nombre, group: app.grupo || 'Sin grupo' });
     const existing = openApps.find(a => a.id === app.id);
-    if (existing) { setMinimizedApps(p => ({ ...p, [app.id]: false })); setActiveAppId(app.id); return; }
+    if (existing) { setMinimizedApps(p => ({ ...p, [app.id]: false })); prioritizeWindow(app.id); return; }
     const toOpen = { ...app, isAuthorized: true, sys: false, defaultWidth: 1040, defaultHeight: 660 };
     setOpenApps(prev => [...prev, toOpen]);
-    setActiveAppId(toOpen.id);
+    prioritizeWindow(toOpen.id);
     setLoadingApps(p => ({ ...p, [toOpen.id]: true }));
   };
 
   const launchSystemApp = (type) => {
     closeOverlays();
-    const existing = openApps.find(a => a.sys === type);
-    if (existing) { setMinimizedApps(p => ({ ...p, [existing.id]: false })); setActiveAppId(existing.id); return; }
     const def = SYSTEM_APPS.find(s => s.sys === type);
+    emitAnalytics('app_open', { appId: `sys-${type}`, appName: def?.nombre || type, group: 'Utilidades del sistema' });
+    const existing = openApps.find(a => a.sys === type);
+    if (existing) { setMinimizedApps(p => ({ ...p, [existing.id]: false })); prioritizeWindow(existing.id); return; }
     const win = {
       id: `sys-${type}-${Date.now()}`, nombre: def.nombre, sys: type, isAuthorized: true,
       icono: '', grad: def.grad, sysIcon: def.icon, defaultWidth: def.w, defaultHeight: def.h,
     };
     setOpenApps(prev => [...prev, win]);
-    setActiveAppId(win.id);
+    prioritizeWindow(win.id);
   };
 
   const closeApp = (e, appId) => {
     if (e) e.stopPropagation();
+    const closingApp = openApps.find(app => app.id === appId);
+    if (closingApp) emitAnalytics('app_close', { appId: closingApp.sys ? `sys-${closingApp.sys}` : closingApp.id, appName: closingApp.nombre, group: closingApp.grupo || (closingApp.sys ? 'Utilidades del sistema' : 'Sin grupo') });
     const rest = openApps.filter(a => a.id !== appId);
+    const next = topVisibleWindow(rest);
     setOpenApps(rest);
-    if (activeAppId === appId) setActiveAppId(rest.length ? rest[rest.length - 1].id : null);
+    setWindowLayers(layers => {
+      const updated = { ...layers };
+      delete updated[appId];
+      if (next) {
+        windowLayerCounter.current += 1;
+        updated[next.id] = windowLayerCounter.current;
+      }
+      return updated;
+    });
+    if (activeAppId === appId) {
+      setActiveAppId(next?.id || null);
+    }
   };
 
   const toggleMinimize = (e, appId) => {
     e.stopPropagation();
+    if (windowMotion[appId]) return;
     const winEl = document.getElementById(`window-${appId}`);
     const dockEl = document.getElementById(`dock-${appId}`);
+    let vector = { x: 0, y: window.innerHeight, scaleX: .06, scaleY: .04 };
     if (winEl && dockEl) {
       const w = winEl.getBoundingClientRect();
       const d = dockEl.getBoundingClientRect();
-      setMinimizeOrigins(p => ({
-        ...p,
-        [appId]: `${d.left + d.width / 2 - w.left}px ${d.top + d.height / 2 - w.top}px`,
-      }));
+      vector = {
+        x: d.left + d.width / 2 - (w.left + w.width / 2),
+        y: d.top + d.height / 2 - (w.top + w.height / 2),
+        scaleX: Math.max(.045, d.width / Math.max(w.width, 1)),
+        scaleY: Math.max(.025, d.height / Math.max(w.height, 1)),
+      };
     }
-    setMinimizedApps(p => ({ ...p, [appId]: true }));
+    setMinimizeVectors(vectors => ({ ...vectors, [appId]: vector }));
+    setWindowMotion(motion => ({ ...motion, [appId]: { phase: 'minimizing', ...vector } }));
+    if (activeAppId === appId) {
+      const next = topVisibleWindow(openApps, appId);
+      if (next) prioritizeWindow(next.id);
+      else setActiveAppId(null);
+    }
   };
 
-  const toggleMaximize = (e, appId) => { e.stopPropagation(); setMaximizedApps(p => ({ ...p, [appId]: !p[appId] })); };
+  const finishWindowMotion = (appId) => {
+    const motion = windowMotion[appId];
+    if (!motion) return;
+    if (motion.phase === 'minimizing') setMinimizedApps(items => ({ ...items, [appId]: true }));
+    setWindowMotion(items => {
+      const next = { ...items };
+      delete next[appId];
+      return next;
+    });
+  };
+
+  const toggleMaximize = (e, appId) => {
+    e.stopPropagation();
+    if (openApps.find(app => app.id === appId)?.sys === 'calculator') return;
+    setMaximizedApps(p => ({ ...p, [appId]: !p[appId] }));
+  };
 
   const handleDockClick = (appId) => {
-    if (minimizedApps[appId]) { setMinimizedApps(p => ({ ...p, [appId]: false })); setActiveAppId(appId); return; }
+    if (windowMotion[appId]) return;
+    if (minimizedApps[appId]) {
+      const vector = minimizeVectors[appId] || { x: 0, y: window.innerHeight, scaleX: .06, scaleY: .04 };
+      setMinimizedApps(p => ({ ...p, [appId]: false }));
+      prioritizeWindow(appId);
+      setWindowMotion(motion => ({ ...motion, [appId]: { phase: 'restoring', ...vector } }));
+      return;
+    }
     if (activeAppId === appId && workspaceMode === 'desktop') { toggleMinimize({ stopPropagation() {} }, appId); return; }
-    setActiveAppId(appId);
+    prioritizeWindow(appId);
   };
 
   const goDesktop = () => { setActiveAppId(null); setCurrentView('dashboard'); };
+  const handleWorkspaceBackground = () => {
+    if (workspaceMode !== 'desktop') return;
+    goDesktop();
+  };
 
   /* ---------------- Derivados ---------------- */
   const isAdmin = userData?.rolGlobal === 'Administrador';
-  const pendingTasks = tasks.filter(t => !t.done).length;
+  const todayKey = dateKey(currentTime);
+  const dashboardTasks = tasks.filter(task => !task.dueDate || task.dueDate <= todayKey);
+  const pendingTasks = dashboardTasks.filter(t => !t.done).length;
+  const scheduledTasks = tasks.filter(task => !task.done && task.dueDate && task.dueDate > todayKey).length;
 
   const greeting = useMemo(() => {
     const h = currentTime.getHours();
@@ -397,9 +1080,35 @@ export default function App() {
     });
   }, [currentTime]);
 
+  const calendarDays = useMemo(() => {
+    const first = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1);
+    const offset = (first.getDay() + 6) % 7;
+    const gridStart = new Date(first);
+    gridStart.setDate(first.getDate() - offset);
+    return Array.from({ length: 42 }, (_, index) => {
+      const day = new Date(gridStart);
+      day.setDate(gridStart.getDate() + index);
+      return day;
+    });
+  }, [calendarMonth]);
+
+  const tasksForSelectedDate = tasks.filter(task => task.dueDate === selectedDate);
+
+  const appGroups = useMemo(() => [...new Set(appsList.map(app => app.grupo?.trim() || 'Sin grupo'))]
+    .sort((a, b) => {
+      if (a === 'Sin grupo') return 1;
+      if (b === 'Sin grupo') return -1;
+      return a.localeCompare(b, 'es', { sensitivity: 'base' });
+    }), [appsList]);
+
+  const groupedApps = useMemo(() => appGroups.map(group => ({
+    group,
+    apps: appsList.filter(app => (app.grupo?.trim() || 'Sin grupo') === group),
+  })), [appGroups, appsList]);
+
   const launchpadEntries = useMemo(() => {
     const sys = SYSTEM_APPS.map(s => ({
-      id: `lp-${s.sys}`, nombre: s.nombre, grad: s.grad, sysIcon: s.icon, sysType: s.sys, desc: 'Utilidad del sistema',
+      id: `lp-${s.sys}`, nombre: s.nombre, grad: s.grad, sysIcon: s.icon, sysType: s.sys, desc: 'Utilidad del sistema', grupo: 'Utilidades del sistema',
     }));
     return [...appsList.map(a => ({ ...a })), ...sys];
   }, [appsList]);
@@ -407,40 +1116,193 @@ export default function App() {
   const lpFiltered = useMemo(() => {
     const q = lpQuery.trim().toLowerCase();
     if (!q) return launchpadEntries;
-    return launchpadEntries.filter(a => (a.nombre || '').toLowerCase().includes(q));
+    return launchpadEntries.filter(a => (a.nombre || '').toLowerCase().includes(q) || (a.grupo || '').toLowerCase().includes(q));
   }, [launchpadEntries, lpQuery]);
 
+  const lpGrouped = useMemo(() => {
+    const groups = [...new Set(lpFiltered.map(entry => entry.grupo?.trim() || 'Sin grupo'))];
+    return groups.map(group => ({ group, entries: lpFiltered.filter(entry => (entry.grupo?.trim() || 'Sin grupo') === group) }));
+  }, [lpFiltered]);
+
   const openEntry = (entry) => entry.sysType ? launchSystemApp(entry.sysType) : launchApp(entry);
+  const welcomeName = profilePreferences.displayName.trim() || userData?.usuario || '';
+  const completedTasks = tasks.filter(task => task.done).length;
+  const productivityPercent = tasks.length ? Math.round((completedTasks / tasks.length) * 100) : 0;
+  const upcomingTasks = tasks
+    .filter(task => !task.done && task.dueDate && task.dueDate > todayKey)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+    .slice(0, 3);
+  const pomodoroLabel = `${String(Math.floor(pomodoroSeconds / 60)).padStart(2, '0')}:${String(pomodoroSeconds % 60).padStart(2, '0')}`;
+  const clockUses24Hours = workspaceAppearance.clockFormat !== '12';
+  const clockHour = clockUses24Hours ? currentTime.getHours() : (currentTime.getHours() % 12 || 12);
+  const clockMainLabel = `${String(clockHour).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
+  const clockSecondsLabel = String(currentTime.getSeconds()).padStart(2, '0');
+  const clockPeriodLabel = clockUses24Hours ? '' : (currentTime.getHours() < 12 ? 'AM' : 'PM');
+  const menuClockLabel = `${clockMainLabel}${clockPeriodLabel ? ` ${clockPeriodLabel}` : ''}`;
+  const activeBoardPost = boardPosts[boardSlide] || null;
+  const selectedBoardType = BOARD_TYPES.find(type => type.id === newBoardPost.type) || BOARD_TYPES[0];
+
+  const changeBoardSlide = (direction) => {
+    if (boardPosts.length < 2) return;
+    setBoardSlide(index => (index + direction + boardPosts.length) % boardPosts.length);
+  };
+
+  const setFocusDuration = (minutes) => {
+    if (pomodoroRunning) return;
+    const next = Math.min(120, Math.max(5, Math.round(minutes / 5) * 5));
+    setFocusMinutes(next);
+    setPomodoroSeconds(next * 60);
+  };
+
+  const toggleWidget = (widgetId) => setEnabledWidgets(items => (
+    items.includes(widgetId) ? items.filter(id => id !== widgetId) : [...items, widgetId]
+  ));
+
+  const renderOptionalWidget = (widgetId) => {
+    const widget = WIDGET_CATALOG.find(item => item.id === widgetId);
+    if (!widget) return null;
+    const WidgetIcon = widget.icon;
+    let content = null;
+
+    if (widgetId === 'pomodoro') content = (
+      <div className="pomodoro-widget">
+        <div className={`pomodoro-ring ${pomodoroRunning ? 'running' : ''}`}><strong>{pomodoroLabel}</strong><span>ENFOQUE</span></div>
+        <div className="focus-widget-controls">
+          <div className="focus-duration">
+            <span>Duración</span>
+            <div>
+              <button disabled={pomodoroRunning || focusMinutes <= 5} onClick={() => setFocusDuration(focusMinutes - 5)} aria-label="Reducir cinco minutos"><IcoMinus s={11} /></button>
+              <strong>{focusMinutes} min</strong>
+              <button disabled={pomodoroRunning || focusMinutes >= 120} onClick={() => setFocusDuration(focusMinutes + 5)} aria-label="Aumentar cinco minutos"><IcoPlus s={11} /></button>
+            </div>
+          </div>
+          <div className="widget-actions">
+          <button className="widget-action primary" onClick={() => { if (pomodoroSeconds === 0) setPomodoroSeconds(focusMinutes * 60); setPomodoroRunning(value => !value); }}>
+            {pomodoroRunning ? <IcoPause s={14} /> : <IcoPlay s={14} />} {pomodoroRunning ? 'Pausar' : 'Iniciar'}
+          </button>
+          <button className="widget-action" onClick={() => { setPomodoroRunning(false); setPomodoroSeconds(focusMinutes * 60); }}><IcoRefresh s={14} /> Reiniciar</button>
+          </div>
+        </div>
+      </div>
+    );
+
+    if (widgetId === 'quick-note') content = (
+      <textarea className="quick-note-widget" value={quickNote} onChange={e => setQuickNote(e.target.value)} placeholder="Escribe una idea, recordatorio o dato importante…" />
+    );
+
+    if (widgetId === 'productivity') content = (
+      <div className="productivity-widget">
+        <div className="productivity-score" style={{ '--progress': `${productivityPercent * 3.6}deg` }}><strong>{productivityPercent}%</strong></div>
+        <div><strong>{completedTasks} de {tasks.length}</strong><span>Tareas completadas</span><small>{pendingTasks ? `${pendingTasks} pendientes para hoy` : 'Tu agenda de hoy está al día'}</small></div>
+      </div>
+    );
+
+    if (widgetId === 'upcoming') content = (
+      <div className="upcoming-widget">
+        {upcomingTasks.length === 0
+          ? <p className="empty-note">No tienes tareas próximas.</p>
+          : upcomingTasks.map(task => (
+            <button key={task.id} onClick={() => openCalendar(new Date(`${task.dueDate}T12:00:00`))}>
+              <i className={`color-${task.color || 'navy'}`} /><span><strong>{task.text}</strong><small>{new Date(`${task.dueDate}T12:00:00`).toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })}</small></span><IcoChevron s={12} />
+            </button>
+          ))}
+      </div>
+    );
+
+    if (widgetId === 'shortcuts') content = (
+      <div className="shortcut-widget">
+        {SYSTEM_APPS.map(app => (
+          <button key={app.sys} onClick={() => launchSystemApp(app.sys)}><AppIcon app={{ nombre: app.nombre, grad: app.grad, sysIcon: app.icon }} size={42} /><span>{app.nombre}</span></button>
+        ))}
+      </div>
+    );
+
+    if (widgetId === 'activity') content = (
+      <div className="activity-widget">
+        <div><strong>{recents.length}</strong><span>Accesos recientes</span></div>
+        <div><strong>{openApps.length}</strong><span>Apps en sesión</span></div>
+        <div><strong>{appsList.length + SYSTEM_APPS.length}</strong><span>Herramientas</span></div>
+      </div>
+    );
+
+    return (
+      <section key={widgetId} className="card b4 optional-widget flat">
+        <div className="card-head widget-head">
+          <div className="card-label"><WidgetIcon s={13} /> {widget.label}</div>
+          <button className="widget-remove" onClick={() => toggleWidget(widgetId)} title="Quitar del escritorio"><IcoX s={11} /></button>
+        </div>
+        {content}
+      </section>
+    );
+  };
+
+  const handleLoginPointerMove = (e) => {
+    const bounds = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - bounds.left) / bounds.width;
+    const y = (e.clientY - bounds.top) / bounds.height;
+    e.currentTarget.style.setProperty('--pointer-x', `${x * 100}%`);
+    e.currentTarget.style.setProperty('--pointer-y', `${y * 100}%`);
+    e.currentTarget.style.setProperty('--login-shift-x', `${(x - 0.5) * 22}px`);
+    e.currentTarget.style.setProperty('--login-shift-y', `${(y - 0.5) * 16}px`);
+  };
 
   /* ======================================================================
      LOGIN
      ====================================================================== */
   if (!isLoggedIn) {
     return (
-      <div className="login-root">
+      <div className="login-root" onPointerMove={handleLoginPointerMove}>
+        <div className="login-grid" />
+        <div className="login-intelligence" aria-hidden="true">
+          <svg className="ai-network" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+            <g className="ai-network-lines">
+              <path d="M-30 650 C180 520 210 290 430 330 S730 610 930 430 1190 120 1480 260" />
+              <path d="M40 180 C250 260 330 90 520 190 S770 410 1010 280 1250 510 1490 390" />
+              <path d="M130 820 C360 650 510 760 650 580 S920 610 1110 720 1340 620 1500 690" />
+              <path d="M270 -40 C240 210 480 300 600 470 S690 830 850 950" />
+              <path d="M1110 -50 C980 160 1080 330 930 470 S720 640 760 930" />
+            </g>
+            <g className="ai-network-nodes">
+              {[[130,180],[310,265],[430,330],[520,190],[650,580],[760,410],[930,430],[1010,280],[1110,720],[1225,510],[1340,260],[360,650]].map(([cx, cy], index) => (
+                <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={index % 3 === 0 ? 7 : 4} />
+              ))}
+            </g>
+          </svg>
+          <div className="ai-orbit ai-orbit-main"><span>AI</span></div>
+          <span className="ai-signal ai-signal-data">DATOS</span>
+          <span className="ai-signal ai-signal-ideas">IDEAS</span>
+          <span className="ai-signal ai-signal-growth">CRECIMIENTO</span>
+        </div>
+        <span className="login-motion login-motion-a" />
+        <span className="login-motion login-motion-b" />
+        <span className="login-motion login-motion-c" />
         <div className="login-card">
           <div className="login-aside">
+            <div className="login-aside-sheen" />
             <div className="login-brand">
               <img src="/logo_compañias.png" alt="Multival" className="login-logo" />
+              <span className="login-secure"><IcoShield s={13} /> Entorno protegido</span>
             </div>
             <div className="login-copy">
-              <h1 className="login-title">Ágora OS</h1>
+              <span className="login-eyebrow">Un acceso. Todas tus herramientas.</span>
+              <h1 className="login-title">Ágora <span>OS</span></h1>
               <p className="login-text">
-                Hub central de innovación. Un único acceso para todo el ecosistema
-                de aplicativos corporativos.
+                Tu espacio de trabajo corporativo, diseñado para acceder a las aplicaciones
+                que necesitas de forma simple, segura y personalizada.
               </p>
             </div>
-            <div className="login-chips">
-              <span className="login-chip">One-Login SSO</span>
-              <span className="login-chip">Gobierno de accesos</span>
-              <span className="login-chip">Multival · Reval · Multipagas</span>
+            <div className="login-benefits">
+              <div className="login-benefit"><IcoUser s={16} /><span><strong>Una sola identidad</strong><small>Tu perfil conecta todas las herramientas.</small></span></div>
+              <div className="login-benefit"><IcoGrid s={16} /><span><strong>Accesos por perfil</strong><small>Solo ves lo que necesitas para trabajar.</small></span></div>
+              <div className="login-benefit"><IcoShield s={16} /><span><strong>Sesión protegida</strong><small>Seguridad corporativa en todo momento.</small></span></div>
             </div>
           </div>
 
           <div className="login-form-side">
             <div className="login-form">
-              <span className="login-kicker">Acceso autorizado</span>
-              <h2 className="login-heading">Inicia sesión</h2>
+              <span className="login-kicker">Acceso corporativo seguro</span>
+              <h2 className="login-heading">Bienvenido de nuevo</h2>
+              <p className="login-helper">Ingresa con tus credenciales de red.</p>
 
               <form onSubmit={handleLogin}>
                 <div className="input-wrap">
@@ -463,10 +1325,10 @@ export default function App() {
                 </div>
 
                 <button type="submit" className="login-submit" disabled={loading}>
-                  {loading ? 'Validando…' : 'Entrar'}
+                  {loading ? 'Validando acceso…' : 'Ingresar a Ágora'}
                 </button>
               </form>
-              <p className="login-foot">Gestión Administrativa, Transformación y Desarrollo de Personas</p>
+              <p className="login-foot"><IcoShield s={12} /> Conexión cifrada · Acceso exclusivo para personal autorizado</p>
             </div>
           </div>
         </div>
@@ -477,15 +1339,45 @@ export default function App() {
   /* ======================================================================
      DASHBOARD · BENTO GRID
      ====================================================================== */
+  const renderBoardSlide = (post) => {
+    if (!post) return <p className="empty-note">No hay publicaciones activas.</p>;
+    const hasLink = Boolean(normalizeExternalUrl(post.linkUrl));
+    const article = post.type === 'banner' ? (
+      <article className={`board-post banner ${hasLink ? '' : 'board-slide-enter'}`} aria-label="Banner corporativo">
+        {post.imageUrl
+          ? <img className="board-banner-image" src={getValidImageUrl(post.imageUrl)} alt="Banner corporativo" />
+          : <div className="board-banner-empty">Banner sin imagen</div>}
+      </article>
+    ) : (
+      <article className={`board-post ${post.type} ${hasLink ? '' : 'board-slide-enter'}`}>
+        {post.imageUrl && <div className="board-post-image" style={{ backgroundImage: `linear-gradient(90deg, rgba(14,17,37,.80), rgba(14,17,37,.18)), url(${getValidImageUrl(post.imageUrl)})` }} />}
+        <div className="board-post-content">
+          <span className="board-type">{post.type}</span>
+          <h3>{post.title}</h3>
+          <p>{post.body}</p>
+          <small>{post.author} · {new Date(post.createdAt).toLocaleDateString('es-CO', { day: '2-digit', month: 'short' })}</small>
+        </div>
+      </article>
+    );
+
+    if (!hasLink) return article;
+    return (
+      <a className="board-slide-link board-slide-enter" href={normalizeExternalUrl(post.linkUrl)} target="_blank" rel="noopener noreferrer" aria-label="Abrir comunicación enlazada"
+        onClick={() => emitAnalytics('board_click', { detail: post.id || post.title || post.type })}>
+        {article}
+        <span className="board-link-hint">Abrir comunicación <IcoChevron s={12} /></span>
+      </a>
+    );
+  };
+
   const renderDashboard = () => (
     <div className="bento enter">
 
       {/* ---- Hero ---- */}
       <section className="card b6 flat">
-        <h1 className="hero-greet">{greeting}, <span>{userData.usuario}</span></h1>
+        <h1 className="hero-greet">{greeting}, <span>{welcomeName}</span></h1>
         <p className="hero-sub">
-          Tienes {appsList.length} aplicativo{appsList.length === 1 ? '' : 's'} disponible{appsList.length === 1 ? '' : 's'}
-          {pendingTasks > 0 ? ` y ${pendingTasks} tarea${pendingTasks === 1 ? '' : 's'} pendiente${pendingTasks === 1 ? '' : 's'}` : ' y ninguna tarea pendiente'}.
+          {profilePreferences.welcomeMessage.trim() || `Tienes ${appsList.length} aplicativo${appsList.length === 1 ? '' : 's'} disponible${appsList.length === 1 ? '' : 's'}${pendingTasks > 0 ? ` y ${pendingTasks} tarea${pendingTasks === 1 ? '' : 's'} pendiente${pendingTasks === 1 ? '' : 's'}` : ' y ninguna tarea pendiente'}.`}
         </p>
         <button className="search-trigger" onClick={openSpotlight}>
           <IcoSearch s={15} /> Buscar en Ágora <span className="kbd">⌘K</span>
@@ -496,8 +1388,8 @@ export default function App() {
       <section className="card b3">
         <div className="card-label"><IcoClock s={13} /> Hora local</div>
         <div className="clock-time">
-          {currentTime.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })}
-          <span className="clock-suffix">{currentTime.toLocaleTimeString('es-CO', { second: '2-digit' }).padStart(2, '0')}</span>
+          {clockMainLabel}
+          <span className="clock-suffix"><b>{clockSecondsLabel}</b>{clockPeriodLabel && <small>{clockPeriodLabel}</small>}</span>
         </div>
         <p className="clock-place">Bogotá, Colombia</p>
         <p className="clock-meta">GMT−5 · Semana {Math.ceil(((currentTime - new Date(currentTime.getFullYear(), 0, 1)) / 86400000 + 1) / 7)}</p>
@@ -505,7 +1397,10 @@ export default function App() {
 
       {/* ---- Calendario monocromático ---- */}
       <section className="card b3">
-        <div className="card-label" style={{ marginBottom: 12 }}><IcoCal s={13} /> Calendario</div>
+        <div className="card-head" style={{ marginBottom: 10 }}>
+          <div className="card-label"><IcoCal s={13} /> Calendario</div>
+          <button className="ghost-btn" onClick={() => openCalendar(currentTime)}>Expandir</button>
+        </div>
         <span className="cal-month">{currentTime.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</span>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4 }}>
           <span className="cal-day">{currentTime.getDate()}</span>
@@ -515,12 +1410,41 @@ export default function App() {
           {weekDays.map(d => {
             const isToday = d.toDateString() === currentTime.toDateString();
             return (
-              <div key={d.toISOString()} className={`cal-cell ${isToday ? 'today' : ''}`}>
+              <button key={d.toISOString()} className={`cal-cell ${isToday ? 'today' : ''}`} onClick={() => openCalendar(d)}>
                 <span className="cal-cell-dow">{d.toLocaleDateString('es-ES', { weekday: 'narrow' })}</span>
                 <span className="cal-cell-num">{d.getDate()}</span>
-              </div>
+              </button>
             );
           })}
+        </div>
+        {scheduledTasks > 0 && <button className="calendar-scheduled" onClick={() => openCalendar(currentTime)}>{scheduledTasks} programada{scheduledTasks === 1 ? '' : 's'}</button>}
+      </section>
+
+      {/* ---- Tablero corporativo: segunda fila del escritorio ---- */}
+      <section className="card b12 corporate-board flat">
+        <div className="card-head">
+          <div className="board-title-group">
+            <div className="card-label"><IcoBell s={13} /> Tablero corporativo</div>
+            <p className="board-subtitle">Novedades, banners e incidencias internas en un solo lugar.</p>
+          </div>
+          {isAdmin && <button className="btn btn-primary board-manage" onClick={() => setShowBoardManager(true)}><IcoPlus s={14} /> Administrar</button>}
+        </div>
+        <div className="board-carousel" onMouseEnter={() => setBoardCarouselPaused(true)} onMouseLeave={() => setBoardCarouselPaused(false)} onFocusCapture={() => setBoardCarouselPaused(true)} onBlurCapture={() => setBoardCarouselPaused(false)}>
+          <div className="board-feed" aria-live="polite">
+            <div key={activeBoardPost?.id || 'empty'} className="board-slide-frame">{renderBoardSlide(activeBoardPost)}</div>
+          </div>
+          {boardPosts.length > 1 && (
+            <div className="board-carousel-controls">
+              <button className="board-arrow previous" onClick={() => changeBoardSlide(-1)} aria-label="Publicación anterior"><IcoChevron s={14} /></button>
+              <div className="board-dots" role="tablist" aria-label="Publicaciones del tablero">
+                {boardPosts.map((post, index) => (
+                  <button key={post.id} className={index === boardSlide ? 'active' : ''} onClick={() => setBoardSlide(index)} aria-label={`Ver publicación ${index + 1}`} aria-selected={index === boardSlide} role="tab" />
+                ))}
+              </div>
+              <span className="board-counter">{boardSlide + 1} / {boardPosts.length}</span>
+              <button className="board-arrow next" onClick={() => changeBoardSlide(1)} aria-label="Siguiente publicación"><IcoChevron s={14} /></button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -531,72 +1455,65 @@ export default function App() {
           <button className="ghost-btn" onClick={openLaunchpad}>Abrir Launchpad</button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', margin: '0 -8px', padding: '2px 8px 4px' }}>
-          <div className="lp-grid">
-            {appsList.length === 0 && (
-              <p className="empty-note">Sincronizando el portafolio de sistemas…</p>
-            )}
-            {appsList.map(app => (
-              <button key={app.id} className="lp-item" onClick={() => launchApp(app)} title={app.desc || app.nombre}>
-                <AppIcon app={app} size={58} />
-                <span className="lp-name">{app.nombre}</span>
-              </button>
+          <div className="desktop-app-groups">
+            {appsList.length === 0 && <p className="empty-note">Sincronizando el portafolio de sistemas…</p>}
+            {groupedApps.map(({ group, apps }) => (
+              <section key={group} className="desktop-app-group">
+                <div className="app-group-heading"><span>{group}</span><small>{apps.length}</small></div>
+                <div className="lp-grid">
+                  {apps.map(app => (
+                    <button key={app.id} className="lp-item" onClick={() => launchApp(app)} title={app.desc || app.nombre}>
+                      <AppIcon app={app} size={58} />
+                      <span className="lp-name">{app.nombre}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
             ))}
-            {SYSTEM_APPS.map(s => (
-              <button key={s.sys} className="lp-item" onClick={() => launchSystemApp(s.sys)}>
-                <AppIcon app={{ nombre: s.nombre, grad: s.grad, sysIcon: s.icon }} size={58} />
-                <span className="lp-name">{s.nombre}</span>
-              </button>
-            ))}
+            <section className="desktop-app-group system-group">
+              <div className="app-group-heading"><span>Utilidades del sistema</span><small>{SYSTEM_APPS.length}</small></div>
+              <div className="lp-grid">
+                {SYSTEM_APPS.map(s => (
+                  <button key={s.sys} className="lp-item" onClick={() => launchSystemApp(s.sys)}>
+                    <AppIcon app={{ nombre: s.nombre, grad: s.grad, sysIcon: s.icon }} size={58} />
+                    <span className="lp-name">{s.nombre}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
           </div>
         </div>
       </section>
 
       {/* ---- Tareas ---- */}
-      <section className="card b4 r2 flat">
+      <section className="card b4 flat pending-card">
         <div className="card-head">
           <div className="card-label"><IcoCheck s={12} /> Pendientes</div>
           {tasks.some(t => t.done) && <button className="ghost-btn" onClick={clearDone}>Limpiar</button>}
         </div>
-        <div className="task-list">
-          {tasks.length === 0
-            ? <p className="empty-note" style={{ padding: '28px 0' }}>Todo en orden. No hay pendientes.</p>
-            : tasks.map(t => (
-              <div key={t.id} className={`task-row ${t.done ? 'done' : ''}`}>
+        <div className="task-list pending-task-list">
+          {dashboardTasks.length === 0
+            ? <p className="empty-note" style={{ padding: '28px 0' }}>{scheduledTasks > 0 ? 'No hay pendientes para hoy.' : 'Todo en orden. No hay pendientes.'}</p>
+            : dashboardTasks.map(t => (
+              <div key={t.id} className={`task-row color-${t.color || 'navy'} ${t.done ? 'done' : ''}`}>
+                <button className="task-color" onClick={() => cycleTaskColor(t.id)} title="Cambiar clasificación" aria-label="Cambiar color de la tarea" />
                 <button className="task-box" onClick={() => toggleTask(t.id)}>{t.done && <IcoCheck s={11} />}</button>
-                <span className="task-text">{t.text}</span>
+                <span className="task-text">{t.text}{t.dueDate && <small>{t.dueDate < todayKey ? 'Vencida' : 'Hoy'}</small>}</span>
                 <button className="task-del" onClick={() => deleteTask(t.id)}><IcoX s={11} /></button>
               </div>
             ))}
         </div>
-        <input className="field" placeholder="Nueva tarea…" value={newTask}
-          onChange={e => setNewTask(e.target.value)} onKeyDown={addTask} />
-      </section>
-
-      {/* ---- Tablón corporativo ---- */}
-      <section className="card b6">
-        <div className="card-label"><IcoBell s={13} /> Tablón corporativo</div>
-        <span className="pill">Nuevo</span>
-        <h3 className="note-title">Actualización de políticas de teletrabajo</h3>
-        <p className="note-body">
-          Los nuevos lineamientos ya están publicados en el portal de Gestión de Personas.
-          La lectura y aceptación es requisito antes del cierre de mes.
-        </p>
-        <p className="note-meta">Publicado por Gestión Administrativa · Multival</p>
-      </section>
-
-      {/* ---- Estado del ecosistema ---- */}
-      <section className="card b3 flat">
-        <div className="card-label"><IcoPulse s={13} /> Ecosistema</div>
-        <div className="metric-list">
-          <div className="metric-row"><span className="metric-key">Aplicativos</span><span className="metric-val">{appsList.length}</span></div>
-          <div className="metric-row"><span className="metric-key">Identidades</span><span className="metric-val">{usersList.length || '—'}</span></div>
-          <div className="metric-row"><span className="metric-key">Ventanas activas</span><span className="metric-val">{openApps.length}</span></div>
-          <div className="metric-row"><span className="metric-key">Pendientes</span><span className="metric-val">{pendingTasks}</span></div>
+        <div className="task-composer">
+          <div className="task-palette" aria-label="Color de la nueva tarea">
+            {TASK_COLORS.map(color => <button key={color.id} className={`task-swatch ${newTaskColor === color.id ? 'active' : ''}`} style={{ '--swatch': color.hex }} onClick={() => setNewTaskColor(color.id)} title={color.label} />)}
+          </div>
+          <input className="field" placeholder="Nueva tarea para hoy…" value={newTask}
+            onChange={e => setNewTask(e.target.value)} onKeyDown={addTask} />
         </div>
       </section>
 
       {/* ---- Recientes ---- */}
-      <section className="card b3 flat">
+      <section className="card b4 flat">
         <div className="card-label"><IcoHistory s={13} /> Recientes</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 'auto' }}>
           {recents.length === 0
@@ -619,6 +1536,8 @@ export default function App() {
             })}
         </div>
       </section>
+
+      {enabledWidgets.map(renderOptionalWidget)}
     </div>
   );
 
@@ -635,12 +1554,19 @@ export default function App() {
         </div>
         <div className="lp-canvas" onClick={e => e.stopPropagation()}>
           {lpFiltered.length === 0 && <p className="empty-note">Sin resultados para “{lpQuery}”.</p>}
-          {lpFiltered.map((entry, i) => (
-            <button key={entry.id} className="lp-item" style={{ animationDelay: `${Math.min(i * 22, 400)}ms` }}
-              onClick={() => openEntry(entry)}>
-              <AppIcon app={entry} size={76} />
-              <span className="lp-name">{entry.nombre}</span>
-            </button>
+          {lpGrouped.map(({ group, entries }, groupIndex) => (
+            <section key={group} className="lp-group-section">
+              <div className="lp-group-heading"><span>{group}</span><small>{entries.length} aplicativo{entries.length === 1 ? '' : 's'}</small></div>
+              <div className="lp-group-grid">
+                {entries.map((entry, index) => (
+                  <button key={entry.id} className="lp-item" style={{ animationDelay: `${Math.min((groupIndex * 4 + index) * 22, 400)}ms` }}
+                    onClick={() => openEntry(entry)}>
+                    <AppIcon app={entry} size={76} />
+                    <span className="lp-name">{entry.nombre}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
           ))}
         </div>
       </div>
@@ -653,7 +1579,7 @@ export default function App() {
   const renderSpotlight = () => {
     if (!isSpotlightOpen) return null;
     const q = searchQuery.trim().toLowerCase();
-    const appRes = q ? appsList.filter(a => (a.nombre || '').toLowerCase().includes(q) || (a.desc || '').toLowerCase().includes(q)) : [];
+    const appRes = q ? appsList.filter(a => (a.nombre || '').toLowerCase().includes(q) || (a.desc || '').toLowerCase().includes(q) || (a.grupo || '').toLowerCase().includes(q)) : [];
     const sysRes = q ? SYSTEM_APPS.filter(s => s.nombre.toLowerCase().includes(q)) : [];
     const taskRes = q ? tasks.filter(t => t.text.toLowerCase().includes(q)) : [];
     const nothing = q && !appRes.length && !sysRes.length && !taskRes.length;
@@ -668,7 +1594,7 @@ export default function App() {
             <span className="kbd">esc</span>
           </div>
           <div className="spot-results">
-            {!q && <p className="empty-note" style={{ padding: '34px 0' }}>Escribe para buscar en todo el ecosistema.</p>}
+            {!q && <p className="empty-note" style={{ padding: '34px 0' }}>Escribe para buscar en Ágora.</p>}
 
             {appRes.length > 0 && <div className="spot-group">Aplicativos</div>}
             {appRes.map(a => (
@@ -676,7 +1602,7 @@ export default function App() {
                 <AppIcon app={a} size={34} />
                 <span>
                   <span className="spot-row-title" style={{ display: 'block' }}>{a.nombre}</span>
-                  {a.desc && <span className="spot-row-sub">{String(a.desc).slice(0, 68)}</span>}
+                  <span className="spot-row-sub">{a.grupo || 'Sin grupo'}{a.desc ? ` · ${String(a.desc).slice(0, 54)}` : ''}</span>
                 </span>
               </button>
             ))}
@@ -705,8 +1631,438 @@ export default function App() {
   };
 
   /* ======================================================================
+     CALENDARIO EXPANDIDO
+     ====================================================================== */
+  const renderCalendarModal = () => {
+    if (!isCalendarOpen) return null;
+    const selected = new Date(`${selectedDate}T12:00:00`);
+    return (
+      <div className="modal-overlay" onMouseDown={() => setIsCalendarOpen(false)}>
+        <section className="calendar-modal" onMouseDown={e => e.stopPropagation()}>
+          <div className="modal-head">
+            <div>
+              <span className="login-kicker">Planificación personal</span>
+              <h2>Calendario y tareas</h2>
+            </div>
+            <button className="modal-close" onClick={() => setIsCalendarOpen(false)}><IcoX s={14} /></button>
+          </div>
+          <div className="calendar-layout">
+            <div className="calendar-main">
+              <div className="calendar-nav">
+                <button onClick={() => setCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>
+                <strong>{calendarMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</strong>
+                <button onClick={() => setCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
+              </div>
+              <div className="calendar-dow">{['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div>
+              <div className="calendar-grid">
+                {calendarDays.map(day => {
+                  const key = dateKey(day);
+                  const inMonth = day.getMonth() === calendarMonth.getMonth();
+                  const dayTasks = tasks.filter(task => task.dueDate === key);
+                  return (
+                    <button key={key} className={`${inMonth ? '' : 'outside'} ${key === selectedDate ? 'selected' : ''} ${key === todayKey ? 'today' : ''}`}
+                      onClick={() => setSelectedDate(key)}>
+                      <span>{day.getDate()}</span>
+                      {dayTasks.length > 0 && <i style={{ '--day-color': TASK_COLORS.find(color => color.id === dayTasks[0].color)?.hex || '#25294F' }} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <aside className="calendar-agenda">
+              <div className="agenda-date">
+                <span>{selected.toLocaleDateString('es-ES', { weekday: 'long' })}</span>
+                <strong>{selected.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</strong>
+              </div>
+              <div className="agenda-list">
+                {tasksForSelectedDate.length === 0
+                  ? <p className="empty-note">No hay tareas programadas.</p>
+                  : tasksForSelectedDate.map(task => (
+                    <div key={task.id} className={`agenda-task color-${task.color || 'navy'} ${task.done ? 'done' : ''}`}>
+                      <button className="task-box" onClick={() => toggleTask(task.id)}>{task.done && <IcoCheck s={10} />}</button>
+                      <span>{task.text}</span>
+                      <button onClick={() => deleteTask(task.id)}><IcoX s={10} /></button>
+                    </div>
+                  ))}
+              </div>
+              <form className="agenda-form" onSubmit={addScheduledTask}>
+                <label>Nueva tarea para esta fecha</label>
+                <input className="field" value={calendarTaskText} onChange={e => setCalendarTaskText(e.target.value)} placeholder="Escribe la tarea…" autoFocus />
+                <div className="agenda-form-row">
+                  <div className="task-palette">
+                    {TASK_COLORS.map(color => <button type="button" key={color.id} className={`task-swatch ${calendarTaskColor === color.id ? 'active' : ''}`} style={{ '--swatch': color.hex }} onClick={() => setCalendarTaskColor(color.id)} title={color.label} />)}
+                  </div>
+                  <button className="btn btn-primary" type="submit">Programar</button>
+                </div>
+              </form>
+            </aside>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  /* ======================================================================
+     ADMINISTRACIÓN DEL TABLÓN
+     ====================================================================== */
+  const renderBoardManager = () => {
+    if (!showBoardManager || !isAdmin) return null;
+    const SelectedTypeIcon = selectedBoardType.icon;
+    return (
+      <div className="modal-overlay" onMouseDown={() => { setPublicationTypeOpen(false); setShowBoardManager(false); }}>
+        <section className="board-modal" onMouseDown={e => e.stopPropagation()}>
+          <div className="modal-head">
+            <div>
+              <span className="login-kicker">Administración</span>
+              <h2>Tablero corporativo</h2>
+            </div>
+            <button className="modal-close" onClick={() => { setPublicationTypeOpen(false); setShowBoardManager(false); }}><IcoX s={14} /></button>
+          </div>
+          <div className="board-admin-layout">
+            <form className="board-form" onSubmit={addBoardPost} onMouseDown={e => { if (!e.target.closest('.publication-select')) setPublicationTypeOpen(false); }}>
+              <label className="form-label">Tipo de publicación</label>
+              <div className={`publication-select ${publicationTypeOpen ? 'open' : ''}`}>
+                <button className="publication-select-trigger" type="button" onClick={() => setPublicationTypeOpen(open => !open)} aria-haspopup="listbox" aria-expanded={publicationTypeOpen}>
+                  <span className={`publication-type-icon ${selectedBoardType.id}`}><SelectedTypeIcon s={17} /></span>
+                  <span><strong>{selectedBoardType.label}</strong><small>{selectedBoardType.detail}</small></span>
+                  <IcoChevron s={14} />
+                </button>
+                {publicationTypeOpen && (
+                  <div className="publication-options" role="listbox" aria-label="Tipo de publicación">
+                    {BOARD_TYPES.map(type => {
+                      const TypeIcon = type.icon;
+                      const selected = newBoardPost.type === type.id;
+                      return (
+                        <button key={type.id} type="button" role="option" aria-selected={selected} className={selected ? 'selected' : ''}
+                          onClick={() => { setNewBoardPost(post => ({ ...post, type: type.id })); setPublicationTypeOpen(false); }}>
+                          <span className={`publication-type-icon ${type.id}`}><TypeIcon s={17} /></span>
+                          <span><strong>{type.label}</strong><small>{type.detail}</small></span>
+                          {selected && <IcoCheck s={13} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {newBoardPost.type === 'banner' ? (
+                <div className="banner-form-note"><IcoGrid s={16} /><span><strong>Banner gráfico</strong>Se mostrará completo, sin título, texto ni filtros de color.</span></div>
+              ) : (
+                <>
+                  <label className="form-label">Título</label>
+                  <input className="field" value={newBoardPost.title} onChange={e => setNewBoardPost({ ...newBoardPost, title: e.target.value })} placeholder="Título de la publicación" required />
+                  <label className="form-label">Mensaje</label>
+                  <textarea className="field" value={newBoardPost.body} onChange={e => setNewBoardPost({ ...newBoardPost, body: e.target.value })} placeholder="Información para los colaboradores" required />
+                </>
+              )}
+              <label className="form-label">{newBoardPost.type === 'banner' ? 'Imagen del banner (URL obligatoria)' : 'Imagen (URL opcional)'}</label>
+              <input className="field" type="url" value={newBoardPost.imageUrl} onChange={e => setNewBoardPost({ ...newBoardPost, imageUrl: e.target.value })} placeholder="https://…" required={newBoardPost.type === 'banner'} />
+              <label className="form-label">LINK URL <span className="optional-label">Opcional</span></label>
+              <div className="link-url-field">
+                <IcoChevron s={14} />
+                <input className="field mono" type="url" value={newBoardPost.linkUrl} onChange={e => setNewBoardPost({ ...newBoardPost, linkUrl: e.target.value })} placeholder="https://portal.multival.com/comunicado" />
+              </div>
+              <p className="field-help">Si agregas un enlace, toda la publicación será interactiva y abrirá la comunicación en una pestaña nueva.</p>
+              <button className="btn btn-primary" type="submit"><IcoPlus s={14} /> Publicar</button>
+            </form>
+            <div className="board-admin-list">
+              <h3>Publicaciones activas</h3>
+              {boardPosts.map(post => (
+                <article key={post.id}>
+                  <span className={`board-type ${post.type}`}>{post.type}</span>
+                  <strong>{post.type === 'banner' ? 'Banner gráfico' : post.title}</strong>
+                  <p>{post.type === 'banner' ? 'La imagen se presenta completa en el escritorio.' : post.body}</p>
+                  {normalizeExternalUrl(post.linkUrl) && <a className="board-admin-link" href={normalizeExternalUrl(post.linkUrl)} target="_blank" rel="noopener noreferrer">Enlace configurado <IcoChevron s={10} /></a>}
+                  <button className="icon-btn danger" onClick={() => deleteBoardPost(post.id)} title="Retirar publicación"><IcoTrash s={15} /></button>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  /* ======================================================================
+     PERSONALIZACIÓN DEL ESCRITORIO
+     ====================================================================== */
+  const renderAppearancePanel = () => {
+    if (!showAppearancePanel) return null;
+    return (
+      <div className="modal-overlay appearance-overlay" onMouseDown={() => setShowAppearancePanel(false)}>
+        <section className="appearance-modal" onMouseDown={e => e.stopPropagation()}>
+          <div className="modal-head">
+            <div>
+              <span className="login-kicker">Tu espacio de trabajo</span>
+              <h2>Personalizar escritorio</h2>
+            </div>
+            <button className="modal-close" onClick={() => setShowAppearancePanel(false)}><IcoX s={14} /></button>
+          </div>
+
+          <div className="appearance-content">
+            <div className={`appearance-live-preview wallpaper-${workspaceAppearance.wallpaper}`}>
+              <div className="appearance-preview-bar" />
+              <div className="appearance-preview-grid"><i /><i /><i /></div>
+              <span>Vista previa en tiempo real</span>
+            </div>
+
+            <div className="appearance-section">
+              <div className="appearance-section-head"><strong>Fondo</strong><span>Elige la atmósfera del escritorio</span></div>
+              <div className="wallpaper-options">
+                {WALLPAPER_OPTIONS.map(option => (
+                  <button key={option.id} className={`wallpaper-option ${workspaceAppearance.wallpaper === option.id ? 'selected' : ''}`}
+                    onClick={() => setWorkspaceAppearance(current => ({ ...current, wallpaper: option.id }))}>
+                    <span className={`wallpaper-thumb wallpaper-${option.id}`} />
+                    <strong>{option.label}</strong><small>{option.detail}</small>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="appearance-columns">
+              <div className="appearance-section compact">
+                <div className="appearance-section-head"><strong>Color de acento</strong><span>Botones y elementos activos</span></div>
+                <div className="accent-options">
+                  {ACCENT_COLORS.map(color => (
+                    <button key={color.id} title={color.label} aria-label={color.label}
+                      className={workspaceAppearance.accent === color.id ? 'selected' : ''}
+                      style={{ '--accent-choice': color.hex }}
+                      onClick={() => setWorkspaceAppearance(current => ({ ...current, accent: color.id }))} />
+                  ))}
+                </div>
+              </div>
+              <div className="appearance-section compact">
+                <div className="appearance-section-head"><strong>Tema</strong><span>Claridad general</span></div>
+                <div className="segmented-control">
+                  <button className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}><IcoSun s={14} /> Claro</button>
+                  <button className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}><IcoMoon s={14} /> Oscuro</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="appearance-columns">
+              <div className="appearance-section compact">
+                <div className="appearance-section-head"><strong>Contraste</strong><span>Legibilidad de superficies</span></div>
+                <div className="segmented-control three">
+                  {[['soft', 'Suave'], ['balanced', 'Medio'], ['high', 'Alto']].map(([id, label]) => (
+                    <button key={id} className={workspaceAppearance.contrast === id ? 'active' : ''}
+                      onClick={() => setWorkspaceAppearance(current => ({ ...current, contrast: id }))}>{label}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="appearance-section compact">
+                <div className="appearance-section-head"><strong>Transparencia</strong><span>Profundidad del cristal</span></div>
+                <div className="segmented-control">
+                  <button className={workspaceAppearance.transparency === 'glass' ? 'active' : ''}
+                    onClick={() => setWorkspaceAppearance(current => ({ ...current, transparency: 'glass' }))}>Cristal</button>
+                  <button className={workspaceAppearance.transparency === 'solid' ? 'active' : ''}
+                    onClick={() => setWorkspaceAppearance(current => ({ ...current, transparency: 'solid' }))}>Sólido</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="appearance-section clock-style-section">
+              <div className="appearance-section-head"><strong>Estilo del reloj</strong><span>Personalízalo como en la pantalla del iPhone</span></div>
+              <div className="clock-style-options">
+                {[
+                  ['minimal', 'Minimal', '09:41'],
+                  ['rounded', 'Redondo', '09:41'],
+                  ['mono', 'Digital', '09:41'],
+                  ['outline', 'Contorno', '09:41'],
+                ].map(([id, label, sample]) => (
+                  <button key={id} className={`${id} ${workspaceAppearance.clockStyle === id ? 'selected' : ''}`}
+                    onClick={() => setWorkspaceAppearance(current => ({ ...current, clockStyle: id }))}>
+                    <strong>{sample}</strong><span>{label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="clock-format-row">
+                <div><strong>Formato horario</strong><span>Elige entre reloj de 12 o 24 horas</span></div>
+                <div className="segmented-control">
+                  <button className={workspaceAppearance.clockFormat === '12' ? 'active' : ''}
+                    onClick={() => setWorkspaceAppearance(current => ({ ...current, clockFormat: '12' }))}>12 horas</button>
+                  <button className={workspaceAppearance.clockFormat !== '12' ? 'active' : ''}
+                    onClick={() => setWorkspaceAppearance(current => ({ ...current, clockFormat: '24' }))}>24 horas</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="appearance-footer">
+            <button className="btn btn-secondary" onClick={() => { setWorkspaceAppearance(DEFAULT_APPEARANCE); setTheme('light'); }}>Restaurar</button>
+            <button className="btn btn-primary" onClick={() => setShowAppearancePanel(false)}>Listo</button>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  const renderWidgetGallery = () => {
+    if (!showWidgetGallery) return null;
+    return (
+      <div className="modal-overlay widget-overlay" onMouseDown={() => setShowWidgetGallery(false)}>
+        <section className="widget-gallery-modal" onMouseDown={e => e.stopPropagation()}>
+          <div className="modal-head">
+            <div><span className="login-kicker">Tu escritorio</span><h2>Galería de widgets</h2></div>
+            <button className="modal-close" onClick={() => setShowWidgetGallery(false)}><IcoX s={14} /></button>
+          </div>
+          <div className="widget-gallery-intro">
+            <strong>Haz que el escritorio trabaje para ti.</strong>
+            <span>Añade o retira widgets cuando quieras. La selección queda guardada en tu perfil.</span>
+          </div>
+          <div className="widget-gallery-grid">
+            {WIDGET_CATALOG.map(widget => {
+              const WidgetIcon = widget.icon;
+              const added = enabledWidgets.includes(widget.id);
+              return (
+                <article key={widget.id} className={added ? 'added' : ''}>
+                  <div className="widget-gallery-icon"><WidgetIcon s={22} /></div>
+                  <div><strong>{widget.label}</strong><p>{widget.detail}</p></div>
+                  <button className={added ? 'remove' : ''} onClick={() => toggleWidget(widget.id)}>{added ? 'Quitar' : 'Añadir'}</button>
+                </article>
+              );
+            })}
+          </div>
+          <div className="widget-gallery-footer"><span>{enabledWidgets.length} widget{enabledWidgets.length === 1 ? '' : 's'} en tu escritorio</span><button className="btn btn-primary" onClick={() => setShowWidgetGallery(false)}>Listo</button></div>
+        </section>
+      </div>
+    );
+  };
+
+  const renderProfileEditor = () => {
+    if (!showProfileEditor) return null;
+    return (
+      <div className="modal-overlay profile-overlay" onMouseDown={() => setShowProfileEditor(false)}>
+        <section className="profile-modal" onMouseDown={e => e.stopPropagation()}>
+          <div className="profile-cover"><span className="profile-avatar-large">{initialsOf(welcomeName)}</span></div>
+          <div className="modal-head profile-modal-head">
+            <div><span className="login-kicker">Perfil personal</span><h2>Personaliza tu bienvenida</h2></div>
+            <button className="modal-close" onClick={() => setShowProfileEditor(false)}><IcoX s={14} /></button>
+          </div>
+          <div className="profile-form">
+            <label><span>Nombre que quieres ver</span><input className="field" value={profilePreferences.displayName} maxLength={40} onChange={e => setProfilePreferences(current => ({ ...current, displayName: e.target.value }))} placeholder={userData.usuario} /></label>
+            <label><span>Cargo o área</span><input className="field" value={profilePreferences.roleLabel} maxLength={60} onChange={e => setProfilePreferences(current => ({ ...current, roleLabel: e.target.value }))} placeholder={userData.rolGlobal} /></label>
+            <label><span>Mensaje personal del escritorio</span><textarea className="field" value={profilePreferences.welcomeMessage} maxLength={150} onChange={e => setProfilePreferences(current => ({ ...current, welcomeMessage: e.target.value }))} placeholder="Ejemplo: Hoy es un buen día para convertir ideas en resultados." /></label>
+            <p>Tu usuario de red y tus permisos no cambian. Esta información solo personaliza tu experiencia.</p>
+          </div>
+          <div className="appearance-footer">
+            <button className="btn btn-secondary" onClick={() => setProfilePreferences({ displayName: '', roleLabel: '', welcomeMessage: '' })}>Restaurar</button>
+            <button className="btn btn-primary" onClick={() => setShowProfileEditor(false)}>Guardar perfil</button>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  /* ======================================================================
      VISTAS ADMIN
      ====================================================================== */
+  const renderAnalytics = () => {
+    const summary = analyticsData?.summary || {};
+    const daily = analyticsData?.daily || [];
+    const topApps = analyticsData?.topApps || [];
+    const views = analyticsData?.views || [];
+    const recentEvents = analyticsData?.recent || [];
+    const leadingApp = topApps[0];
+    const leadingCatalogApp = leadingApp ? appsList.find(app => String(app.id) === String(leadingApp.id)) : null;
+    const leadingSystemApp = leadingApp ? SYSTEM_APPS.find(app => `sys-${app.sys}` === String(leadingApp.id)) : null;
+    const leadingIconApp = leadingCatalogApp || (leadingSystemApp ? { nombre: leadingSystemApp.nombre, grad: leadingSystemApp.grad, sysIcon: leadingSystemApp.icon } : { nombre: leadingApp?.name || 'App' });
+    const maxDaily = Math.max(1, ...daily.map(day => Math.max(day.totalSeconds || 0, (day.appOpens || 0) * 60)));
+    const maxAppUsage = Math.max(1, ...topApps.map(app => app.totalSeconds || 0));
+    const maxViewCount = Math.max(1, ...views.map(view => view.count || 0));
+    const eventLabels = {
+      session_start: 'Inició sesión', session_end: 'Cerró sesión', app_open: 'Abrió una aplicación',
+      app_close: 'Cerró una aplicación', app_usage: 'Usó una aplicación', view_open: 'Visitó una sección', board_click: 'Abrió una publicación',
+    };
+
+    return (
+      <div className="analytics-page enter">
+        <section className="analytics-header">
+          <div>
+            <span className="analytics-eyebrow"><IcoPulse s={14} /> Inteligencia del ecosistema</span>
+            <h2>Dashboard administrativo</h2>
+            <p>Adopción, actividad y tiempo efectivo de uso de todo el Hub en una sola vista.</p>
+          </div>
+          <div className="analytics-actions">
+            <div className="analytics-range" aria-label="Periodo de análisis">
+              {[7, 30, 90].map(days => <button key={days} className={analyticsRange === days ? 'active' : ''} onClick={() => setAnalyticsRange(days)}>{days} días</button>)}
+            </div>
+            <button className="analytics-refresh" onClick={fetchAnalytics} disabled={analyticsLoading}><IcoRefresh s={15} /> {analyticsLoading ? 'Actualizando…' : 'Actualizar'}</button>
+          </div>
+        </section>
+
+        {analyticsError && <div className="analytics-alert"><IcoShield s={16} /><span><strong>La analítica aún no está disponible.</strong>{analyticsError} Verifica que el nuevo <code>Code.gs</code> esté desplegado.</span></div>}
+        {analyticsLoading && !analyticsData && <div className="analytics-loading"><span className="spinner" /><div><strong>Preparando la inteligencia del ecosistema</strong><small>Consolidando sesiones, aplicaciones y tiempos de uso…</small></div></div>}
+
+        <section className="analytics-metrics">
+          <article><span className="metric-icon green"><IcoUsers s={19} /></span><div><small>Usuarios únicos</small><strong>{summary.uniqueUsers || 0}</strong><p>{summary.activeToday || 0} activos hoy</p></div></article>
+          <article><span className="metric-icon navy"><IcoLoginArrow /></span><div><small>Sesiones iniciadas</small><strong>{summary.sessions || 0}</strong><p>En los últimos {analyticsRange} días</p></div></article>
+          <article><span className="metric-icon violet"><IcoGrid s={19} /></span><div><small>Aperturas de apps</small><strong>{summary.appOpens || 0}</strong><p>{topApps.length} herramientas utilizadas</p></div></article>
+          <article><span className="metric-icon gold"><IcoClock s={19} /></span><div><small>Tiempo efectivo</small><strong>{formatUsageTime(summary.totalSeconds || 0)}</strong><p>Solo ventanas activas y visibles</p></div></article>
+          <article><span className="metric-icon coral"><IcoBell s={19} /></span><div><small>Comunicaciones abiertas</small><strong>{summary.boardClicks || 0}</strong><p>Interacciones con el tablero</p></div></article>
+        </section>
+
+        <section className="analytics-main-grid">
+          <article className="analytics-card usage-leader">
+            <div className="analytics-card-head"><div><span>Mayor uso acumulado</span><h3>Aplicativo líder</h3></div><IcoChart s={20} /></div>
+            {leadingApp ? (
+              <>
+                <div className="leader-app"><AppIcon app={leadingIconApp} size={58} /><div><small>{leadingApp.group || 'Sin grupo'}</small><strong>{leadingApp.name}</strong><span>{leadingApp.users || 0} usuarios · {leadingApp.opens || 0} aperturas</span></div></div>
+                <div className="leader-time"><strong>{formatUsageTime(leadingApp.totalSeconds)}</strong><span>de uso efectivo</span></div>
+                <div className="leader-progress"><i style={{ width: `${Math.max(6, (leadingApp.totalSeconds / maxAppUsage) * 100)}%` }} /></div>
+              </>
+            ) : <div className="analytics-empty"><IcoChart s={28} /><span>Aún no hay tiempo de uso registrado.</span></div>}
+          </article>
+
+          <article className="analytics-card activity-chart-card">
+            <div className="analytics-card-head"><div><span>Comportamiento diario</span><h3>Actividad del ecosistema</h3></div><small>Tiempo y aperturas</small></div>
+            <div className="activity-chart">
+              {daily.length === 0 ? <div className="analytics-empty"><IcoPulse s={28} /><span>Los datos diarios aparecerán aquí.</span></div> : daily.map(day => {
+                const chartValue = Math.max(day.totalSeconds || 0, (day.appOpens || 0) * 60);
+                return <div key={day.date} className="activity-bar" title={`${day.appOpens || 0} aperturas · ${formatUsageTime(day.totalSeconds || 0)}`}><span><i style={{ height: `${Math.max(5, chartValue / maxDaily * 100)}%` }} /></span><small>{new Date(`${day.date}T12:00:00`).toLocaleDateString('es-CO', { weekday: 'narrow', day: 'numeric' })}</small></div>;
+              })}
+            </div>
+            <div className="chart-legend"><span><i /> Tiempo efectivo / actividad</span><strong>{formatUsageTime(summary.totalSeconds || 0)} acumuladas</strong></div>
+          </article>
+        </section>
+
+        <section className="analytics-detail-grid">
+          <article className="analytics-card top-apps-card">
+            <div className="analytics-card-head"><div><span>Portafolio digital</span><h3>Uso por aplicativo</h3></div><small>Top {Math.min(topApps.length, 8)}</small></div>
+            <div className="top-app-list">
+              {topApps.length === 0 ? <div className="analytics-empty"><IcoGrid s={25} /><span>Sin aplicativos utilizados en este periodo.</span></div> : topApps.slice(0, 8).map((app, index) => (
+                <div className="top-app-row" key={`${app.id}-${app.name}`}>
+                  <span className="top-position">{String(index + 1).padStart(2, '0')}</span>
+                  <div className="top-app-copy"><strong>{app.name}</strong><small>{app.group || 'Sin grupo'} · {app.opens || 0} aperturas · {app.users || 0} usuarios</small><span><i style={{ width: `${Math.max(4, (app.totalSeconds || 0) / maxAppUsage * 100)}%` }} /></span></div>
+                  <b>{formatUsageTime(app.totalSeconds || 0)}</b>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <article className="analytics-card view-card">
+            <div className="analytics-card-head"><div><span>Navegación interna</span><h3>Secciones más visitadas</h3></div><IcoDesktopIco s={19} /></div>
+            <div className="view-list">
+              {views.length === 0 ? <div className="analytics-empty"><IcoDesktopIco s={25} /><span>Sin navegación registrada.</span></div> : views.slice(0, 6).map(view => (
+                <div key={view.name}><span><strong>{view.label || view.name}</strong><small>{view.count} visitas</small></span><i><b style={{ width: `${Math.max(5, view.count / maxViewCount * 100)}%` }} /></i></div>
+              ))}
+            </div>
+          </article>
+        </section>
+
+        <section className="analytics-card recent-activity-card">
+          <div className="analytics-card-head"><div><span>Trazabilidad</span><h3>Actividad reciente</h3></div><small>Últimos {recentEvents.length} movimientos</small></div>
+          <div className="analytics-table-wrap">
+            <table className="analytics-table"><thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Actividad</th><th>Recurso</th><th>Duración</th></tr></thead><tbody>
+              {recentEvents.length === 0 ? <tr><td colSpan="5"><div className="analytics-empty"><IcoHistory s={24} /><span>No hay movimientos registrados.</span></div></td></tr> : recentEvents.map((event, index) => (
+                <tr key={`${event.timestamp}-${index}`}><td>{new Date(event.timestamp).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td><span className="analytics-user"><i>{initialsOf(event.user)}</i>{event.user}</span></td><td>{eventLabels[event.event] || event.event}</td><td>{event.appName || event.view || event.detail || 'Ecosistema'}</td><td>{event.durationSeconds ? formatUsageTime(event.durationSeconds) : '—'}</td></tr>
+              ))}
+            </tbody></table>
+          </div>
+        </section>
+      </div>
+    );
+  };
+
   const renderCatalog = () => (
     <div className="panel enter">
       <div className="panel-head">
@@ -714,14 +2070,13 @@ export default function App() {
           <h2 className="panel-title">Catálogo de aplicativos</h2>
           <p className="panel-sub">{appsList.length} sistemas registrados en el Hub</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setCurrentView('addApp')}><IcoPlus s={15} /> Nuevo</button>
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table className="table">
-          <thead><tr><th>App</th><th>Endpoint</th><th style={{ width: 120 }}>Acciones</th></tr></thead>
+          <thead><tr><th>App</th><th>Grupo</th><th>Endpoint</th><th style={{ width: 120 }}>Acciones</th></tr></thead>
           <tbody>
             {appsList.length === 0 ? (
-              <tr><td colSpan="3" style={{ textAlign: 'center', color: 'var(--ink-3)', padding: 40 }}>Sin aplicativos registrados.</td></tr>
+              <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--ink-3)', padding: 40 }}>Sin aplicativos registrados.</td></tr>
             ) : appsList.map(app => (
               <tr key={app.id}>
                 {editingAppId === app.id ? (
@@ -732,10 +2087,11 @@ export default function App() {
                         <input className="field" value={app.icono || ''} onChange={e => handleEditChange(app.id, 'icono', e.target.value)} placeholder="URL ícono" />
                       </div>
                     </td>
+                    <td style={{ minWidth: 230 }}><AppGroupPicker compact value={app.grupo || ''} groups={appGroups.filter(group => group !== 'Sin grupo')} onChange={value => handleEditChange(app.id, 'grupo', value)} /></td>
                     <td><input className="field mono" value={app.url} onChange={e => handleEditChange(app.id, 'url', e.target.value)} /></td>
                     <td>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn btn-primary" style={{ padding: '7px 14px' }} onClick={e => handleUpdateApp(e, app.id)}>Guardar</button>
+                        <button className="btn btn-primary" style={{ padding: '7px 14px' }} disabled={!app.grupo?.trim()} onClick={e => handleUpdateApp(e, app.id)}>Guardar</button>
                         <button className="btn btn-secondary" style={{ padding: '7px 14px' }} onClick={() => { setEditingAppId(null); fetchApps(); }}>Cancelar</button>
                       </div>
                     </td>
@@ -751,6 +2107,7 @@ export default function App() {
                         </div>
                       </div>
                     </td>
+                    <td><span className="app-group-tag"><IcoGrid s={11} /> {app.grupo || 'Sin grupo'}</span></td>
                     <td className="mono" style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>{String(app.url || '').slice(0, 46)}…</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
@@ -782,6 +2139,10 @@ export default function App() {
           <input className="field" required value={newApp.nombre} onChange={e => setNewApp({ ...newApp, nombre: e.target.value })} />
         </div>
         <div>
+          <label className="form-label">Grupo del aplicativo</label>
+          <AppGroupPicker value={newApp.grupo} groups={appGroups.filter(group => group !== 'Sin grupo')} onChange={value => setNewApp({ ...newApp, grupo: value })} />
+        </div>
+        <div>
           <label className="form-label">URL del endpoint</label>
           <input className="field mono" type="url" required value={newApp.url} onChange={e => setNewApp({ ...newApp, url: e.target.value })} />
         </div>
@@ -795,7 +2156,7 @@ export default function App() {
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
           <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: 13 }} onClick={() => setCurrentView('dashboard')}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: 13 }} disabled={isAddingApp}>
+          <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: 13 }} disabled={isAddingApp || !newApp.grupo.trim()}>
             {isAddingApp ? 'Desplegando…' : 'Guardar y desplegar'}
           </button>
         </div>
@@ -840,14 +2201,19 @@ export default function App() {
      ====================================================================== */
   const menuItems = [
     { id: 'dashboard', label: 'Escritorio', admin: false },
+    { id: 'analytics', label: 'Dashboard', admin: true },
     { id: 'catalog', label: 'Catálogo', admin: true },
     { id: 'addApp', label: 'Desplegar', admin: true },
     { id: 'users', label: 'Identidades', admin: true },
   ];
+  const activeAccent = ACCENT_COLORS.find(color => color.id === workspaceAppearance.accent) || ACCENT_COLORS[0];
 
   const renderWindowBody = (app) => {
     if (app.sys === 'notes') return <textarea className="notes-pad" placeholder="Escribe algo…" />;
-    if (app.sys === 'calculator') return <NativeCalculator />;
+    if (app.sys === 'calculator') return <NativeCalculator isActive={activeAppId === app.id && !minimizedApps[app.id]} />;
+    if (app.sys === 'converter') return <UnitConverter />;
+    if (app.sys === 'passwords') return <PasswordGenerator />;
+    if (app.sys === 'stopwatch') return <StopwatchTool />;
     if (app.sys === 'todo') return (
       <div className="sticky-wrap">
         <textarea className="sticky warm" placeholder="Urgente…" />
@@ -863,6 +2229,7 @@ export default function App() {
     );
     return (
       <iframe
+        className="app-frame"
         src={`${app.url}?usuario=${userData.usuario}`}
         title={app.nombre}
         onLoad={() => setLoadingApps(p => ({ ...p, [app.id]: false }))}
@@ -872,17 +2239,24 @@ export default function App() {
   };
 
   return (
-    <div className="os-root">
+    <div className="os-root"
+      data-wallpaper={workspaceAppearance.wallpaper}
+      data-contrast={workspaceAppearance.contrast}
+      data-transparency={workspaceAppearance.transparency}
+      data-clock-style={workspaceAppearance.clockStyle}
+      style={{ '--brand-green': activeAccent.hex }}>
       {renderSpotlight()}
       {renderLaunchpad()}
+      {renderCalendarModal()}
+      {renderBoardManager()}
+      {renderAppearancePanel()}
+      {renderWidgetGallery()}
+      {renderProfileEditor()}
 
       {/* ================= MENU BAR ================= */}
       <header className="menubar">
         <div className="menubar-left">
-          <div className="menu-logo">
-            <div className="menu-logo-mark">Á</div>
-            <span className="menu-logo-text">Ágora</span>
-          </div>
+          <div className="menu-logo-spacer" aria-hidden="true" />
           {menuItems.filter(m => !m.admin || isAdmin).map(m => (
             <button key={m.id}
               className={`menu-item ${currentView === m.id && activeAppId === null ? 'active' : ''}`}
@@ -899,16 +2273,19 @@ export default function App() {
             onClick={() => setWorkspaceMode(m => m === 'focus' ? 'desktop' : 'focus')}>
             {workspaceMode === 'focus' ? <IcoWindows s={16} /> : <IcoFocus s={16} />}
           </button>
-          <button className="menu-icon-btn" title="Apariencia" onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}>
-            {theme === 'light' ? <IcoMoon s={16} /> : <IcoSun s={16} />}
+          <button className="menu-icon-btn" title="Personalizar escritorio" onClick={() => { setShowUserMenu(false); setShowAppearancePanel(true); }}>
+            <IcoSliders s={16} />
+          </button>
+          <button className="menu-icon-btn" title="Añadir widgets" onClick={() => { setShowUserMenu(false); setShowWidgetGallery(true); }}>
+            <IcoWidgets s={16} />
           </button>
           <span className="menu-clock">
             {currentTime.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}{'  '}
-            {currentTime.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+            {menuClockLabel}
           </span>
           <button className="menu-user" onClick={() => setShowUserMenu(v => !v)}>
-            <span className="menu-avatar">{initialsOf(userData.usuario)}</span>
-            <span className="menu-user-name">{userData.usuario}</span>
+            <span className="menu-avatar">{initialsOf(welcomeName)}</span>
+            <span className="menu-user-name">{welcomeName}</span>
           </button>
         </div>
       </header>
@@ -918,11 +2295,17 @@ export default function App() {
           <div style={{ position: 'fixed', inset: 0, zIndex: 550 }} onClick={() => setShowUserMenu(false)} />
           <div className="popover">
             <div className="popover-head">
-              <div style={{ fontSize: 14, fontWeight: 600 }}>{userData.usuario}</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{userData.rolGlobal}</div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{welcomeName}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{profilePreferences.roleLabel.trim() || userData.rolGlobal}</div>
             </div>
-            <button className="popover-item" onClick={() => { setTheme(t => t === 'light' ? 'dark' : 'light'); }}>
-              {theme === 'light' ? <IcoMoon s={15} /> : <IcoSun s={15} />} Cambiar apariencia
+            <button className="popover-item" onClick={() => { setShowUserMenu(false); setShowProfileEditor(true); }}>
+              <IcoUser s={15} /> Editar mi perfil
+            </button>
+            <button className="popover-item" onClick={() => { setShowUserMenu(false); setShowAppearancePanel(true); }}>
+              <IcoSliders s={15} /> Personalizar escritorio
+            </button>
+            <button className="popover-item" onClick={() => { setShowUserMenu(false); setShowWidgetGallery(true); }}>
+              <IcoWidgets s={15} /> Gestionar widgets
             </button>
             <button className="popover-item" onClick={() => { setShowUserMenu(false); openLaunchpad(); }}>
               <IcoGrid s={15} /> Abrir Launchpad
@@ -936,12 +2319,13 @@ export default function App() {
 
       {/* ================= WORKSPACE ================= */}
       <main className="workspace">
-        <div className="workspace-scroll" style={{
+        <div className="workspace-scroll" onMouseDown={handleWorkspaceBackground} style={{
           opacity: activeAppId === null || workspaceMode === 'desktop' ? 1 : 0,
-          pointerEvents: activeAppId === null ? 'auto' : 'none',
+          pointerEvents: activeAppId === null || workspaceMode === 'desktop' ? 'auto' : 'none',
         }}>
           <div className="workspace-inner">
             {currentView === 'dashboard' && renderDashboard()}
+            {currentView === 'analytics' && renderAnalytics()}
             {currentView === 'catalog' && renderCatalog()}
             {currentView === 'addApp' && renderAddApp()}
             {currentView === 'users' && renderUsers()}
@@ -953,27 +2337,38 @@ export default function App() {
           workspaceMode === 'desktop' ? (
             <Rnd key={app.id} id={`window-${app.id}`}
               default={{ x: 48 + (hashOf(app.id) % 60), y: 28 + (hashOf(app.id) % 40), width: app.defaultWidth, height: app.defaultHeight }}
-              minWidth={330} minHeight={280} bounds="parent"
+              minWidth={app.sys === 'calculator' ? 340 : 330} minHeight={app.sys === 'calculator' ? 560 : 280}
+              maxWidth={app.sys === 'calculator' ? 340 : undefined} maxHeight={app.sys === 'calculator' ? 560 : undefined}
+              bounds="parent"
               dragHandleClassName={maximizedApps[app.id] ? 'no-drag' : 'titlebar'}
-              enableResizing={!maximizedApps[app.id]}
-              style={{ zIndex: activeAppId === app.id ? 60 : 20, display: activeAppId === null ? 'none' : 'block' }}
-              onMouseDownCapture={() => { if (!minimizedApps[app.id]) setActiveAppId(app.id); }}
+              enableResizing={app.sys !== 'calculator' && !maximizedApps[app.id]}
+              style={{
+                zIndex: windowMotion[app.id] ? 10000 : (windowLayers[app.id] || 100),
+                display: ((activeAppId === null && !windowMotion[app.id]) || (minimizedApps[app.id] && windowMotion[app.id]?.phase !== 'restoring')) ? 'none' : 'block',
+              }}
+              onPointerDownCapture={() => { if (!minimizedApps[app.id] && !windowMotion[app.id]) prioritizeWindow(app.id); }}
             >
               <div
-                className={`win ${minimizedApps[app.id] ? 'minimized' : ''} ${maximizedApps[app.id] ? 'maxed' : ''}`}
+                className={`win ${maximizedApps[app.id] ? 'maxed' : ''} ${windowMotion[app.id]?.phase === 'minimizing' ? 'genie-minimizing' : ''} ${windowMotion[app.id]?.phase === 'restoring' ? 'genie-restoring' : ''}`}
                 style={{
-                  transformOrigin: minimizeOrigins[app.id] || 'center bottom',
+                  '--genie-x': `${windowMotion[app.id]?.x || minimizeVectors[app.id]?.x || 0}px`,
+                  '--genie-y': `${windowMotion[app.id]?.y || minimizeVectors[app.id]?.y || 0}px`,
+                  '--genie-mid-x': `${(windowMotion[app.id]?.x || minimizeVectors[app.id]?.x || 0) * .42}px`,
+                  '--genie-mid-y': `${(windowMotion[app.id]?.y || minimizeVectors[app.id]?.y || 0) * .68}px`,
+                  '--genie-scale-x': windowMotion[app.id]?.scaleX || minimizeVectors[app.id]?.scaleX || .06,
+                  '--genie-scale-y': windowMotion[app.id]?.scaleY || minimizeVectors[app.id]?.scaleY || .04,
                   ...(maximizedApps[app.id] && {
                     position: 'fixed', top: 'var(--menubar-h)', left: 0,
                     width: '100vw', height: 'calc(100vh - var(--menubar-h))', zIndex: 90, transform: 'none',
                   }),
                 }}
+                onAnimationEnd={e => { if (e.target === e.currentTarget) finishWindowMotion(app.id); }}
               >
                 <div className={`titlebar ${maximizedApps[app.id] ? 'no-drag' : 'grab'}`}>
                   <div className="traffic">
                     <button className="tl close" onClick={e => closeApp(e, app.id)} title="Cerrar"><IcoX s={8} /></button>
                     <button className="tl min" onClick={e => toggleMinimize(e, app.id)} title="Minimizar"><IcoMinus s={8} /></button>
-                    <button className="tl max" onClick={e => toggleMaximize(e, app.id)} title="Pantalla completa"><IcoExpand s={7} /></button>
+                    {app.sys !== 'calculator' && <button className="tl max" onClick={e => toggleMaximize(e, app.id)} title="Pantalla completa"><IcoExpand s={7} /></button>}
                   </div>
                   <span className="title-text">{app.nombre}</span>
                 </div>
@@ -984,14 +2379,24 @@ export default function App() {
               </div>
             </Rnd>
           ) : (
-            <div key={app.id} style={{
-              position: 'absolute', inset: 0,
+            <div key={app.id} className={`focus-app-layer ${COMPACT_SYSTEM_TOOLS.has(app.sys) ? 'compact-utility' : ''}`} style={{
               opacity: activeAppId === app.id ? 1 : 0,
               pointerEvents: activeAppId === app.id ? 'auto' : 'none',
-              transition: 'opacity 0.3s ease', background: 'var(--wall-a)',
             }}>
-              {loadingApps[app.id] && !app.sys && <div className="loader-veil"><div className="spinner" /></div>}
-              <div style={{ width: '100%', height: '100%' }}>{renderWindowBody(app)}</div>
+              {COMPACT_SYSTEM_TOOLS.has(app.sys) ? (
+                <div className="focus-compact-window" style={{ width: `min(${app.defaultWidth}px, calc(100vw - 40px))`, height: `min(${app.defaultHeight}px, calc(100vh - 136px))` }}>
+                  <div className="titlebar no-drag">
+                    <div className="traffic"><button className="tl close" onClick={e => closeApp(e, app.id)} title="Cerrar"><IcoX s={8} /></button></div>
+                    <span className="title-text">{app.nombre}</span>
+                  </div>
+                  <div className="win-body">{renderWindowBody(app)}</div>
+                </div>
+              ) : (
+                <>
+                  {loadingApps[app.id] && !app.sys && <div className="loader-veil"><div className="spinner" /></div>}
+                  <div className="focus-app-content">{renderWindowBody(app)}</div>
+                </>
+              )}
             </div>
           )
         ))}
