@@ -1191,10 +1191,9 @@ textarea.field { resize: vertical; min-height: 92px; line-height: 1.55; }
 @keyframes loginIn { from { opacity: 0; transform: translateY(22px) scale(0.985); } to { opacity: 1; transform: none; } }
 
 .login-aside {
-  flex: 1.1; position: relative; padding: 48px 52px;
+  flex: 1.1; position: relative; z-index: 2; margin-right: -64px; padding: 48px 112px 48px 52px;
   display: flex; flex-direction: column; justify-content: space-between;
-  background:
-    linear-gradient(145deg, rgba(48,54,104,.94), rgba(25,28,59,.97) 54%, rgba(17,20,43,.98));
+  background: linear-gradient(90deg, rgba(45,52,99,.98) 0%, rgba(24,28,61,.98) 73%, rgba(18,21,47,.72) 88%, rgba(18,21,47,0) 100%);
   overflow: hidden;
 }
 .login-aside::before {
@@ -1244,13 +1243,13 @@ textarea.field { resize: vertical; min-height: 92px; line-height: 1.55; }
 .login-benefit small { margin-top: 4px; font-size: 8.5px; line-height: 1.35; color: rgba(255,255,255,.5); }
 
 .login-form-side {
-  flex: 1; position: relative; isolation: isolate; display: flex; flex-direction: column; justify-content: center;
-  padding: 42px 56px; background: rgba(255,255,255,.42);
+  flex: 1; position: relative; z-index: 1; isolation: isolate; display: flex; flex-direction: column; justify-content: center;
+  padding: 42px 56px 42px 112px; background: rgba(255,255,255,.42);
 }
 .login-form-side::before {
-  content: ''; position: absolute; z-index: 0; top: -4%; bottom: -4%; left: -68px; width: 118px; pointer-events: none;
-  background: linear-gradient(90deg, rgba(21,24,52,.82), rgba(42,49,94,.34) 38%, rgba(255,255,255,0) 100%);
-  filter: blur(15px); opacity: .72;
+  content: ''; position: absolute; z-index: 0; top: -4%; bottom: -4%; left: -70px; width: 146px; pointer-events: none;
+  background: linear-gradient(90deg, rgba(21,24,52,.30), rgba(42,49,94,.14) 42%, rgba(255,255,255,0) 100%);
+  filter: blur(20px); opacity: .64;
 }
 [data-theme='dark'] .login-form-side { background: rgba(255,255,255,.02); }
 .login-form { position: relative; z-index: 1; width: 100%; max-width: 350px; margin: 0 auto; }
@@ -1303,6 +1302,7 @@ textarea.field { resize: vertical; min-height: 92px; line-height: 1.55; }
   .login-aside { display: none; }
   .login-card { width: 94vw; height: auto; max-height: 92vh; }
   .login-form-side { padding: 38px 26px; }
+  .login-form-side::before { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .login-grid, .login-motion, .login-aside::before, .login-aside::after, .login-aside-sheen,
