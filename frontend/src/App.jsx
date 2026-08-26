@@ -40,6 +40,7 @@ const IcoPause = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M9 5v
 const IcoRefresh = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M20 7v5h-5M4 17v-5h5" /><path d="M18.2 9A7 7 0 0 0 6.1 6.1L4 8M5.8 15A7 7 0 0 0 17.9 17.9L20 16" /></svg>;
 const IcoChart = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /><path d="m3 7 6-4 6 7 6-5" /></svg>;
 const IcoUsers = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" /></svg>;
+const IcoFolder = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h4l2 2H19a2 2 0 0 1 2 2v9.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z" /><path d="M3 9h18" /></svg>;
 const IcoKey = ({ s = 18 }) => <svg width={s} height={s} {...S}><circle cx="7.5" cy="15.5" r="4.5" /><path d="m11 12 9-9M15 8l3 3M17 6l2 2" /></svg>;
 const IcoSwap = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M7 7h13l-3-3M17 17H4l3 3" /></svg>;
 const IcoPulse = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M3 12h4l2.5-7 5 14 2.5-7h4" /></svg>;
@@ -101,6 +102,45 @@ const formatUsageTime = (seconds = 0) => {
   return `${hours.toLocaleString('es-CO', { minimumFractionDigits: hours < 10 ? 1 : 0, maximumFractionDigits: 1 })} h`;
 };
 
+const DAILY_CORPORATE_MESSAGES = [
+  'Cada avance de hoy fortalece los resultados de mañana.',
+  'Las grandes transformaciones comienzan con decisiones claras.',
+  'Innovar es convertir las ideas en valor para todos.',
+  'El trabajo en equipo convierte los retos en oportunidades.',
+  'La excelencia se construye con constancia, enfoque y propósito.',
+  'Cada proceso que mejoramos impulsa a toda la organización.',
+  'Las mejores soluciones nacen de escuchar, colaborar y actuar.',
+  'Hoy es una nueva oportunidad para generar impacto.',
+  'El compromiso de cada persona fortalece nuestro futuro.',
+  'Avanzamos cuando compartimos conocimiento y construimos juntos.',
+  'La innovación cobra valor cuando mejora la experiencia de las personas.',
+  'Las metas importantes se alcanzan un paso a la vez.',
+  'Una organización que aprende es una organización que evoluciona.',
+  'Nuestro talento transforma desafíos en resultados.',
+  'Cada idea puede abrir una nueva forma de avanzar.',
+  'La disciplina convierte la visión en resultados sostenibles.',
+  'Crecer juntos es la mejor manera de llegar más lejos.',
+  'Los resultados extraordinarios nacen de acciones consistentes.',
+  'Mejorar cada día también es una forma de innovar.',
+  'La colaboración multiplica el valor de nuestras capacidades.',
+  'El futuro se construye con las decisiones que tomamos hoy.',
+  'Cuando el propósito es claro, cada esfuerzo suma.',
+  'La confianza y el compromiso hacen posibles grandes resultados.',
+  'Cada reto es una oportunidad para fortalecer lo que somos.',
+  'Pensar diferente nos permite avanzar de manera inteligente.',
+  'La calidad empieza en cada detalle y se refleja en cada resultado.',
+  'El conocimiento compartido impulsa el crecimiento colectivo.',
+  'Nuestra mejor ventaja es la capacidad de aprender y adaptarnos.',
+  'Las ideas se convierten en progreso cuando las llevamos a la acción.',
+  'Trabajar con propósito transforma tareas en resultados.',
+  'Juntos hacemos que la innovación suceda.',
+];
+
+const dailyCorporateMessage = (date) => {
+  const dayNumber = Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000);
+  return DAILY_CORPORATE_MESSAGES[dayNumber % DAILY_CORPORATE_MESSAGES.length];
+};
+
 const TASK_COLORS = [
   { id: 'navy', label: 'Azul', hex: '#25294F' },
   { id: 'green', label: 'Verde', hex: '#3D8A44' },
@@ -145,6 +185,18 @@ const BOARD_TYPES = [
   { id: 'banner', label: 'Banner gráfico', detail: 'Imagen completa de ancho total', icon: IcoGrid },
   { id: 'incidencia', label: 'Incidencia', detail: 'Alertas operativas importantes', icon: IcoShield },
 ];
+
+const TEAM_TASK_COLUMNS = [
+  { id: 'pendiente', label: 'Pendientes' },
+  { id: 'en_progreso', label: 'En progreso' },
+  { id: 'completada', label: 'Completadas' },
+];
+
+const TEAM_STATUS_LABELS = {
+  pendiente: 'Pendiente',
+  en_progreso: 'En progreso',
+  completada: 'Completada',
+};
 
 const DEFAULT_BOARD_POSTS = [{
   id: 'welcome-board',
@@ -530,11 +582,16 @@ export default function App() {
 
   /* --- Launchpad / Spotlight --- */
   const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
+  const [isLaunchpadClosing, setIsLaunchpadClosing] = useState(false);
   const [lpQuery, setLpQuery] = useState('');
+  const [launchpadPage, setLaunchpadPage] = useState(0);
+  const [launchpadPageSize, setLaunchpadPageSize] = useState(() => typeof window === 'undefined' ? 18 : (window.innerWidth >= 1180 ? 18 : window.innerWidth >= 760 ? 12 : 8));
+  const [showUtilitiesFolder, setShowUtilitiesFolder] = useState(false);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef(null);
   const lpInputRef = useRef(null);
+  const launchpadCloseTimerRef = useRef(null);
 
   /* --- Ventanas --- */
   const [openApps, setOpenApps] = useState([]);
@@ -547,7 +604,6 @@ export default function App() {
   const [windowLayers, setWindowLayers] = useState({});
   const windowLayerCounter = useRef(100);
   const sessionIdRef = useRef('');
-  const sessionStartedAtRef = useRef(0);
 
   /* --- Datos --- */
   const [appsList, setAppsList] = useState([]);
@@ -583,6 +639,18 @@ export default function App() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsError, setAnalyticsError] = useState('');
   const [analyticsRange, setAnalyticsRange] = useState(30);
+  const [analyticsActivityPage, setAnalyticsActivityPage] = useState(0);
+  const [teams, setTeams] = useState([]);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+  const [teamsError, setTeamsError] = useState('');
+  const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [showTeamEditor, setShowTeamEditor] = useState(false);
+  const [teamDraft, setTeamDraft] = useState({ id: '', name: '', leaderId: '', memberIds: [] });
+  const [teamTaskDraft, setTeamTaskDraft] = useState({ title: '', description: '', assignedTo: '', dueDate: dateKey(), priority: 'media' });
+  const [teamSection, setTeamSection] = useState('overview');
+  const [teamTaskFilter, setTeamTaskFilter] = useState('all');
+  const [teamCalendarMonth, setTeamCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [teamCalendarDate, setTeamCalendarDate] = useState(dateKey());
 
   /* --- CRUD --- */
   const [newApp, setNewApp] = useState({ nombre: '', url: '', desc: '', icono: '', grupo: '' });
@@ -598,11 +666,24 @@ export default function App() {
   }, []);
 
   /* --- Overlays: abrir / cerrar --- */
-  const openSpotlight = () => { setSearchQuery(''); setIsLaunchpadOpen(false); setIsSpotlightOpen(true); };
+  const openSpotlight = () => { setSearchQuery(''); setIsLaunchpadOpen(false); setShowUtilitiesFolder(false); setIsSpotlightOpen(true); };
   const closeSpotlight = () => { setIsSpotlightOpen(false); setSearchQuery(''); };
-  const openLaunchpad = () => { setLpQuery(''); setIsSpotlightOpen(false); setIsLaunchpadOpen(true); };
-  const closeLaunchpad = () => { setIsLaunchpadOpen(false); setLpQuery(''); };
-  const closeOverlays = () => { closeSpotlight(); closeLaunchpad(); };
+  const openLaunchpad = () => {
+    window.clearTimeout(launchpadCloseTimerRef.current);
+    setLpQuery(''); setLaunchpadPage(0); setShowUtilitiesFolder(false); setIsSpotlightOpen(false);
+    setIsLaunchpadClosing(false); setIsLaunchpadOpen(true);
+  };
+  const closeLaunchpad = () => {
+    if (!isLaunchpadOpen || isLaunchpadClosing) return;
+    setIsLaunchpadClosing(true);
+    window.clearTimeout(launchpadCloseTimerRef.current);
+    launchpadCloseTimerRef.current = window.setTimeout(() => {
+      setIsLaunchpadOpen(false); setIsLaunchpadClosing(false); setLpQuery(''); setLaunchpadPage(0);
+    }, 260);
+  };
+  const closeOverlays = () => { closeSpotlight(); closeLaunchpad(); setShowUtilitiesFolder(false); };
+
+  useEffect(() => () => window.clearTimeout(launchpadCloseTimerRef.current), []);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -613,7 +694,7 @@ export default function App() {
       if (e.key === 'Escape') {
         setIsSpotlightOpen(false); setIsLaunchpadOpen(false); setShowUserMenu(false);
         setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
-        setPublicationTypeOpen(false);
+        setPublicationTypeOpen(false); setShowUtilitiesFolder(false); setShowTeamEditor(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -622,6 +703,23 @@ export default function App() {
 
   useEffect(() => { if (isSpotlightOpen) searchInputRef.current?.focus(); }, [isSpotlightOpen]);
   useEffect(() => { if (isLaunchpadOpen) lpInputRef.current?.focus(); }, [isLaunchpadOpen]);
+
+  useEffect(() => {
+    const updateLaunchpadCapacity = () => setLaunchpadPageSize(window.innerWidth >= 1180 ? 18 : window.innerWidth >= 760 ? 12 : 8);
+    window.addEventListener('resize', updateLaunchpadCapacity);
+    return () => window.removeEventListener('resize', updateLaunchpadCapacity);
+  }, []);
+
+  useEffect(() => {
+    if (!showUtilitiesFolder) return undefined;
+    const closeFolderFromBackground = event => {
+      if (!(event.target instanceof Element) || !event.target.closest('.dock-folder')) {
+        setShowUtilitiesFolder(false);
+      }
+    };
+    document.addEventListener('pointerdown', closeFolderFromBackground);
+    return () => document.removeEventListener('pointerdown', closeFolderFromBackground);
+  }, [showUtilitiesFolder]);
 
   useEffect(() => {
     if (!isLoggedIn || !userData) return;
@@ -711,10 +809,29 @@ export default function App() {
 
   /* ---------------- API ---------------- */
   const post = async (payload) => {
-    const res = await fetch(GAS_API_URL, {
-      method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain' },
-    });
-    return res.json();
+    let res;
+    try {
+      res = await fetch(GAS_API_URL, {
+        method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      });
+    } catch {
+      throw new Error('No fue posible conectar con el backend. Revisa tu conexión y que el Web App de Apps Script siga publicado.');
+    }
+    const responseText = await res.text();
+    if (!responseText.trim()) throw new Error('El backend respondió sin contenido. Verifica el despliegue de Apps Script.');
+    try {
+      const parsed = JSON.parse(responseText);
+      if (!res.ok) throw new Error(parsed.message || `El backend respondió con estado ${res.status}.`);
+      return parsed;
+    } catch (parseError) {
+      if (parseError instanceof SyntaxError) {
+        const isHtml = /<!doctype|<html|<body/i.test(responseText);
+        throw new Error(isHtml
+          ? 'Apps Script devolvió una página HTML en lugar de la API. Publica una nueva versión del Web App y revisa que el acceso permita a todos los usuarios autorizados.'
+          : 'La respuesta del backend no tiene un formato JSON válido.');
+      }
+      throw parseError;
+    }
   };
 
   const emitAnalytics = (event, details = {}) => {
@@ -730,7 +847,6 @@ export default function App() {
       view: details.view || '',
       sessionId: details.sessionId || sessionIdRef.current || '',
       authToken: details.authToken || userData?.sessionToken || '',
-      detail: details.detail || '',
     };
     fetch(GAS_API_URL, {
       method: 'POST', body: JSON.stringify({ action: 'trackEvent', eventData }),
@@ -756,6 +872,20 @@ export default function App() {
     } catch { /* respaldo local */ }
   };
 
+  const fetchTeams = async (session = userData) => {
+    if (!session?.usuario || !session?.sessionToken) return;
+    setTeamsLoading(true); setTeamsError('');
+    try {
+      const response = await post({ action: 'getTeams', usuario: session.usuario, authToken: session.sessionToken });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible consultar los equipos.');
+      const nextTeams = response.data || [];
+      setTeams(nextTeams);
+      setSelectedTeamId(current => nextTeams.some(team => team.id === current) ? current : (nextTeams[0]?.id || ''));
+    } catch (teamRequestError) {
+      setTeamsError(teamRequestError.message || 'No fue posible consultar los equipos.');
+    } finally { setTeamsLoading(false); }
+  };
+
   const fetchAnalytics = async () => {
     if (userData?.rolGlobal !== 'Administrador') return;
     setAnalyticsLoading(true); setAnalyticsError('');
@@ -763,6 +893,7 @@ export default function App() {
       const response = await post({ action: 'getAnalytics', usuario: userData.usuario, authToken: userData.sessionToken, days: analyticsRange });
       if (response.status !== 'success') throw new Error(response.message || 'No fue posible consultar la analítica.');
       setAnalyticsData(response.data);
+      setAnalyticsActivityPage(0);
     } catch (analyticsRequestError) {
       setAnalyticsError(analyticsRequestError.message || 'No fue posible conectar con la analítica.');
     } finally { setAnalyticsLoading(false); }
@@ -772,6 +903,11 @@ export default function App() {
     if (!isLoggedIn || !userData || currentView !== 'analytics' || userData.rolGlobal !== 'Administrador') return;
     fetchAnalytics();
   }, [analyticsRange, currentView, isLoggedIn, userData]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !userData || currentView !== 'teams') return;
+    fetchTeams(userData);
+  }, [currentView, isLoggedIn, userData]);
 
   useEffect(() => {
     if (!isLoggedIn || !userData) return;
@@ -789,7 +925,7 @@ export default function App() {
       if (!visible) return;
       const now = Date.now();
       const seconds = Math.floor((now - lastStartedAt) / 1000);
-      if (seconds > 0) emitAnalytics('app_usage', {
+      if (seconds >= 5) emitAnalytics('app_usage', {
         appId: app.sys ? `sys-${app.sys}` : app.id, appName: app.nombre, group: app.grupo || (app.sys ? 'Utilidades del sistema' : 'Sin grupo'), durationSeconds: seconds,
       });
       lastStartedAt = now;
@@ -798,7 +934,7 @@ export default function App() {
       if (document.hidden) { flushUsage(); visible = false; }
       else { visible = true; lastStartedAt = Date.now(); }
     };
-    const heartbeat = window.setInterval(flushUsage, 60000);
+    const heartbeat = window.setInterval(flushUsage, 300000);
     document.addEventListener('visibilitychange', handleVisibility);
     return () => {
       window.clearInterval(heartbeat);
@@ -815,9 +951,9 @@ export default function App() {
       const r = await post({ action: 'login', usuario, password });
       if (r.status === 'success') {
         const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        sessionIdRef.current = sessionId; sessionStartedAtRef.current = Date.now();
-        setIsLoggedIn(true); setUserData(r); fetchApps(); fetchUsers(); fetchBoardPosts();
-        emitAnalytics('session_start', { usuario: r.usuario, authToken: r.sessionToken, sessionId, detail: r.rolGlobal || '' });
+        sessionIdRef.current = sessionId;
+        setIsLoggedIn(true); setUserData(r); fetchApps(); fetchUsers(); fetchBoardPosts(); fetchTeams(r);
+        emitAnalytics('session_start', { usuario: r.usuario, authToken: r.sessionToken, sessionId });
       }
       else setError(r.message || 'Credenciales no válidas.');
     } catch { setError('Servidor no disponible en este momento.'); }
@@ -825,16 +961,14 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    if (userData?.usuario && sessionStartedAtRef.current) emitAnalytics('session_end', {
-      durationSeconds: Math.floor((Date.now() - sessionStartedAtRef.current) / 1000),
-    });
     document.body.setAttribute('data-theme', 'light');
     setIsLoggedIn(false); setUserData(null); setOpenApps([]); setActiveAppId(null);
     setShowUserMenu(false); setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
     setShowBoardManager(false); setPublicationTypeOpen(false); setBoardCarouselPaused(false);
+    setShowUtilitiesFolder(false); setTeams([]); setTeamsError(''); setSelectedTeamId(''); setShowTeamEditor(false);
     setCurrentView('dashboard'); setPassword(''); setCaptchaVerified(false); setPomodoroRunning(false);
     setTheme('light'); setWorkspaceAppearance(DEFAULT_APPEARANCE); setAnalyticsData(null); setAnalyticsError('');
-    sessionIdRef.current = ''; sessionStartedAtRef.current = 0;
+    sessionIdRef.current = '';
   };
 
   /* ---------------- Tareas ---------------- */
@@ -864,10 +998,11 @@ export default function App() {
   const addScheduledTask = (e) => {
     e.preventDefault();
     if (!calendarTaskText.trim()) return;
-    setTasks(list => [...list, {
+    const task = {
       id: Date.now(), text: calendarTaskText.trim(), done: false,
       color: calendarTaskColor, dueDate: selectedDate,
-    }]);
+    };
+    setTasks(list => [...list, task]);
     setCalendarTaskText('');
   };
 
@@ -901,6 +1036,83 @@ export default function App() {
       const r = await post({ action: 'deleteBoardPost', id });
       if (r.status === 'success') await fetchBoardPosts();
     } catch { /* conservar eliminación local */ }
+  };
+
+  const openNewTeamEditor = () => {
+    const firstUser = usersList[0]?.idRed || userData?.usuario || '';
+    setTeamDraft({ id: '', name: '', leaderId: firstUser, memberIds: firstUser ? [firstUser] : [] });
+    setShowTeamEditor(true);
+  };
+
+  const openExistingTeamEditor = (team) => {
+    setTeamDraft({ id: team.id, name: team.name, leaderId: team.leaderId, memberIds: team.members.map(member => member.userId) });
+    setShowTeamEditor(true);
+  };
+
+  const toggleTeamDraftMember = (idRed) => {
+    setTeamDraft(current => {
+      const exists = current.memberIds.some(id => id.toUpperCase() === idRed.toUpperCase());
+      const memberIds = exists ? current.memberIds.filter(id => id.toUpperCase() !== idRed.toUpperCase()) : [...current.memberIds, idRed];
+      return { ...current, memberIds };
+    });
+  };
+
+  const saveTeam = async (e) => {
+    e.preventDefault();
+    if (!teamDraft.name.trim() || !teamDraft.leaderId) return;
+    setTeamsLoading(true); setTeamsError('');
+    try {
+      const memberIds = [...new Set([...teamDraft.memberIds, teamDraft.leaderId])];
+      const response = await post({
+        action: 'saveTeam', usuario: userData.usuario, authToken: userData.sessionToken,
+        teamData: { ...teamDraft, memberIds },
+      });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible guardar el equipo.');
+      setShowTeamEditor(false);
+      await fetchTeams();
+      setSelectedTeamId(response.id || teamDraft.id);
+    } catch (teamError) {
+      setTeamsError(teamError.message || 'No fue posible guardar el equipo.');
+    } finally { setTeamsLoading(false); }
+  };
+
+  const removeTeam = async (team) => {
+    if (!window.confirm(`¿Eliminar el equipo “${team.name}” y todas sus tareas?`)) return;
+    setTeamsLoading(true); setTeamsError('');
+    try {
+      const response = await post({ action: 'deleteTeam', usuario: userData.usuario, authToken: userData.sessionToken, id: team.id });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible eliminar el equipo.');
+      await fetchTeams();
+    } catch (teamError) { setTeamsError(teamError.message); }
+    finally { setTeamsLoading(false); }
+  };
+
+  const addTeamTask = async (e) => {
+    e.preventDefault();
+    if (!selectedTeam || !teamTaskDraft.title.trim() || !teamTaskDraft.assignedTo) return;
+    setTeamsLoading(true); setTeamsError('');
+    try {
+      const response = await post({
+        action: 'addTeamTask', usuario: userData.usuario, authToken: userData.sessionToken,
+        taskData: { ...teamTaskDraft, teamId: selectedTeam.id },
+      });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible asignar la tarea.');
+      setTeamTaskDraft(current => ({ ...current, title: '', description: '' }));
+      await fetchTeams();
+    } catch (teamError) { setTeamsError(teamError.message); }
+    finally { setTeamsLoading(false); }
+  };
+
+  const updateTeamTaskStatus = async (task, status) => {
+    setTeamsError('');
+    try {
+      const response = await post({
+        action: 'updateTeamTask', usuario: userData.usuario, authToken: userData.sessionToken,
+        taskData: { id: task.id, status },
+      });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible actualizar la tarea.');
+      await fetchTeams();
+    } catch (teamError) { setTeamsError(teamError.message); }
   };
 
   /* ---------------- CRUD ---------------- */
@@ -976,8 +1188,6 @@ export default function App() {
 
   const closeApp = (e, appId) => {
     if (e) e.stopPropagation();
-    const closingApp = openApps.find(app => app.id === appId);
-    if (closingApp) emitAnalytics('app_close', { appId: closingApp.sys ? `sys-${closingApp.sys}` : closingApp.id, appName: closingApp.nombre, group: closingApp.grupo || (closingApp.sys ? 'Utilidades del sistema' : 'Sin grupo') });
     const rest = openApps.filter(a => a.id !== appId);
     const next = topVisibleWindow(rest);
     setOpenApps(rest);
@@ -999,7 +1209,8 @@ export default function App() {
     e.stopPropagation();
     if (windowMotion[appId]) return;
     const winEl = document.getElementById(`window-${appId}`);
-    const dockEl = document.getElementById(`dock-${appId}`);
+    const targetApp = openApps.find(app => app.id === appId);
+    const dockEl = document.getElementById(targetApp?.sys ? 'dock-utilities-folder' : `dock-${appId}`);
     let vector = { x: 0, y: window.innerHeight, scaleX: .06, scaleY: .04 };
     if (winEl && dockEl) {
       const w = winEl.getBoundingClientRect();
@@ -1059,8 +1270,12 @@ export default function App() {
   /* ---------------- Derivados ---------------- */
   const isAdmin = userData?.rolGlobal === 'Administrador';
   const todayKey = dateKey(currentTime);
+  const todayCorporateMessage = dailyCorporateMessage(currentTime);
   const dashboardTasks = tasks.filter(task => !task.dueDate || task.dueDate <= todayKey);
-  const pendingTasks = dashboardTasks.filter(t => !t.done).length;
+  const teamDashboardTasks = teams.flatMap(team => (team.tasks || []).filter(task => (
+    task.status !== 'completada' && String(task.assignedTo).toUpperCase() === String(userData?.usuario || '').toUpperCase()
+  )).map(task => ({ ...task, teamName: team.name })));
+  const pendingTasks = dashboardTasks.filter(t => !t.done).length + teamDashboardTasks.length;
   const scheduledTasks = tasks.filter(task => !task.done && task.dueDate && task.dueDate > todayKey).length;
 
   const greeting = useMemo(() => {
@@ -1105,6 +1320,7 @@ export default function App() {
     group,
     apps: appsList.filter(app => (app.grupo?.trim() || 'Sin grupo') === group),
   })), [appGroups, appsList]);
+  const dashboardAppGroups = groupedApps.slice(0, 2);
 
   const launchpadEntries = useMemo(() => {
     const sys = SYSTEM_APPS.map(s => ({
@@ -1119,10 +1335,18 @@ export default function App() {
     return launchpadEntries.filter(a => (a.nombre || '').toLowerCase().includes(q) || (a.grupo || '').toLowerCase().includes(q));
   }, [launchpadEntries, lpQuery]);
 
-  const lpGrouped = useMemo(() => {
-    const groups = [...new Set(lpFiltered.map(entry => entry.grupo?.trim() || 'Sin grupo'))];
-    return groups.map(group => ({ group, entries: lpFiltered.filter(entry => (entry.grupo?.trim() || 'Sin grupo') === group) }));
-  }, [lpFiltered]);
+  const launchpadPages = useMemo(() => {
+    const pages = [];
+    for (let index = 0; index < lpFiltered.length; index += launchpadPageSize) pages.push(lpFiltered.slice(index, index + launchpadPageSize));
+    return pages.length ? pages : [[]];
+  }, [lpFiltered, launchpadPageSize]);
+
+  useEffect(() => {
+    setLaunchpadPage(page => Math.min(page, Math.max(0, launchpadPages.length - 1)));
+  }, [launchpadPages.length]);
+
+  const selectedTeam = teams.find(team => team.id === selectedTeamId) || teams[0] || null;
+  const canManageSelectedTeam = Boolean(selectedTeam?.canManage || isAdmin);
 
   const openEntry = (entry) => entry.sysType ? launchSystemApp(entry.sysType) : launchApp(entry);
   const welcomeName = profilePreferences.displayName.trim() || userData?.usuario || '';
@@ -1363,7 +1587,7 @@ export default function App() {
     if (!hasLink) return article;
     return (
       <a className="board-slide-link board-slide-enter" href={normalizeExternalUrl(post.linkUrl)} target="_blank" rel="noopener noreferrer" aria-label="Abrir comunicación enlazada"
-        onClick={() => emitAnalytics('board_click', { detail: post.id || post.title || post.type })}>
+        onClick={() => emitAnalytics('board_click', { appId: post.id, appName: post.title || `Publicación ${post.type}` })}>
         {article}
         <span className="board-link-hint">Abrir comunicación <IcoChevron s={12} /></span>
       </a>
@@ -1377,8 +1601,10 @@ export default function App() {
       <section className="card b6 flat">
         <h1 className="hero-greet">{greeting}, <span>{welcomeName}</span></h1>
         <p className="hero-sub">
-          {profilePreferences.welcomeMessage.trim() || `Tienes ${appsList.length} aplicativo${appsList.length === 1 ? '' : 's'} disponible${appsList.length === 1 ? '' : 's'}${pendingTasks > 0 ? ` y ${pendingTasks} tarea${pendingTasks === 1 ? '' : 's'} pendiente${pendingTasks === 1 ? '' : 's'}` : ' y ninguna tarea pendiente'}.`}
+          {`Tienes ${appsList.length} aplicativo${appsList.length === 1 ? '' : 's'} disponible${appsList.length === 1 ? '' : 's'}${pendingTasks > 0 ? ` y ${pendingTasks} tarea${pendingTasks === 1 ? '' : 's'} pendiente${pendingTasks === 1 ? '' : 's'}` : ' y ninguna tarea pendiente'}.`}
         </p>
+        <p className="hero-daily-message">{todayCorporateMessage}</p>
+        {profilePreferences.welcomeMessage.trim() && <p className="hero-personal-note">{profilePreferences.welcomeMessage.trim()}</p>}
         <button className="search-trigger" onClick={openSpotlight}>
           <IcoSearch s={15} /> Buscar en Ágora <span className="kbd">⌘K</span>
         </button>
@@ -1449,19 +1675,19 @@ export default function App() {
       </section>
 
       {/* ---- Aplicaciones (Launchpad embebido) ---- */}
-      <section className="card b8 r2">
+      <section className="card b8 r2 dashboard-app-card">
         <div className="card-head">
           <div className="card-label"><IcoGrid s={13} /> Aplicaciones</div>
           <button className="ghost-btn" onClick={openLaunchpad}>Abrir Launchpad</button>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', margin: '0 -8px', padding: '2px 8px 4px' }}>
+        <div className="dashboard-app-preview">
           <div className="desktop-app-groups">
             {appsList.length === 0 && <p className="empty-note">Sincronizando el portafolio de sistemas…</p>}
-            {groupedApps.map(({ group, apps }) => (
+            {dashboardAppGroups.map(({ group, apps }) => (
               <section key={group} className="desktop-app-group">
                 <div className="app-group-heading"><span>{group}</span><small>{apps.length}</small></div>
                 <div className="lp-grid">
-                  {apps.map(app => (
+                  {apps.slice(0, 6).map(app => (
                     <button key={app.id} className="lp-item" onClick={() => launchApp(app)} title={app.desc || app.nombre}>
                       <AppIcon app={app} size={58} />
                       <span className="lp-name">{app.nombre}</span>
@@ -1470,19 +1696,14 @@ export default function App() {
                 </div>
               </section>
             ))}
-            <section className="desktop-app-group system-group">
-              <div className="app-group-heading"><span>Utilidades del sistema</span><small>{SYSTEM_APPS.length}</small></div>
-              <div className="lp-grid">
-                {SYSTEM_APPS.map(s => (
-                  <button key={s.sys} className="lp-item" onClick={() => launchSystemApp(s.sys)}>
-                    <AppIcon app={{ nombre: s.nombre, grad: s.grad, sysIcon: s.icon }} size={58} />
-                    <span className="lp-name">{s.nombre}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
           </div>
         </div>
+        {appsList.length > 0 && (
+          <button className="dashboard-app-more" onClick={openLaunchpad}>
+            <span>Mostrando {Math.min(2, groupedApps.length)} de {groupedApps.length} grupos</span>
+            <strong>Ver {appsList.length + SYSTEM_APPS.length} herramientas <IcoChevron s={12} /></strong>
+          </button>
+        )}
       </section>
 
       {/* ---- Tareas ---- */}
@@ -1492,9 +1713,10 @@ export default function App() {
           {tasks.some(t => t.done) && <button className="ghost-btn" onClick={clearDone}>Limpiar</button>}
         </div>
         <div className="task-list pending-task-list">
-          {dashboardTasks.length === 0
+          {dashboardTasks.length === 0 && teamDashboardTasks.length === 0
             ? <p className="empty-note" style={{ padding: '28px 0' }}>{scheduledTasks > 0 ? 'No hay pendientes para hoy.' : 'Todo en orden. No hay pendientes.'}</p>
-            : dashboardTasks.map(t => (
+            : <>
+            {dashboardTasks.map(t => (
               <div key={t.id} className={`task-row color-${t.color || 'navy'} ${t.done ? 'done' : ''}`}>
                 <button className="task-color" onClick={() => cycleTaskColor(t.id)} title="Cambiar clasificación" aria-label="Cambiar color de la tarea" />
                 <button className="task-box" onClick={() => toggleTask(t.id)}>{t.done && <IcoCheck s={11} />}</button>
@@ -1502,6 +1724,15 @@ export default function App() {
                 <button className="task-del" onClick={() => deleteTask(t.id)}><IcoX s={11} /></button>
               </div>
             ))}
+            {teamDashboardTasks.map(task => (
+              <div key={`team-${task.id}`} className={`task-row team-pending priority-${task.priority || 'media'}`}>
+                <span className="task-color" />
+                <button className="task-box" onClick={() => updateTeamTaskStatus(task, 'completada')} title="Marcar como completada" />
+                <span className="task-text">{task.title}<small>{task.teamName}{task.dueDate ? ` · ${task.dueDate < todayKey ? 'Vencida' : new Date(`${task.dueDate}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}` : ' · Sin fecha'}</small></span>
+                <button className="task-del" onClick={() => { setSelectedTeamId(task.teamId); setCurrentView('teams'); }} title="Abrir equipo"><IcoChevron s={11} /></button>
+              </div>
+            ))}
+            </>}
         </div>
         <div className="task-composer">
           <div className="task-palette" aria-label="Color de la nueva tarea">
@@ -1513,7 +1744,7 @@ export default function App() {
       </section>
 
       {/* ---- Recientes ---- */}
-      <section className="card b4 flat">
+      <section className="card b4 flat recent-card">
         <div className="card-label"><IcoHistory s={13} /> Recientes</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 'auto' }}>
           {recents.length === 0
@@ -1546,28 +1777,42 @@ export default function App() {
      ====================================================================== */
   const renderLaunchpad = () => {
     if (!isLaunchpadOpen) return null;
+    const handleLaunchpadBackground = event => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('.lp-item, .lp-search, .lp-page-arrow, .lp-page-dots button')) return;
+      closeLaunchpad();
+    };
     return (
-      <div className="launchpad" onClick={closeLaunchpad}>
-        <div className="lp-search" onClick={e => e.stopPropagation()}>
+      <div className={`launchpad ${isLaunchpadClosing ? 'closing' : ''}`} onMouseDown={handleLaunchpadBackground}>
+        <div className="lp-search">
           <IcoSearch s={16} />
-          <input ref={lpInputRef} value={lpQuery} onChange={e => setLpQuery(e.target.value)} placeholder="Buscar" />
+          <input ref={lpInputRef} value={lpQuery} onChange={e => { setLpQuery(e.target.value); setLaunchpadPage(0); }} placeholder="Buscar" />
         </div>
-        <div className="lp-canvas" onClick={e => e.stopPropagation()}>
-          {lpFiltered.length === 0 && <p className="empty-note">Sin resultados para “{lpQuery}”.</p>}
-          {lpGrouped.map(({ group, entries }, groupIndex) => (
-            <section key={group} className="lp-group-section">
-              <div className="lp-group-heading"><span>{group}</span><small>{entries.length} aplicativo{entries.length === 1 ? '' : 's'}</small></div>
-              <div className="lp-group-grid">
-                {entries.map((entry, index) => (
-                  <button key={entry.id} className="lp-item" style={{ animationDelay: `${Math.min((groupIndex * 4 + index) * 22, 400)}ms` }}
-                    onClick={() => openEntry(entry)}>
-                    <AppIcon app={entry} size={76} />
-                    <span className="lp-name">{entry.nombre}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          ))}
+        <div className="lp-stage">
+          <button className="lp-page-arrow previous" disabled={launchpadPage === 0} onClick={() => setLaunchpadPage(page => Math.max(0, page - 1))} aria-label="Hoja anterior"><IcoChevron s={24} /></button>
+          <div className="lp-pages-viewport">
+            <div className="lp-pages-track" style={{ transform: `translateX(-${launchpadPage * 100}%)` }}>
+              {launchpadPages.map((entries, pageIndex) => (
+                <section className="lp-page" key={`launchpad-page-${pageIndex}`} aria-hidden={pageIndex !== launchpadPage}>
+                  {entries.length === 0 ? <p className="empty-note">Sin resultados para “{lpQuery}”.</p> : (
+                    <div className="lp-page-grid">
+                      {entries.map((entry, index) => (
+                        <button key={entry.id} className="lp-item" style={{ animationDelay: `${Math.min(index * 28, 360)}ms` }} onClick={() => openEntry(entry)} title={entry.desc || entry.grupo || entry.nombre}>
+                          <AppIcon app={entry} size={76} />
+                          <span className="lp-name">{entry.nombre}</span>
+                          <small className="lp-app-group">{entry.grupo || 'Sin grupo'}</small>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ))}
+            </div>
+          </div>
+          <button className="lp-page-arrow next" disabled={launchpadPage >= launchpadPages.length - 1} onClick={() => setLaunchpadPage(page => Math.min(launchpadPages.length - 1, page + 1))} aria-label="Siguiente hoja"><IcoChevron s={24} /></button>
+        </div>
+        <div className="lp-page-dots" role="tablist" aria-label="Hojas del Launchpad">
+          {launchpadPages.map((_, index) => <button key={index} className={index === launchpadPage ? 'active' : ''} onClick={() => setLaunchpadPage(index)} aria-label={`Ir a la hoja ${index + 1}`} aria-selected={index === launchpadPage} role="tab" />)}
         </div>
       </div>
     );
@@ -1663,7 +1908,7 @@ export default function App() {
                     <button key={key} className={`${inMonth ? '' : 'outside'} ${key === selectedDate ? 'selected' : ''} ${key === todayKey ? 'today' : ''}`}
                       onClick={() => setSelectedDate(key)}>
                       <span>{day.getDate()}</span>
-                      {dayTasks.length > 0 && <i style={{ '--day-color': TASK_COLORS.find(color => color.id === dayTasks[0].color)?.hex || '#25294F' }} />}
+                      {dayTasks.length > 0 && <i style={{ '--day-color': TASK_COLORS.find(color => color.id === dayTasks[0]?.color)?.hex || '#25294F' }} />}
                     </button>
                   );
                 })}
@@ -1953,6 +2198,230 @@ export default function App() {
     );
   };
 
+  const renderTeamEditor = () => {
+    if (!showTeamEditor) return null;
+    const availableUsers = usersList.filter(user => !['inactivo', 'bloqueado', 'suspendido'].includes(String(user.estado || '').toLowerCase()));
+    return (
+      <div className="modal-overlay team-editor-overlay" onMouseDown={() => setShowTeamEditor(false)}>
+        <section className="team-editor-modal" onMouseDown={e => e.stopPropagation()}>
+          <div className="modal-head">
+            <div><span className="login-kicker">Organización</span><h2>{teamDraft.id ? 'Gestionar equipo' : 'Crear equipo de trabajo'}</h2></div>
+            <button className="modal-close" onClick={() => setShowTeamEditor(false)}><IcoX s={14} /></button>
+          </div>
+          <form className="team-editor-form" onSubmit={saveTeam}>
+            <label><span>Nombre del equipo</span><input className="field" value={teamDraft.name} onChange={e => setTeamDraft(current => ({ ...current, name: e.target.value }))} placeholder="Ej. Analítica Comercial" required /></label>
+            <label><span>Líder responsable</span>
+              <select className="field" value={teamDraft.leaderId} onChange={e => setTeamDraft(current => ({ ...current, leaderId: e.target.value, memberIds: [...new Set([...current.memberIds, e.target.value])] }))} required>
+                <option value="">Selecciona un líder</option>
+                {availableUsers.map(user => <option key={user.idRed} value={user.idRed}>{user.nombre || user.idRed} ({user.idRed})</option>)}
+              </select>
+            </label>
+            <div className="team-member-picker">
+              <div className="team-field-title"><span>Integrantes</span><small>{new Set([...teamDraft.memberIds, teamDraft.leaderId].filter(Boolean)).size} seleccionados</small></div>
+              <div className="team-member-options">
+                {availableUsers.map(user => {
+                  const checked = teamDraft.memberIds.some(id => id.toUpperCase() === String(user.idRed).toUpperCase()) || String(teamDraft.leaderId).toUpperCase() === String(user.idRed).toUpperCase();
+                  const leader = String(teamDraft.leaderId).toUpperCase() === String(user.idRed).toUpperCase();
+                  return (
+                    <label key={user.idRed} className={checked ? 'selected' : ''}>
+                      <input type="checkbox" checked={checked} disabled={leader} onChange={() => toggleTeamDraftMember(user.idRed)} />
+                      <span className="team-person-avatar">{initialsOf(user.nombre || user.idRed)}</span>
+                      <span><strong>{user.nombre || user.idRed}</strong><small>{user.idRed} · {user.correo || 'Sin correo'}</small></span>
+                      {leader && <b>Líder</b>}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="team-editor-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowTeamEditor(false)}>Cancelar</button>
+              <button type="submit" className="btn btn-primary" disabled={teamsLoading}>{teamsLoading ? 'Guardando…' : 'Guardar equipo'}</button>
+            </div>
+          </form>
+        </section>
+      </div>
+    );
+  };
+
+  const renderTeams = () => {
+    const teamTasks = selectedTeam?.tasks || [];
+    const totalTasks = teamTasks.length;
+    const completed = teamTasks.filter(task => task.status === 'completada').length;
+    const inProgress = teamTasks.filter(task => task.status === 'en_progreso').length;
+    const openTasks = teamTasks.filter(task => task.status !== 'completada');
+    const overdueTasks = openTasks.filter(task => task.dueDate && task.dueDate < todayKey);
+    const highPriorityTasks = openTasks.filter(task => task.priority === 'alta');
+    const completion = totalTasks ? Math.round(completed / totalTasks * 100) : 0;
+    const userId = String(userData?.usuario || '').toUpperCase();
+    const memberName = id => selectedTeam?.members.find(member => member.userId.toUpperCase() === String(id).toUpperCase())?.name || id;
+    const filteredTeamTasks = teamTaskFilter === 'all' ? teamTasks : teamTasks.filter(task => task.status === teamTaskFilter);
+    const upcomingDeadlines = openTasks.filter(task => task.dueDate).sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5);
+    const workload = (selectedTeam?.members || []).map(member => {
+      const assigned = teamTasks.filter(task => String(task.assignedTo).toUpperCase() === member.userId.toUpperCase());
+      return { ...member, total: assigned.length, open: assigned.filter(task => task.status !== 'completada').length, completed: assigned.filter(task => task.status === 'completada').length };
+    }).sort((a, b) => b.open - a.open || b.total - a.total);
+    const maxWorkload = Math.max(1, ...workload.map(member => member.open));
+    const calendarFirst = new Date(teamCalendarMonth.getFullYear(), teamCalendarMonth.getMonth(), 1);
+    const calendarOffset = (calendarFirst.getDay() + 6) % 7;
+    const calendarStart = new Date(calendarFirst);
+    calendarStart.setDate(calendarFirst.getDate() - calendarOffset);
+    const teamCalendarDays = Array.from({ length: 42 }, (_, index) => {
+      const day = new Date(calendarStart);
+      day.setDate(calendarStart.getDate() + index);
+      return day;
+    });
+    const selectedDayTasks = teamTasks.filter(task => task.dueDate === teamCalendarDate);
+    const selectedCalendarDate = new Date(`${teamCalendarDate}T12:00:00`);
+
+    return (
+      <div className="teams-page enter">
+        <section className="teams-header">
+          <div>
+            <span className="analytics-eyebrow"><IcoUsers s={15} /> Dirección y seguimiento</span>
+            <h2>Equipos de trabajo</h2>
+            <p>Una vista ejecutiva de responsabilidades, capacidad, fechas críticas y avance real.</p>
+          </div>
+          <div className="teams-header-actions">
+            <button className="btn btn-secondary" onClick={() => fetchTeams()} disabled={teamsLoading}><IcoRefresh s={15} /> Actualizar</button>
+            {isAdmin && <button className="btn btn-primary" onClick={openNewTeamEditor}><IcoPlus s={15} /> Crear equipo</button>}
+          </div>
+        </section>
+
+        {teamsError && <div className="teams-alert"><IcoShield s={17} /><span><strong>No fue posible completar la operación.</strong>{teamsError}</span><button onClick={() => setTeamsError('')}><IcoX s={11} /></button></div>}
+        {teamsLoading && teams.length === 0 && <div className="teams-loading"><span className="spinner" /> Sincronizando equipos…</div>}
+        {!teamsLoading && teams.length === 0 ? (
+          <section className="teams-empty"><span><IcoUsers s={32} /></span><h3>Aún no tienes equipos asignados</h3><p>{isAdmin ? 'Crea el primer equipo, elige su líder y agrega integrantes desde el directorio.' : 'Cuando te asignen a un equipo aparecerá aquí junto con tus tareas.'}</p>{isAdmin && <button className="btn btn-primary" onClick={openNewTeamEditor}>Crear primer equipo</button>}</section>
+        ) : (
+          <div className="teams-layout executive">
+            <aside className="team-list-panel">
+              <div className="team-list-heading"><div><span>Portafolio de equipos</span><strong>{teams.length} activos</strong></div><small>{teams.length}</small></div>
+              <div className="team-list">
+                {teams.map(team => {
+                  const teamCompleted = team.tasks.filter(task => task.status === 'completada').length;
+                  const teamOpen = team.tasks.length - teamCompleted;
+                  const percent = team.tasks.length ? Math.round(teamCompleted / team.tasks.length * 100) : 0;
+                  return (
+                    <button key={team.id} className={selectedTeam?.id === team.id ? 'active' : ''} onClick={() => {
+                      setSelectedTeamId(team.id);
+                      setTeamSection('overview');
+                      setTeamTaskDraft(current => ({ ...current, assignedTo: team.members[0]?.userId || '' }));
+                    }}>
+                      <span className="team-list-avatar">{initialsOf(team.name)}</span>
+                      <span className="team-list-copy"><strong>{team.name}</strong><small>{team.leaderName || team.leaderId}</small><i><b style={{ width: `${percent}%` }} /></i><em>{teamOpen} abiertas · {percent}% completado</em></span>
+                      <IcoChevron s={14} />
+                    </button>
+                  );
+                })}
+              </div>
+            </aside>
+
+            {selectedTeam && <section className="team-workspace-panel">
+              <div className="team-executive-hero">
+                <div className="team-overview-copy"><span className="team-status-dot" /><small>Equipo activo</small><h3>{selectedTeam.name}</h3><p>Líder: <strong>{selectedTeam.leaderName}</strong> · {selectedTeam.leaderId}</p></div>
+                <div className="team-hero-progress"><div className="team-progress-ring" style={{ '--team-progress': `${completion * 3.6}deg` }}><span><strong>{completion}%</strong><small>avance</small></span></div><div><strong>{completed} de {totalTasks}</strong><span>tareas completadas</span></div></div>
+                {canManageSelectedTeam && <div className="team-overview-actions"><button className="btn btn-secondary" onClick={() => openExistingTeamEditor(selectedTeam)}><IcoEdit s={15} /> Gestionar equipo</button>{isAdmin && <button className="icon-btn danger" onClick={() => removeTeam(selectedTeam)} title="Eliminar equipo"><IcoTrash s={16} /></button>}</div>}
+              </div>
+
+              <nav className="team-section-tabs" aria-label="Secciones del equipo">
+                <button className={teamSection === 'overview' ? 'active' : ''} onClick={() => setTeamSection('overview')}><IcoChart s={15} /> Resumen ejecutivo</button>
+                <button className={teamSection === 'tasks' ? 'active' : ''} onClick={() => setTeamSection('tasks')}><IcoCheck s={15} /> Tareas <span>{openTasks.length}</span></button>
+                <button className={teamSection === 'calendar' ? 'active' : ''} onClick={() => setTeamSection('calendar')}><IcoCal s={15} /> Calendario</button>
+                <button className={teamSection === 'people' ? 'active' : ''} onClick={() => setTeamSection('people')}><IcoUsers s={15} /> Personas <span>{selectedTeam.members.length}</span></button>
+              </nav>
+
+              {teamSection === 'overview' && <div className="team-executive-content">
+                <section className="team-kpi-grid">
+                  <article><span className="team-kpi-icon green"><IcoCheck s={18} /></span><div><small>Cumplimiento</small><strong>{completion}%</strong><p>{completed} tareas finalizadas</p></div></article>
+                  <article><span className="team-kpi-icon navy"><IcoPulse s={18} /></span><div><small>En ejecución</small><strong>{inProgress}</strong><p>{openTasks.length} compromisos abiertos</p></div></article>
+                  <article className={overdueTasks.length ? 'risk' : ''}><span className="team-kpi-icon red"><IcoClock s={18} /></span><div><small>Vencidas</small><strong>{overdueTasks.length}</strong><p>{overdueTasks.length ? 'Requieren atención' : 'Sin retrasos activos'}</p></div></article>
+                  <article><span className="team-kpi-icon amber"><IcoBell s={18} /></span><div><small>Prioridad alta</small><strong>{highPriorityTasks.length}</strong><p>Dentro de la carga abierta</p></div></article>
+                </section>
+
+                <section className="team-insight-grid">
+                  <article className="team-insight-card status-chart-card">
+                    <header><div><span>Distribución del trabajo</span><h4>Estado de las tareas</h4></div><small>{totalTasks} totales</small></header>
+                    <div className="team-status-chart">
+                      <div className="team-donut" style={{ '--done': `${completion * 3.6}deg`, '--progress': `${(completion + (totalTasks ? inProgress / totalTasks * 100 : 0)) * 3.6}deg` }}><span><strong>{openTasks.length}</strong><small>abiertas</small></span></div>
+                      <div className="team-chart-legend"><span><i className="pending" /> Pendientes <b>{teamTasks.filter(task => task.status === 'pendiente').length}</b></span><span><i className="progress" /> En progreso <b>{inProgress}</b></span><span><i className="done" /> Completadas <b>{completed}</b></span></div>
+                    </div>
+                  </article>
+
+                  <article className="team-insight-card workload-card">
+                    <header><div><span>Capacidad del equipo</span><h4>Carga abierta por persona</h4></div><small>{selectedTeam.members.length} personas</small></header>
+                    <div className="team-workload-list">
+                      {workload.length === 0 ? <p className="team-empty-copy">Sin integrantes disponibles.</p> : workload.slice(0, 6).map(member => <div key={member.userId}><span className="team-person-avatar">{initialsOf(member.name || member.userId)}</span><span><strong>{member.name}</strong><small>{member.open} abiertas · {member.completed} completadas</small><i><b style={{ width: `${member.open ? Math.max(8, member.open / maxWorkload * 100) : 0}%` }} /></i></span><em>{member.open}</em></div>)}
+                    </div>
+                  </article>
+                </section>
+
+                <section className="team-insight-grid lower">
+                  <article className="team-insight-card deadline-card">
+                    <header><div><span>Agenda crítica</span><h4>Próximos vencimientos</h4></div><button onClick={() => setTeamSection('calendar')}>Ver calendario <IcoChevron s={12} /></button></header>
+                    <div className="team-deadline-list">
+                      {upcomingDeadlines.length === 0 ? <p className="team-empty-copy">No hay fechas límite registradas.</p> : upcomingDeadlines.map(task => <button key={task.id} onClick={() => { setTeamCalendarDate(task.dueDate); setTeamCalendarMonth(new Date(`${task.dueDate}T12:00:00`)); setTeamSection('calendar'); }}><time className={task.dueDate < todayKey ? 'overdue' : ''}><strong>{new Date(`${task.dueDate}T12:00:00`).getDate()}</strong><small>{new Date(`${task.dueDate}T12:00:00`).toLocaleDateString('es-CO', { month: 'short' })}</small></time><span><strong>{task.title}</strong><small>{memberName(task.assignedTo)} · {TEAM_STATUS_LABELS[task.status]}</small></span><span className={`team-priority-pill ${task.priority}`}>{task.priority}</span></button>)}
+                    </div>
+                  </article>
+                  <article className="team-insight-card leader-brief-card">
+                    <header><div><span>Lectura ejecutiva</span><h4>Señales para el líder</h4></div><IcoPulse s={19} /></header>
+                    <div className="leader-brief">
+                      <p className={overdueTasks.length ? 'warning' : 'positive'}><IcoClock s={15} /><span><strong>{overdueTasks.length ? `${overdueTasks.length} tarea${overdueTasks.length === 1 ? '' : 's'} vencida${overdueTasks.length === 1 ? '' : 's'}` : 'Cronograma bajo control'}</strong><small>{overdueTasks.length ? 'Prioriza desbloqueos y acuerdos de recuperación.' : 'No se identifican retrasos activos.'}</small></span></p>
+                      <p className={highPriorityTasks.length > 2 ? 'warning' : 'neutral'}><IcoBell s={15} /><span><strong>{highPriorityTasks.length} compromisos de prioridad alta</strong><small>Revisa que la capacidad esté distribuida de forma sostenible.</small></span></p>
+                      <p className="neutral"><IcoUsers s={15} /><span><strong>{workload[0]?.name || 'Sin carga registrada'}</strong><small>{workload[0]?.open ? `Concentra la mayor carga abierta: ${workload[0].open} tareas.` : 'Aún no hay información suficiente de carga.'}</small></span></p>
+                    </div>
+                  </article>
+                </section>
+              </div>}
+
+              {teamSection === 'tasks' && <div className="team-tasks-section">
+                {canManageSelectedTeam && <form className="team-task-composer executive" onSubmit={addTeamTask}>
+                  <div className="team-task-composer-head"><span><IcoPlus s={16} /></span><div><strong>Asignar una tarea</strong><small>La persona responsable será la única autorizada para cambiar su estado.</small></div></div>
+                  <label><span>Tarea</span><input className="field" value={teamTaskDraft.title} onChange={e => setTeamTaskDraft(current => ({ ...current, title: e.target.value }))} placeholder="Resultado esperado" required /></label>
+                  <label><span>Detalle</span><input className="field" value={teamTaskDraft.description} onChange={e => setTeamTaskDraft(current => ({ ...current, description: e.target.value }))} placeholder="Contexto o entregable" /></label>
+                  <label><span>Responsable</span><select className="field" value={teamTaskDraft.assignedTo} onChange={e => setTeamTaskDraft(current => ({ ...current, assignedTo: e.target.value }))} required><option value="">Seleccionar</option>{selectedTeam.members.map(member => <option key={member.userId} value={member.userId}>{member.name} ({member.userId})</option>)}</select></label>
+                  <label><span>Fecha límite</span><input className="field" type="date" value={teamTaskDraft.dueDate} onChange={e => setTeamTaskDraft(current => ({ ...current, dueDate: e.target.value }))} /></label>
+                  <label><span>Prioridad</span><select className="field" value={teamTaskDraft.priority} onChange={e => setTeamTaskDraft(current => ({ ...current, priority: e.target.value }))}><option value="baja">Baja</option><option value="media">Media</option><option value="alta">Alta</option></select></label>
+                  <button className="btn btn-primary" type="submit" disabled={teamsLoading}>Asignar tarea</button>
+                </form>}
+
+                <div className="team-task-list-head"><div><span>Control operativo</span><h4>Listado de tareas</h4></div><div className="team-task-filters">{[{ id: 'all', label: 'Todas' }, ...TEAM_TASK_COLUMNS].map(filter => <button key={filter.id} className={teamTaskFilter === filter.id ? 'active' : ''} onClick={() => setTeamTaskFilter(filter.id)}>{filter.label}<span>{filter.id === 'all' ? totalTasks : teamTasks.filter(task => task.status === filter.id).length}</span></button>)}</div></div>
+                <div className="team-executive-task-list">
+                  {filteredTeamTasks.length === 0 ? <div className="team-task-list-empty"><IcoCheck s={24} /><strong>Sin tareas en esta vista</strong><span>Cambia el filtro o asigna una nueva responsabilidad.</span></div> : filteredTeamTasks.map(task => {
+                    const isAssignee = String(task.assignedTo).toUpperCase() === userId;
+                    const isOverdue = task.status !== 'completada' && task.dueDate && task.dueDate < todayKey;
+                    return <article key={task.id} className={`team-executive-task priority-${task.priority} ${isOverdue ? 'overdue' : ''}`}><span className="team-task-priority-line" /><div className="team-task-main"><div><span className={`team-priority-pill ${task.priority}`}>{task.priority}</span><span className={`team-status-pill ${task.status}`}>{TEAM_STATUS_LABELS[task.status]}</span>{isOverdue && <span className="team-overdue-pill">Vencida</span>}</div><h4>{task.title}</h4><p>{task.description || 'Sin descripción adicional.'}</p></div><div className="team-task-assignee"><span className="team-person-avatar">{initialsOf(memberName(task.assignedTo))}</span><div><small>Responsable</small><strong>{memberName(task.assignedTo)}</strong><span>{task.assignedTo}</span></div></div><div className="team-task-date"><IcoCal s={16} /><div><small>Fecha límite</small><strong>{task.dueDate ? new Date(`${task.dueDate}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Sin fecha'}</strong></div></div><div className="team-task-status-control">{isAssignee ? <><small>Actualizar mi estado</small><div>{TEAM_TASK_COLUMNS.map(status => <button key={status.id} className={task.status === status.id ? 'active' : ''} disabled={task.status === status.id} onClick={() => updateTeamTaskStatus(task, status.id)} title={status.label}>{status.id === 'pendiente' ? 'Por hacer' : status.id === 'en_progreso' ? 'En curso' : 'Finalizar'}</button>)}</div></> : <><small>Estado gestionado por</small><strong>{memberName(task.assignedTo)}</strong><span>Solo el responsable puede actualizarlo.</span></>}</div></article>;
+                  })}
+                </div>
+              </div>}
+
+              {teamSection === 'calendar' && <div className="team-calendar-section">
+                <section className="team-calendar-card">
+                  <header><div><span>Planeación del equipo</span><h4>{teamCalendarMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</h4></div><div><button onClick={() => setTeamCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="Mes anterior">‹</button><button className="today" onClick={() => { const now = new Date(); setTeamCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1)); setTeamCalendarDate(dateKey(now)); }}>Hoy</button><button onClick={() => setTeamCalendarMonth(month => new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="Mes siguiente">›</button></div></header>
+                  <div className="team-calendar-weekdays">{['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(day => <span key={day}>{day}</span>)}</div>
+                  <div className="team-calendar-grid">{teamCalendarDays.map(day => {
+                    const key = dateKey(day);
+                    const dayTasks = teamTasks.filter(task => task.dueDate === key);
+                    const isOutside = day.getMonth() !== teamCalendarMonth.getMonth();
+                    return <button key={key} className={`${isOutside ? 'outside' : ''} ${key === teamCalendarDate ? 'selected' : ''} ${key === todayKey ? 'today' : ''}`} onClick={() => setTeamCalendarDate(key)}><span>{day.getDate()}</span>{dayTasks.length > 0 && <div>{dayTasks.slice(0, 3).map(task => <i key={task.id} className={`${task.priority} ${task.status}`} />)}{dayTasks.length > 3 && <small>+{dayTasks.length - 3}</small>}</div>}</button>;
+                  })}</div>
+                </section>
+                <aside className="team-day-agenda">
+                  <span className="team-agenda-eyebrow">Agenda seleccionada</span><h4>{selectedCalendarDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</h4><p>{selectedDayTasks.length} compromiso{selectedDayTasks.length === 1 ? '' : 's'} programado{selectedDayTasks.length === 1 ? '' : 's'}</p>
+                  <div className="team-day-task-list">{selectedDayTasks.length === 0 ? <div className="team-calendar-empty"><IcoCal s={25} /><strong>Día disponible</strong><span>No hay tareas con vencimiento en esta fecha.</span></div> : selectedDayTasks.map(task => <article key={task.id} className={`priority-${task.priority}`}><div><span className={`team-priority-pill ${task.priority}`}>{task.priority}</span><span className={`team-status-pill ${task.status}`}>{TEAM_STATUS_LABELS[task.status]}</span></div><h5>{task.title}</h5><p>{memberName(task.assignedTo)}</p></article>)}</div>
+                  {canManageSelectedTeam && <button className="btn btn-primary team-calendar-assign" onClick={() => { setTeamTaskDraft(current => ({ ...current, dueDate: teamCalendarDate })); setTeamSection('tasks'); }}>Asignar tarea para esta fecha</button>}
+                </aside>
+              </div>}
+
+              {teamSection === 'people' && <div className="team-people-section">
+                <div className="team-people-heading"><div><span>Estructura del equipo</span><h4>Personas y capacidad</h4></div>{canManageSelectedTeam && <button className="btn btn-secondary" onClick={() => openExistingTeamEditor(selectedTeam)}><IcoEdit s={15} /> Gestionar integrantes</button>}</div>
+                <div className="team-people-grid">{workload.map(member => <article key={member.userId} className={member.role === 'Lider' ? 'leader' : ''}><span className="team-person-avatar large">{initialsOf(member.name || member.userId)}</span><div><span>{member.role === 'Lider' ? 'Líder del equipo' : 'Integrante'}</span><h4>{member.name}</h4><p>{member.email || member.userId}</p></div><div className="team-person-stats"><span><strong>{member.open}</strong><small>Abiertas</small></span><span><strong>{member.completed}</strong><small>Completadas</small></span><span><strong>{member.total ? Math.round(member.completed / member.total * 100) : 0}%</strong><small>Cumplimiento</small></span></div></article>)}</div>
+              </div>}
+            </section>}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   /* ======================================================================
      VISTAS ADMIN
      ====================================================================== */
@@ -1969,9 +2438,14 @@ export default function App() {
     const maxDaily = Math.max(1, ...daily.map(day => Math.max(day.totalSeconds || 0, (day.appOpens || 0) * 60)));
     const maxAppUsage = Math.max(1, ...topApps.map(app => app.totalSeconds || 0));
     const maxViewCount = Math.max(1, ...views.map(view => view.count || 0));
+    const activityPageSize = 10;
+    const activityPageCount = Math.max(1, Math.ceil(recentEvents.length / activityPageSize));
+    const activityPage = Math.min(analyticsActivityPage, activityPageCount - 1);
+    const activityStart = activityPage * activityPageSize;
+    const visibleRecentEvents = recentEvents.slice(activityStart, activityStart + activityPageSize);
     const eventLabels = {
-      session_start: 'Inició sesión', session_end: 'Cerró sesión', app_open: 'Abrió una aplicación',
-      app_close: 'Cerró una aplicación', app_usage: 'Usó una aplicación', view_open: 'Visitó una sección', board_click: 'Abrió una publicación',
+      session_start: 'Inició sesión', app_open: 'Abrió una aplicación', app_usage: 'Usó una aplicación',
+      view_open: 'Visitó una sección', board_click: 'Abrió una publicación',
     };
 
     return (
@@ -2050,11 +2524,21 @@ export default function App() {
         </section>
 
         <section className="analytics-card recent-activity-card">
-          <div className="analytics-card-head"><div><span>Trazabilidad</span><h3>Actividad reciente</h3></div><small>Últimos {recentEvents.length} movimientos</small></div>
+          <div className="analytics-card-head">
+            <div><span>Trazabilidad</span><h3>Actividad reciente</h3></div>
+            <div className="analytics-table-toolbar">
+              <small>{recentEvents.length ? `${activityStart + 1}–${Math.min(activityStart + activityPageSize, recentEvents.length)} de ${recentEvents.length}` : 'Sin movimientos'}</small>
+              {activityPageCount > 1 && <div className="analytics-table-nav" aria-label="Páginas de actividad reciente">
+                <button type="button" onClick={() => setAnalyticsActivityPage(page => Math.max(0, page - 1))} disabled={activityPage === 0} aria-label="Registros anteriores"><IcoChevron s={13} /></button>
+                <span>{activityPage + 1} / {activityPageCount}</span>
+                <button type="button" onClick={() => setAnalyticsActivityPage(page => Math.min(activityPageCount - 1, page + 1))} disabled={activityPage === activityPageCount - 1} aria-label="Registros siguientes"><IcoChevron s={13} /></button>
+              </div>}
+            </div>
+          </div>
           <div className="analytics-table-wrap">
             <table className="analytics-table"><thead><tr><th>Fecha y hora</th><th>Usuario</th><th>Actividad</th><th>Recurso</th><th>Duración</th></tr></thead><tbody>
-              {recentEvents.length === 0 ? <tr><td colSpan="5"><div className="analytics-empty"><IcoHistory s={24} /><span>No hay movimientos registrados.</span></div></td></tr> : recentEvents.map((event, index) => (
-                <tr key={`${event.timestamp}-${index}`}><td>{new Date(event.timestamp).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td><span className="analytics-user"><i>{initialsOf(event.user)}</i>{event.user}</span></td><td>{eventLabels[event.event] || event.event}</td><td>{event.appName || event.view || event.detail || 'Ecosistema'}</td><td>{event.durationSeconds ? formatUsageTime(event.durationSeconds) : '—'}</td></tr>
+              {visibleRecentEvents.length === 0 ? <tr><td colSpan="5"><div className="analytics-empty"><IcoHistory s={24} /><span>No hay movimientos registrados.</span></div></td></tr> : visibleRecentEvents.map((event, index) => (
+                <tr key={`${event.timestamp}-${event.event}-${event.appId || event.view}-${index}`}><td>{new Date(event.timestamp).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td><span className="analytics-user"><i>{initialsOf(event.user)}</i>{event.user}</span></td><td>{eventLabels[event.event] || event.event}</td><td>{event.appName || event.view || 'Ecosistema'}</td><td>{event.durationSeconds ? formatUsageTime(event.durationSeconds) : '—'}</td></tr>
               ))}
             </tbody></table>
           </div>
@@ -2201,6 +2685,7 @@ export default function App() {
      ====================================================================== */
   const menuItems = [
     { id: 'dashboard', label: 'Escritorio', admin: false },
+    { id: 'teams', label: 'Equipos', admin: false },
     { id: 'analytics', label: 'Dashboard', admin: true },
     { id: 'catalog', label: 'Catálogo', admin: true },
     { id: 'addApp', label: 'Desplegar', admin: true },
@@ -2252,6 +2737,7 @@ export default function App() {
       {renderAppearancePanel()}
       {renderWidgetGallery()}
       {renderProfileEditor()}
+      {renderTeamEditor()}
 
       {/* ================= MENU BAR ================= */}
       <header className="menubar">
@@ -2325,6 +2811,7 @@ export default function App() {
         }}>
           <div className="workspace-inner">
             {currentView === 'dashboard' && renderDashboard()}
+            {currentView === 'teams' && renderTeams()}
             {currentView === 'analytics' && renderAnalytics()}
             {currentView === 'catalog' && renderCatalog()}
             {currentView === 'addApp' && renderAddApp()}
@@ -2418,19 +2905,23 @@ export default function App() {
 
           <span className="dock-sep" />
 
-          {SYSTEM_APPS.map(s => {
-            const win = openApps.find(a => a.sys === s.sys);
-            return (
-              <button key={s.sys} id={win ? `dock-${win.id}` : `dock-sys-${s.sys}`}
-                className={`dock-item ${win ? 'running' : ''} ${win && activeAppId === win.id ? 'active-win' : ''}`}
-                data-label={s.nombre}
-                onClick={() => win ? handleDockClick(win.id) : launchSystemApp(s.sys)}>
-                <AppIcon app={{ nombre: s.nombre, grad: s.grad, sysIcon: s.icon }} size={46} />
-                <span className="dock-dot" />
-                {win && <span className="dock-close" onClick={e => closeApp(e, win.id)}><IcoX s={9} /></span>}
-              </button>
-            );
-          })}
+          <div className="dock-folder">
+            {showUtilitiesFolder && (
+              <div className="dock-folder-popover" onClick={e => e.stopPropagation()}>
+                <div className="dock-folder-head"><span><IcoFolder s={15} /> Utilidades del sistema</span><small>{SYSTEM_APPS.length}</small></div>
+                <div className="dock-folder-grid">
+                  {SYSTEM_APPS.map(s => {
+                    const win = openApps.find(app => app.sys === s.sys);
+                    return <button key={s.sys} className={win ? 'running' : ''} onClick={() => { setShowUtilitiesFolder(false); if (win) handleDockClick(win.id); else launchSystemApp(s.sys); }}><AppIcon app={{ nombre: s.nombre, grad: s.grad, sysIcon: s.icon }} size={43} /><span>{s.nombre}</span>{win && <i />}</button>;
+                  })}
+                </div>
+              </div>
+            )}
+            <button id="dock-utilities-folder" className={`dock-item ${openApps.some(app => app.sys) ? 'running' : ''} ${openApps.some(app => app.sys && app.id === activeAppId) ? 'active-win' : ''}`} data-label="Utilidades" onClick={e => { e.stopPropagation(); closeSpotlight(); closeLaunchpad(); setShowUtilitiesFolder(value => !value); }}>
+              <div className="dock-sys utility-folder-icon"><IcoFolder s={27} /></div>
+              <span className="dock-dot" />
+            </button>
+          </div>
 
           {openApps.filter(a => !a.sys).length > 0 && <span className="dock-sep" />}
 
