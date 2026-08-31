@@ -45,6 +45,8 @@ const IcoKey = ({ s = 18 }) => <svg width={s} height={s} {...S}><circle cx="7.5"
 const IcoSwap = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M7 7h13l-3-3M17 17H4l3 3" /></svg>;
 const IcoPulse = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M3 12h4l2.5-7 5 14 2.5-7h4" /></svg>;
 const IcoLoginArrow = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" /><path d="m10 17 5-5-5-5M15 12H3" /></svg>;
+const IcoDownload = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M12 3v12M7 10l5 5 5-5" /><path d="M5 21h14a2 2 0 0 0 2-2v-2M3 17v2a2 2 0 0 0 2 2" /></svg>;
+const IcoRocket = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M14 5c2.8-2.8 5.4-2.2 6.7-1.7.5 1.3 1.1 3.9-1.7 6.7l-5.5 5.5-5-5z" /><path d="m13 6-5.5-.5L3 10l5.5.5M18 11l.5 5.5L14 21l-.5-5.5" /><circle cx="16.5" cy="7.5" r="1.5" /><path d="M7 14c-2.5.6-3.4 1.7-4 4 2.3-.6 3.4-1.5 4-4z" /></svg>;
 
 /* ==========================================================================
    UTILIDADES
@@ -102,6 +104,181 @@ const formatUsageTime = (seconds = 0) => {
   return `${hours.toLocaleString('es-CO', { minimumFractionDigits: hours < 10 ? 1 : 0, maximumFractionDigits: 1 })} h`;
 };
 
+const isAppEnabled = app => String(app?.estado || 'Activo').trim().toLowerCase() !== 'inactivo';
+
+const pdfSafeText = value => String(value ?? '')
+  .normalize('NFC')
+  .replace(/[\u2018\u2019]/g, "'")
+  .replace(/[\u201C\u201D]/g, '"')
+  .replace(/[\u2013\u2014]/g, '-')
+  .replace(/[^\x20-\xFF]/g, '?')
+  .replace(/([\\()])/g, '\\$1');
+
+const pdfWrap = (value, maxChars) => {
+  const words = String(value || '').trim().split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+  words.forEach(word => {
+    const candidate = line ? `${line} ${word}` : word;
+    if (candidate.length <= maxChars) line = candidate;
+    else { if (line) lines.push(line); line = word; }
+  });
+  if (line) lines.push(line);
+  return lines.length ? lines : [''];
+};
+
+const buildPdfBlob = pageStreams => {
+  const pageObjectIds = pageStreams.map((_, index) => 5 + index * 2);
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    `<< /Type /Pages /Kids [${pageObjectIds.map(id => `${id} 0 R`).join(' ')}] /Count ${pageStreams.length} >>`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+  ];
+  pageStreams.forEach((stream, index) => {
+    const pageId = pageObjectIds[index];
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${pageId + 1} 0 R >>`);
+    objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+  });
+  let pdf = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets[index + 1] = pdf.length;
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach(offset => { pdf += `${String(offset).padStart(10, '0')} 00000 n \n`; });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return new Blob([Uint8Array.from(pdf, character => character.charCodeAt(0) & 255)], { type: 'application/pdf' });
+};
+
+const downloadTeamManagementPdf = team => {
+  const tasks = team.tasks || [];
+  const members = team.members || [];
+  const completed = tasks.filter(task => task.status === 'completada').length;
+  const inProgress = tasks.filter(task => task.status === 'en_progreso').length;
+  const pending = tasks.filter(task => task.status === 'pendiente').length;
+  const today = dateKey();
+  const overdue = tasks.filter(task => task.status !== 'completada' && task.dueDate && task.dueDate < today).length;
+  const completion = tasks.length ? Math.round(completed / tasks.length * 100) : 0;
+  const generatedAt = new Date();
+  const pages = [];
+  const text = (commands, value, x, y, size = 10, bold = false, color = [0.12, 0.12, 0.14]) => {
+    commands.push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf ${color.join(' ')} rg ${x} ${y} Td (${pdfSafeText(value)}) Tj ET`);
+  };
+  const rect = (commands, x, y, width, height, color) => commands.push(`${color.join(' ')} rg ${x} ${y} ${width} ${height} re f`);
+  const line = (commands, x1, y1, x2, y2, color = [0.88, 0.88, 0.9], width = 0.6) => commands.push(`${color.join(' ')} RG ${width} w ${x1} ${y1} m ${x2} ${y2} l S`);
+  const addHeader = (commands, pageNumber, section) => {
+    rect(commands, 0, 826, 595, 16, [0.02, 0.55, 0.22]);
+    text(commands, 'ÁGORA OS', 42, 791, 11, true, [0.15, 0.17, 0.33]);
+    text(commands, section, 42, 768, 22, true, [0.08, 0.09, 0.14]);
+    text(commands, `Informe de gestión · ${team.name}`, 42, 749, 9, false, [0.38, 0.39, 0.43]);
+    line(commands, 42, 731, 553, 731);
+    text(commands, `Generado ${generatedAt.toLocaleString('es-CO', { dateStyle: 'long', timeStyle: 'short' })}`, 42, 24, 7.5, false, [0.48, 0.49, 0.53]);
+    text(commands, `Documento ejecutivo · Página ${pageNumber}`, 431, 24, 7.5, false, [0.48, 0.49, 0.53]);
+  };
+
+  const overview = [];
+  addHeader(overview, 1, 'Informe ejecutivo de equipo');
+  text(overview, 'Líder responsable', 42, 700, 8, true, [0.38, 0.39, 0.43]);
+  text(overview, `${team.leaderName || team.leaderId} · ${team.leaderId}`, 42, 684, 12, true);
+  text(overview, 'Periodo del informe', 365, 700, 8, true, [0.38, 0.39, 0.43]);
+  text(overview, 'Corte a la fecha', 365, 684, 12, true);
+
+  const metrics = [
+    ['CUMPLIMIENTO', `${completion}%`, `${completed} de ${tasks.length} finalizadas`, [0.91, 0.97, 0.92]],
+    ['EN EJECUCIÓN', String(inProgress), `${pending} aún pendientes`, [0.92, 0.94, 0.98]],
+    ['VENCIDAS', String(overdue), overdue ? 'Requieren seguimiento' : 'Cronograma al día', overdue ? [0.99, 0.92, 0.91] : [0.94, 0.96, 0.94]],
+    ['PERSONAS', String(members.length), 'Capacidad registrada', [0.99, 0.97, 0.89]],
+  ];
+  metrics.forEach((metric, index) => {
+    const x = 42 + index * 128;
+    rect(overview, x, 594, 116, 67, metric[3]);
+    text(overview, metric[0], x + 11, 642, 7, true, [0.38, 0.39, 0.43]);
+    text(overview, metric[1], x + 11, 617, 20, true, [0.08, 0.09, 0.14]);
+    text(overview, metric[2], x + 11, 602, 7.2, false, [0.38, 0.39, 0.43]);
+  });
+
+  text(overview, 'DISTRIBUCIÓN DEL TRABAJO', 42, 557, 8, true, [0.38, 0.39, 0.43]);
+  const barTotal = Math.max(1, tasks.length);
+  const barWidth = 511;
+  let barX = 42;
+  [[pending, [0.88, 0.64, 0.18]], [inProgress, [0.24, 0.34, 0.62]], [completed, [0.02, 0.55, 0.22]]].forEach(([count, color]) => {
+    const width = barWidth * count / barTotal;
+    if (width > 0) rect(overview, barX, 536, width, 12, color);
+    barX += width;
+  });
+  text(overview, `Pendientes ${pending}`, 42, 518, 8.5);
+  text(overview, `En progreso ${inProgress}`, 181, 518, 8.5);
+  text(overview, `Completadas ${completed}`, 342, 518, 8.5);
+
+  text(overview, 'CAPACIDAD Y CARGA ABIERTA', 42, 478, 8, true, [0.38, 0.39, 0.43]);
+  const workload = members.map(member => {
+    const assigned = tasks.filter(task => String(task.assignedTo).toUpperCase() === String(member.userId).toUpperCase());
+    return { ...member, open: assigned.filter(task => task.status !== 'completada').length, done: assigned.filter(task => task.status === 'completada').length };
+  }).sort((a, b) => b.open - a.open);
+  const maxOpen = Math.max(1, ...workload.map(member => member.open));
+  workload.slice(0, 7).forEach((member, index) => {
+    const y = 449 - index * 35;
+    text(overview, member.name || member.userId, 42, y, 9.5, true);
+    text(overview, `${member.open} abiertas · ${member.done} completadas`, 250, y, 8, false, [0.38, 0.39, 0.43]);
+    rect(overview, 410, y - 1, 120, 6, [0.91, 0.91, 0.93]);
+    if (member.open) rect(overview, 410, y - 1, Math.max(7, 120 * member.open / maxOpen), 6, [0.02, 0.55, 0.22]);
+    line(overview, 42, y - 12, 553, y - 12, [0.93, 0.93, 0.94], 0.4);
+  });
+
+  const heaviest = workload[0];
+  text(overview, 'LECTURA PARA LA TOMA DE DECISIONES', 42, 190, 8, true, [0.38, 0.39, 0.43]);
+  const insights = [
+    overdue ? `${overdue} compromiso${overdue === 1 ? '' : 's'} vencido${overdue === 1 ? '' : 's'} requiere${overdue === 1 ? '' : 'n'} un acuerdo de recuperación.` : 'El cronograma no presenta compromisos vencidos.',
+    heaviest?.open ? `${heaviest.name || heaviest.userId} concentra la mayor carga abierta con ${heaviest.open} tareas.` : 'No se registra concentración de carga abierta.',
+    completion >= 80 ? 'El nivel de cumplimiento se encuentra en rango sobresaliente.' : completion >= 60 ? 'El cumplimiento es estable, con oportunidad de acelerar cierres.' : 'El cumplimiento requiere seguimiento prioritario del líder.',
+  ];
+  insights.forEach((insight, index) => {
+    rect(overview, 42, 142 - index * 32, 8, 8, index === 0 && overdue ? [0.82, 0.24, 0.22] : [0.02, 0.55, 0.22]);
+    text(overview, insight, 60, 141 - index * 32, 9);
+  });
+  pages.push(overview.join('\n'));
+
+  const taskChunks = [];
+  for (let index = 0; index < tasks.length; index += 10) taskChunks.push(tasks.slice(index, index + 10));
+  if (!taskChunks.length) taskChunks.push([]);
+  taskChunks.forEach((chunk, pageIndex) => {
+    const commands = [];
+    addHeader(commands, pageIndex + 2, 'Detalle de compromisos');
+    text(commands, 'ESTADO', 42, 702, 7.5, true, [0.38, 0.39, 0.43]);
+    text(commands, 'COMPROMISO Y RESPONSABLE', 126, 702, 7.5, true, [0.38, 0.39, 0.43]);
+    text(commands, 'FECHA LÍMITE', 455, 702, 7.5, true, [0.38, 0.39, 0.43]);
+    line(commands, 42, 692, 553, 692);
+    if (!chunk.length) text(commands, 'El equipo aún no tiene tareas registradas.', 42, 650, 11, false, [0.38, 0.39, 0.43]);
+    chunk.forEach((task, index) => {
+      const y = 655 - index * 61;
+      const statusLabel = TEAM_STATUS_LABELS[task.status] || task.status || 'Pendiente';
+      const statusColor = task.status === 'completada' ? [0.02, 0.55, 0.22] : task.status === 'en_progreso' ? [0.24, 0.34, 0.62] : [0.74, 0.49, 0.08];
+      rect(commands, 42, y - 5, 68, 19, [0.95, 0.95, 0.96]);
+      text(commands, statusLabel.toUpperCase(), 49, y + 1, 6.8, true, statusColor);
+      text(commands, task.title, 126, y + 7, 9.5, true);
+      text(commands, `${task.assignedTo || 'Sin responsable'} · Prioridad ${task.priority || 'media'}`, 126, y - 9, 7.5, false, [0.38, 0.39, 0.43]);
+      const description = pdfWrap(task.description || 'Sin descripción adicional.', 64)[0];
+      text(commands, description, 126, y - 23, 7, false, [0.48, 0.49, 0.53]);
+      text(commands, task.dueDate ? new Date(`${task.dueDate}T12:00:00`).toLocaleDateString('es-CO') : 'Sin fecha', 455, y + 1, 8.5, true, task.dueDate && task.dueDate < today && task.status !== 'completada' ? [0.82, 0.24, 0.22] : [0.12, 0.12, 0.14]);
+      line(commands, 42, y - 38, 553, y - 38, [0.92, 0.92, 0.93], 0.4);
+    });
+    pages.push(commands.join('\n'));
+  });
+
+  const blob = buildPdfBlob(pages);
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `Informe_Gestion_${String(team.name || 'Equipo').replace(/[^a-zA-Z0-9À-ÿ_-]+/g, '_')}_${today}.pdf`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+};
+
 const DAILY_CORPORATE_MESSAGES = [
   'Cada avance de hoy fortalece los resultados de mañana.',
   'Las grandes transformaciones comienzan con decisiones claras.',
@@ -153,6 +330,9 @@ const ACCENT_COLORS = [
   { id: 'navy', label: 'Azul', hex: '#3F4A8A' },
   { id: 'gold', label: 'Dorado', hex: '#C18D20' },
   { id: 'violet', label: 'Violeta', hex: '#7554A6' },
+  { id: 'teal', label: 'Turquesa', hex: '#267F83' },
+  { id: 'coral', label: 'Coral', hex: '#B65F56' },
+  { id: 'sky', label: 'Cielo', hex: '#427AA1' },
 ];
 
 const WALLPAPER_OPTIONS = [
@@ -160,6 +340,16 @@ const WALLPAPER_OPTIONS = [
   { id: 'neural', label: 'Red neuronal', detail: 'IA e innovación' },
   { id: 'minimal', label: 'Minimal', detail: 'Enfoque limpio' },
   { id: 'depth', label: 'Profundidad', detail: 'Color inmersivo' },
+  { id: 'horizon', label: 'Horizonte', detail: 'Calma ejecutiva' },
+  { id: 'prism', label: 'Prisma', detail: 'Innovación luminosa' },
+  { id: 'graphite', label: 'Grafito', detail: 'Precisión sobria' },
+];
+
+const APPEARANCE_SCENES = [
+  { id: 'executive', label: 'Junta ejecutiva', detail: 'Sobrio, nítido y estratégico', theme: 'light', settings: { wallpaper: 'graphite', accent: 'navy', contrast: 'high', transparency: 'solid', density: 'balanced', shape: 'soft', motion: 'full', dockScale: 'normal' } },
+  { id: 'innovation', label: 'Innovación', detail: 'Color, profundidad y energía', theme: 'light', settings: { wallpaper: 'prism', accent: 'teal', contrast: 'balanced', transparency: 'glass', density: 'comfortable', shape: 'rounded', motion: 'full', dockScale: 'large' } },
+  { id: 'focus', label: 'Enfoque', detail: 'Mínimo ruido, máxima claridad', theme: 'light', settings: { wallpaper: 'minimal', accent: 'green', contrast: 'balanced', transparency: 'solid', density: 'compact', shape: 'soft', motion: 'reduced', dockScale: 'compact' } },
+  { id: 'night', label: 'Dirección nocturna', detail: 'Grafito inmersivo y elegante', theme: 'dark', settings: { wallpaper: 'depth', accent: 'gold', contrast: 'high', transparency: 'glass', density: 'balanced', shape: 'rounded', motion: 'full', dockScale: 'normal' } },
 ];
 
 const DEFAULT_APPEARANCE = {
@@ -169,6 +359,10 @@ const DEFAULT_APPEARANCE = {
   transparency: 'glass',
   clockStyle: 'minimal',
   clockFormat: '24',
+  density: 'balanced',
+  shape: 'soft',
+  motion: 'full',
+  dockScale: 'normal',
 };
 
 const WIDGET_CATALOG = [
@@ -653,9 +847,11 @@ export default function App() {
   const [teamCalendarDate, setTeamCalendarDate] = useState(dateKey());
 
   /* --- CRUD --- */
-  const [newApp, setNewApp] = useState({ nombre: '', url: '', desc: '', icono: '', grupo: '' });
+  const [newApp, setNewApp] = useState({ nombre: '', url: '', desc: '', icono: '', grupo: '', estado: 'Activo' });
   const [isAddingApp, setIsAddingApp] = useState(false);
   const [editingAppId, setEditingAppId] = useState(null);
+  const [showAppDeployModal, setShowAppDeployModal] = useState(false);
+  const [appCatalogError, setAppCatalogError] = useState('');
 
   /* ---------------- Efectos ---------------- */
   useEffect(() => { document.body.setAttribute('data-theme', isLoggedIn ? theme : 'light'); }, [isLoggedIn, theme]);
@@ -694,7 +890,7 @@ export default function App() {
       if (e.key === 'Escape') {
         setIsSpotlightOpen(false); setIsLaunchpadOpen(false); setShowUserMenu(false);
         setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
-        setPublicationTypeOpen(false); setShowUtilitiesFolder(false); setShowTeamEditor(false);
+        setPublicationTypeOpen(false); setShowUtilitiesFolder(false); setShowTeamEditor(false); setShowAppDeployModal(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -857,7 +1053,7 @@ export default function App() {
   const fetchApps = async () => {
     try {
       const r = await post({ action: 'getApps' });
-      if (r.status === 'success') setAppsList((r.data || []).map(app => ({ ...app, grupo: app.grupo?.trim() || 'Sin grupo' })));
+      if (r.status === 'success') setAppsList((r.data || []).map(app => ({ ...app, grupo: app.grupo?.trim() || 'Sin grupo', estado: isAppEnabled(app) ? 'Activo' : 'Inactivo' })));
     }
     catch { /* offline */ }
   };
@@ -1119,25 +1315,45 @@ export default function App() {
   const handleAddApp = async (e) => {
     e.preventDefault();
     if (!newApp.grupo.trim()) return;
-    setIsAddingApp(true);
+    setIsAddingApp(true); setAppCatalogError('');
     try {
       const appData = { ...newApp, grupo: canonicalGroupName(newApp.grupo, appGroups) };
-      const r = await post({ action: 'addApp', appData });
-      if (r.status === 'success') { await fetchApps(); setNewApp({ nombre: '', url: '', desc: '', icono: '', grupo: '' }); setCurrentView('dashboard'); }
-    } catch { /* noop */ } finally { setIsAddingApp(false); }
+      const r = await post({ action: 'addApp', usuario: userData.usuario, authToken: userData.sessionToken, appData });
+      if (r.status !== 'success') throw new Error(r.message || 'No fue posible desplegar el aplicativo.');
+      await fetchApps();
+      setNewApp({ nombre: '', url: '', desc: '', icono: '', grupo: '', estado: 'Activo' });
+      setShowAppDeployModal(false);
+    } catch (appError) { setAppCatalogError(appError.message || 'No fue posible desplegar el aplicativo.'); }
+    finally { setIsAddingApp(false); }
   };
   const handleDeleteApp = async (id) => {
     if (!window.confirm('¿Eliminar este aplicativo del catálogo?')) return;
-    try { const r = await post({ action: 'deleteApp', id }); if (r.status === 'success') await fetchApps(); } catch { /* noop */ }
+    setAppCatalogError('');
+    try {
+      const r = await post({ action: 'deleteApp', usuario: userData.usuario, authToken: userData.sessionToken, id });
+      if (r.status !== 'success') throw new Error(r.message || 'No fue posible eliminar el aplicativo.');
+      await fetchApps();
+    } catch (appError) { setAppCatalogError(appError.message || 'No fue posible eliminar el aplicativo.'); }
   };
   const handleUpdateApp = async (e, id) => {
     e.preventDefault();
+    setAppCatalogError('');
     try {
       const appToUpdate = appsList.find(a => a.id === id);
       if (!appToUpdate?.grupo?.trim()) return;
-      const r = await post({ action: 'updateApp', appData: { ...appToUpdate, grupo: canonicalGroupName(appToUpdate.grupo, appGroups) } });
-      if (r.status === 'success') { setEditingAppId(null); await fetchApps(); }
-    } catch { /* noop */ }
+      const r = await post({ action: 'updateApp', usuario: userData.usuario, authToken: userData.sessionToken, appData: { ...appToUpdate, grupo: canonicalGroupName(appToUpdate.grupo, appGroups) } });
+      if (r.status !== 'success') throw new Error(r.message || 'No fue posible actualizar el aplicativo.');
+      setEditingAppId(null); await fetchApps();
+    } catch (appError) { setAppCatalogError(appError.message || 'No fue posible actualizar el aplicativo.'); }
+  };
+  const toggleAppStatus = async (app) => {
+    const nextStatus = isAppEnabled(app) ? 'Inactivo' : 'Activo';
+    setAppCatalogError('');
+    try {
+      const r = await post({ action: 'setAppStatus', usuario: userData.usuario, authToken: userData.sessionToken, id: app.id, estado: nextStatus });
+      if (r.status !== 'success') throw new Error(r.message || 'No fue posible cambiar la disponibilidad.');
+      await fetchApps();
+    } catch (appError) { setAppCatalogError(appError.message || 'No fue posible cambiar la disponibilidad.'); }
   };
   const handleEditChange = (id, field, value) =>
     setAppsList(list => list.map(a => a.id === id ? { ...a, [field]: value } : a));
@@ -1308,6 +1524,7 @@ export default function App() {
   }, [calendarMonth]);
 
   const tasksForSelectedDate = tasks.filter(task => task.dueDate === selectedDate);
+  const activeAppsList = useMemo(() => appsList.filter(isAppEnabled), [appsList]);
 
   const appGroups = useMemo(() => [...new Set(appsList.map(app => app.grupo?.trim() || 'Sin grupo'))]
     .sort((a, b) => {
@@ -1318,16 +1535,16 @@ export default function App() {
 
   const groupedApps = useMemo(() => appGroups.map(group => ({
     group,
-    apps: appsList.filter(app => (app.grupo?.trim() || 'Sin grupo') === group),
-  })), [appGroups, appsList]);
+    apps: activeAppsList.filter(app => (app.grupo?.trim() || 'Sin grupo') === group),
+  })).filter(group => group.apps.length > 0), [appGroups, activeAppsList]);
   const dashboardAppGroups = groupedApps.slice(0, 2);
 
   const launchpadEntries = useMemo(() => {
     const sys = SYSTEM_APPS.map(s => ({
       id: `lp-${s.sys}`, nombre: s.nombre, grad: s.grad, sysIcon: s.icon, sysType: s.sys, desc: 'Utilidad del sistema', grupo: 'Utilidades del sistema',
     }));
-    return [...appsList.map(a => ({ ...a })), ...sys];
-  }, [appsList]);
+    return [...activeAppsList.map(a => ({ ...a })), ...sys];
+  }, [activeAppsList]);
 
   const lpFiltered = useMemo(() => {
     const q = lpQuery.trim().toLowerCase();
@@ -1445,7 +1662,7 @@ export default function App() {
       <div className="activity-widget">
         <div><strong>{recents.length}</strong><span>Accesos recientes</span></div>
         <div><strong>{openApps.length}</strong><span>Apps en sesión</span></div>
-        <div><strong>{appsList.length + SYSTEM_APPS.length}</strong><span>Herramientas</span></div>
+        <div><strong>{activeAppsList.length + SYSTEM_APPS.length}</strong><span>Herramientas</span></div>
       </div>
     );
 
@@ -1601,7 +1818,7 @@ export default function App() {
       <section className="card b6 flat">
         <h1 className="hero-greet">{greeting}, <span>{welcomeName}</span></h1>
         <p className="hero-sub">
-          {`Tienes ${appsList.length} aplicativo${appsList.length === 1 ? '' : 's'} disponible${appsList.length === 1 ? '' : 's'}${pendingTasks > 0 ? ` y ${pendingTasks} tarea${pendingTasks === 1 ? '' : 's'} pendiente${pendingTasks === 1 ? '' : 's'}` : ' y ninguna tarea pendiente'}.`}
+          {`Tienes ${activeAppsList.length} aplicativo${activeAppsList.length === 1 ? '' : 's'} disponible${activeAppsList.length === 1 ? '' : 's'}${pendingTasks > 0 ? ` y ${pendingTasks} tarea${pendingTasks === 1 ? '' : 's'} pendiente${pendingTasks === 1 ? '' : 's'}` : ' y ninguna tarea pendiente'}.`}
         </p>
         <p className="hero-daily-message">{todayCorporateMessage}</p>
         {profilePreferences.welcomeMessage.trim() && <p className="hero-personal-note">{profilePreferences.welcomeMessage.trim()}</p>}
@@ -1682,7 +1899,7 @@ export default function App() {
         </div>
         <div className="dashboard-app-preview">
           <div className="desktop-app-groups">
-            {appsList.length === 0 && <p className="empty-note">Sincronizando el portafolio de sistemas…</p>}
+            {activeAppsList.length === 0 && <p className="empty-note">No hay aplicativos activos disponibles.</p>}
             {dashboardAppGroups.map(({ group, apps }) => (
               <section key={group} className="desktop-app-group">
                 <div className="app-group-heading"><span>{group}</span><small>{apps.length}</small></div>
@@ -1698,10 +1915,10 @@ export default function App() {
             ))}
           </div>
         </div>
-        {appsList.length > 0 && (
+        {activeAppsList.length > 0 && (
           <button className="dashboard-app-more" onClick={openLaunchpad}>
             <span>Mostrando {Math.min(2, groupedApps.length)} de {groupedApps.length} grupos</span>
-            <strong>Ver {appsList.length + SYSTEM_APPS.length} herramientas <IcoChevron s={12} /></strong>
+            <strong>Ver {activeAppsList.length + SYSTEM_APPS.length} herramientas <IcoChevron s={12} /></strong>
           </button>
         )}
       </section>
@@ -1747,10 +1964,10 @@ export default function App() {
       <section className="card b4 flat recent-card">
         <div className="card-label"><IcoHistory s={13} /> Recientes</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 'auto' }}>
-          {recents.length === 0
+          {recents.filter(recent => activeAppsList.some(app => app.id === recent.id)).length === 0
             ? <p className="empty-note" style={{ padding: '18px 0', textAlign: 'left' }}>Aún no has abierto aplicativos.</p>
-            : recents.slice(0, 4).map(r => {
-              const full = appsList.find(a => a.id === r.id) || r;
+            : recents.filter(recent => activeAppsList.some(app => app.id === recent.id)).slice(0, 4).map(r => {
+              const full = activeAppsList.find(a => a.id === r.id) || r;
               return (
                 <button key={r.id} className="recent-row" onClick={() => launchApp(full)}>
                   <AppIcon app={full} size={32} />
@@ -1824,7 +2041,7 @@ export default function App() {
   const renderSpotlight = () => {
     if (!isSpotlightOpen) return null;
     const q = searchQuery.trim().toLowerCase();
-    const appRes = q ? appsList.filter(a => (a.nombre || '').toLowerCase().includes(q) || (a.desc || '').toLowerCase().includes(q) || (a.grupo || '').toLowerCase().includes(q)) : [];
+    const appRes = q ? activeAppsList.filter(a => (a.nombre || '').toLowerCase().includes(q) || (a.desc || '').toLowerCase().includes(q) || (a.grupo || '').toLowerCase().includes(q)) : [];
     const sysRes = q ? SYSTEM_APPS.filter(s => s.nombre.toLowerCase().includes(q)) : [];
     const taskRes = q ? tasks.filter(t => t.text.toLowerCase().includes(q)) : [];
     const nothing = q && !appRes.length && !sysRes.length && !taskRes.length;
@@ -2050,6 +2267,19 @@ export default function App() {
               <span>Vista previa en tiempo real</span>
             </div>
 
+            <div className="appearance-section appearance-scenes-section">
+              <div className="appearance-section-head"><strong>Escenas inteligentes</strong><span>Transforma todo el espacio con una sola decisión</span></div>
+              <div className="appearance-scenes">
+                {APPEARANCE_SCENES.map(scene => (
+                  <button key={scene.id} className={`appearance-scene scene-${scene.id}`} onClick={() => { setTheme(scene.theme); setWorkspaceAppearance(current => ({ ...current, ...scene.settings })); }}>
+                    <span className="scene-visual"><i /><i /><i /></span>
+                    <span><strong>{scene.label}</strong><small>{scene.detail}</small></span>
+                    <IcoChevron s={13} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="appearance-section">
               <div className="appearance-section-head"><strong>Fondo</strong><span>Elige la atmósfera del escritorio</span></div>
               <div className="wallpaper-options">
@@ -2080,6 +2310,43 @@ export default function App() {
                 <div className="segmented-control">
                   <button className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}><IcoSun s={14} /> Claro</button>
                   <button className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}><IcoMoon s={14} /> Oscuro</button>
+                </div>
+              </div>
+            </div>
+
+            <div className="appearance-columns">
+              <div className="appearance-section compact">
+                <div className="appearance-section-head"><strong>Densidad del espacio</strong><span>Controla cuánto contenido ves</span></div>
+                <div className="segmented-control three">
+                  {[['compact', 'Compacta'], ['balanced', 'Equilibrada'], ['comfortable', 'Amplia']].map(([id, label]) => (
+                    <button key={id} className={workspaceAppearance.density === id ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, density: id }))}>{label}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="appearance-section compact">
+                <div className="appearance-section-head"><strong>Forma de superficies</strong><span>Personalidad de tarjetas y ventanas</span></div>
+                <div className="segmented-control three">
+                  {[['precise', 'Precisa'], ['soft', 'Suave'], ['rounded', 'Redonda']].map(([id, label]) => (
+                    <button key={id} className={workspaceAppearance.shape === id ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, shape: id }))}>{label}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="appearance-columns">
+              <div className="appearance-section compact">
+                <div className="appearance-section-head"><strong>Movimiento</strong><span>Animaciones del sistema</span></div>
+                <div className="segmented-control">
+                  <button className={workspaceAppearance.motion !== 'reduced' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, motion: 'full' }))}>Dinámico</button>
+                  <button className={workspaceAppearance.motion === 'reduced' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, motion: 'reduced' }))}>Sereno</button>
+                </div>
+              </div>
+              <div className="appearance-section compact">
+                <div className="appearance-section-head"><strong>Escala del dock</strong><span>Presencia de los accesos</span></div>
+                <div className="segmented-control three">
+                  {[['compact', 'Pequeño'], ['normal', 'Medio'], ['large', 'Grande']].map(([id, label]) => (
+                    <button key={id} className={workspaceAppearance.dockScale === id ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, dockScale: id }))}>{label}</button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -2319,7 +2586,7 @@ export default function App() {
               <div className="team-executive-hero">
                 <div className="team-overview-copy"><span className="team-status-dot" /><small>Equipo activo</small><h3>{selectedTeam.name}</h3><p>Líder: <strong>{selectedTeam.leaderName}</strong> · {selectedTeam.leaderId}</p></div>
                 <div className="team-hero-progress"><div className="team-progress-ring" style={{ '--team-progress': `${completion * 3.6}deg` }}><span><strong>{completion}%</strong><small>avance</small></span></div><div><strong>{completed} de {totalTasks}</strong><span>tareas completadas</span></div></div>
-                {canManageSelectedTeam && <div className="team-overview-actions"><button className="btn btn-secondary" onClick={() => openExistingTeamEditor(selectedTeam)}><IcoEdit s={15} /> Gestionar equipo</button>{isAdmin && <button className="icon-btn danger" onClick={() => removeTeam(selectedTeam)} title="Eliminar equipo"><IcoTrash s={16} /></button>}</div>}
+                {canManageSelectedTeam && <div className="team-overview-actions"><button className="btn btn-primary team-report-button" onClick={() => downloadTeamManagementPdf(selectedTeam)}><IcoDownload s={15} /> Informe PDF</button><button className="btn btn-secondary" onClick={() => openExistingTeamEditor(selectedTeam)}><IcoEdit s={15} /> Gestionar equipo</button>{isAdmin && <button className="icon-btn danger" onClick={() => removeTeam(selectedTeam)} title="Eliminar equipo"><IcoTrash s={16} /></button>}</div>}
               </div>
 
               <nav className="team-section-tabs" aria-label="Secciones del equipo">
@@ -2548,21 +2815,24 @@ export default function App() {
   };
 
   const renderCatalog = () => (
-    <div className="panel enter">
+    <div className="panel catalog-panel enter">
       <div className="panel-head">
         <div>
+          <span className="analytics-eyebrow"><IcoGrid s={14} /> Gobierno del portafolio</span>
           <h2 className="panel-title">Catálogo de aplicativos</h2>
-          <p className="panel-sub">{appsList.length} sistemas registrados en el Hub</p>
+          <p className="panel-sub">{appsList.length} sistemas registrados · {activeAppsList.length} habilitados</p>
         </div>
+        <button className="btn btn-primary catalog-deploy-button" onClick={() => { setAppCatalogError(''); setShowAppDeployModal(true); }}><IcoRocket s={16} /> Desplegar aplicativo</button>
       </div>
+      {appCatalogError && <div className="catalog-alert"><IcoShield s={16} /><span>{appCatalogError}</span><button onClick={() => setAppCatalogError('')}><IcoX s={11} /></button></div>}
       <div style={{ overflowX: 'auto' }}>
         <table className="table">
-          <thead><tr><th>App</th><th>Grupo</th><th>Endpoint</th><th style={{ width: 120 }}>Acciones</th></tr></thead>
+          <thead><tr><th>App</th><th>Grupo</th><th>Endpoint</th><th>Disponibilidad</th><th style={{ width: 176 }}>Acciones</th></tr></thead>
           <tbody>
             {appsList.length === 0 ? (
-              <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--ink-3)', padding: 40 }}>Sin aplicativos registrados.</td></tr>
+              <tr><td colSpan="5" style={{ textAlign: 'center', color: 'var(--ink-3)', padding: 40 }}>Sin aplicativos registrados.</td></tr>
             ) : appsList.map(app => (
-              <tr key={app.id}>
+              <tr key={app.id} className={!isAppEnabled(app) ? 'app-disabled-row' : ''}>
                 {editingAppId === app.id ? (
                   <>
                     <td>
@@ -2573,6 +2843,7 @@ export default function App() {
                     </td>
                     <td style={{ minWidth: 230 }}><AppGroupPicker compact value={app.grupo || ''} groups={appGroups.filter(group => group !== 'Sin grupo')} onChange={value => handleEditChange(app.id, 'grupo', value)} /></td>
                     <td><input className="field mono" value={app.url} onChange={e => handleEditChange(app.id, 'url', e.target.value)} /></td>
+                    <td><span className={`app-status-pill ${isAppEnabled(app) ? 'enabled' : 'disabled'}`}><i /> {isAppEnabled(app) ? 'Habilitada' : 'Deshabilitada'}</span></td>
                     <td>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button className="btn btn-primary" style={{ padding: '7px 14px' }} disabled={!app.grupo?.trim()} onClick={e => handleUpdateApp(e, app.id)}>Guardar</button>
@@ -2593,8 +2864,10 @@ export default function App() {
                     </td>
                     <td><span className="app-group-tag"><IcoGrid s={11} /> {app.grupo || 'Sin grupo'}</span></td>
                     <td className="mono" style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>{String(app.url || '').slice(0, 46)}…</td>
+                    <td><span className={`app-status-pill ${isAppEnabled(app) ? 'enabled' : 'disabled'}`}><i /> {isAppEnabled(app) ? 'Habilitada' : 'Deshabilitada'}</span></td>
                     <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
+                      <div className="catalog-row-actions">
+                        <button className={`app-power-button ${isAppEnabled(app) ? 'disable' : 'enable'}`} onClick={() => toggleAppStatus(app)} title={isAppEnabled(app) ? 'Deshabilitar aplicativo' : 'Habilitar aplicativo'}>{isAppEnabled(app) ? 'Deshabilitar' : 'Habilitar'}</button>
                         <button className="icon-btn" onClick={() => setEditingAppId(app.id)} title="Editar"><IcoEdit /></button>
                         <button className="icon-btn danger" onClick={() => handleDeleteApp(app.id)} title="Eliminar"><IcoTrash /></button>
                       </div>
@@ -2609,44 +2882,50 @@ export default function App() {
     </div>
   );
 
-  const renderAddApp = () => (
-    <div className="panel enter" style={{ maxWidth: 620, margin: '0 auto' }}>
-      <div className="panel-head">
-        <div>
-          <h2 className="panel-title">Desplegar aplicativo</h2>
-          <p className="panel-sub">Se publicará en el Launchpad de todos los usuarios autorizados</p>
-        </div>
+  const renderAppDeployModal = () => {
+    if (!showAppDeployModal) return null;
+    return (
+      <div className="modal-overlay app-deploy-overlay" onMouseDown={() => !isAddingApp && setShowAppDeployModal(false)}>
+        <section className="app-deploy-modal" onMouseDown={e => e.stopPropagation()}>
+          <div className="modal-head app-deploy-head">
+            <div><span className="login-kicker">Catálogo unificado</span><h2>Desplegar aplicativo</h2><p>Completa la ficha para publicarlo en el ecosistema.</p></div>
+            <button className="modal-close" onClick={() => setShowAppDeployModal(false)} disabled={isAddingApp}><IcoX s={14} /></button>
+          </div>
+          <form onSubmit={handleAddApp} className="app-deploy-form">
+            {appCatalogError && <div className="catalog-alert form-alert"><IcoShield s={16} /><span>{appCatalogError}</span></div>}
+            <div>
+              <label className="form-label">Nombre oficial</label>
+              <input className="field" required value={newApp.nombre} onChange={e => setNewApp({ ...newApp, nombre: e.target.value })} placeholder="Ej. Gestión de viáticos" />
+            </div>
+            <div>
+              <label className="form-label">Grupo del aplicativo</label>
+              <AppGroupPicker value={newApp.grupo} groups={appGroups.filter(group => group !== 'Sin grupo')} onChange={value => setNewApp({ ...newApp, grupo: value })} />
+            </div>
+            <div>
+              <label className="form-label">URL del endpoint</label>
+              <input className="field mono" type="url" required value={newApp.url} onChange={e => setNewApp({ ...newApp, url: e.target.value })} placeholder="https://..." />
+            </div>
+            <div>
+              <label className="form-label">URL del ícono <span className="optional-label">Opcional</span></label>
+              <input className="field mono" type="url" value={newApp.icono} onChange={e => setNewApp({ ...newApp, icono: e.target.value })} placeholder="https://..." />
+            </div>
+            <div className="app-deploy-description">
+              <label className="form-label">Descripción</label>
+              <textarea className="field" required value={newApp.desc} onChange={e => setNewApp({ ...newApp, desc: e.target.value })} placeholder="Explica su propósito en una frase clara." />
+            </div>
+            <label className="app-initial-status">
+              <span><strong>Publicar inmediatamente</strong><small>Si la desactivas, quedará guardada en el catálogo sin aparecer a los usuarios.</small></span>
+              <input type="checkbox" checked={newApp.estado !== 'Inactivo'} onChange={e => setNewApp({ ...newApp, estado: e.target.checked ? 'Activo' : 'Inactivo' })} />
+            </label>
+            <div className="app-deploy-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowAppDeployModal(false)} disabled={isAddingApp}>Cancelar</button>
+              <button type="submit" className="btn btn-primary" disabled={isAddingApp || !newApp.grupo.trim()}><IcoRocket s={15} /> {isAddingApp ? 'Desplegando…' : 'Guardar y desplegar'}</button>
+            </div>
+          </form>
+        </section>
       </div>
-      <form onSubmit={handleAddApp} style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <div>
-          <label className="form-label">Nombre oficial</label>
-          <input className="field" required value={newApp.nombre} onChange={e => setNewApp({ ...newApp, nombre: e.target.value })} />
-        </div>
-        <div>
-          <label className="form-label">Grupo del aplicativo</label>
-          <AppGroupPicker value={newApp.grupo} groups={appGroups.filter(group => group !== 'Sin grupo')} onChange={value => setNewApp({ ...newApp, grupo: value })} />
-        </div>
-        <div>
-          <label className="form-label">URL del endpoint</label>
-          <input className="field mono" type="url" required value={newApp.url} onChange={e => setNewApp({ ...newApp, url: e.target.value })} />
-        </div>
-        <div>
-          <label className="form-label">URL del ícono (opcional)</label>
-          <input className="field mono" type="url" value={newApp.icono} onChange={e => setNewApp({ ...newApp, icono: e.target.value })} />
-        </div>
-        <div>
-          <label className="form-label">Descripción</label>
-          <textarea className="field" required value={newApp.desc} onChange={e => setNewApp({ ...newApp, desc: e.target.value })} />
-        </div>
-        <div style={{ display: 'flex', gap: 12, marginTop: 6 }}>
-          <button type="button" className="btn btn-secondary" style={{ flex: 1, padding: 13 }} onClick={() => setCurrentView('dashboard')}>Cancelar</button>
-          <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: 13 }} disabled={isAddingApp || !newApp.grupo.trim()}>
-            {isAddingApp ? 'Desplegando…' : 'Guardar y desplegar'}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+    );
+  };
 
   const renderUsers = () => (
     <div className="panel enter">
@@ -2688,7 +2967,6 @@ export default function App() {
     { id: 'teams', label: 'Equipos', admin: false },
     { id: 'analytics', label: 'Dashboard', admin: true },
     { id: 'catalog', label: 'Catálogo', admin: true },
-    { id: 'addApp', label: 'Desplegar', admin: true },
     { id: 'users', label: 'Identidades', admin: true },
   ];
   const activeAccent = ACCENT_COLORS.find(color => color.id === workspaceAppearance.accent) || ACCENT_COLORS[0];
@@ -2729,6 +3007,10 @@ export default function App() {
       data-contrast={workspaceAppearance.contrast}
       data-transparency={workspaceAppearance.transparency}
       data-clock-style={workspaceAppearance.clockStyle}
+      data-density={workspaceAppearance.density}
+      data-shape={workspaceAppearance.shape}
+      data-motion={workspaceAppearance.motion}
+      data-dock-scale={workspaceAppearance.dockScale}
       style={{ '--brand-green': activeAccent.hex }}>
       {renderSpotlight()}
       {renderLaunchpad()}
@@ -2738,6 +3020,7 @@ export default function App() {
       {renderWidgetGallery()}
       {renderProfileEditor()}
       {renderTeamEditor()}
+      {renderAppDeployModal()}
 
       {/* ================= MENU BAR ================= */}
       <header className="menubar">
@@ -2814,7 +3097,6 @@ export default function App() {
             {currentView === 'teams' && renderTeams()}
             {currentView === 'analytics' && renderAnalytics()}
             {currentView === 'catalog' && renderCatalog()}
-            {currentView === 'addApp' && renderAddApp()}
             {currentView === 'users' && renderUsers()}
           </div>
         </div>
