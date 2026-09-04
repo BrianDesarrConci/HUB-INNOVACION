@@ -60,6 +60,7 @@
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --menubar-h: 44px;
+  --agora-visible-height: 100dvh;
 
   /* Compatibilidad con clases heredadas */
   --surface-bg: var(--wall-b);
@@ -2764,6 +2765,159 @@ button:disabled .nexo-action-loader { opacity: .82; }
   .workspace { right: calc(76px + env(safe-area-inset-right,0px)); bottom: 0; }.workspace-inner { padding-bottom: 26px; }
   .launchpad { padding-top: calc(14px + env(safe-area-inset-top,0px)); }.lp-search { margin-bottom: 8px; }.lp-page-grid { grid-template-columns: repeat(4,1fr); grid-template-rows: repeat(2,minmax(82px,1fr)); }.lp-page .lp-item { min-height: 76px; }.lp-page .app-icon { width: 49px !important; height: 49px !important; }.lp-page-dots { margin-top: 5px; }
   .mobile-menu-layer { align-items: stretch; justify-content: flex-end; padding: calc(var(--menubar-h) + 8px) calc(78px + env(safe-area-inset-right,0px)) 8px 8px; }.mobile-menu-sheet { max-width: 560px; max-height: 100%; border-radius: 25px; }
+}
+
+/* ========================================================================== 
+   CONTINUIDAD MÓVIL · SCROLL Y FORMULARIOS COMPLETOS
+   ========================================================================== */
+.workspace-scroll.scroll-ready {
+  overflow-y: auto;
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.workspace-scroll.scroll-suspended {
+  overflow-y: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.calendar-modal,
+.board-modal,
+.notification-compose-modal,
+.control-editor-modal {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.modal-head,
+.profile-cover,
+.widget-gallery-intro,
+.appearance-footer,
+.widget-gallery-footer {
+  flex: 0 0 auto;
+}
+.calendar-layout,
+.board-admin-layout,
+.appearance-content,
+.widget-gallery-grid,
+.profile-form,
+.team-editor-form,
+.app-deploy-form,
+.notification-compose-form,
+.control-editor-form,
+.lifecycle-scroll {
+  min-height: 0;
+}
+.calendar-layout,
+.board-admin-layout,
+.appearance-content,
+.widget-gallery-grid,
+.profile-form,
+.team-editor-form,
+.app-deploy-form,
+.notification-compose-form,
+.control-editor-form {
+  flex: 1 1 auto;
+}
+.team-editor-form,
+.notification-compose-form,
+.control-editor-form {
+  overflow-y: auto;
+}
+.notification-compose-form,
+.control-editor-form {
+  max-height: none;
+}
+
+@media (max-width: 860px), (max-width: 1180px) and (orientation: portrait) and (pointer: coarse), (max-height: 700px) and (pointer: coarse) {
+  .modal-overlay {
+    top: 0;
+    bottom: auto;
+    height: var(--agora-visible-height,100dvh);
+    max-height: var(--agora-visible-height,100dvh);
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  .calendar-modal,
+  .board-modal,
+  .appearance-modal,
+  .widget-gallery-modal,
+  .profile-modal,
+  .team-editor-modal,
+  .app-deploy-modal,
+  .notification-compose-modal,
+  .control-editor-modal {
+    min-height: 0;
+    max-height: calc(var(--agora-visible-height,100dvh) - 32px - env(safe-area-inset-bottom,0px));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .calendar-layout,
+  .board-admin-layout {
+    min-height: 0;
+    display: block;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .calendar-main,
+  .calendar-agenda,
+  .board-form,
+  .board-admin-list {
+    overflow: visible;
+  }
+  .calendar-agenda {
+    min-height: 330px;
+  }
+  .appearance-content,
+  .widget-gallery-grid,
+  .profile-form,
+  .team-editor-form,
+  .app-deploy-form,
+  .notification-compose-form,
+  .control-editor-form,
+  .lifecycle-scroll {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom,0px));
+  }
+  .notification-compose-form,
+  .control-editor-form {
+    max-height: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .calendar-modal,
+  .board-modal,
+  .appearance-modal,
+  .widget-gallery-modal,
+  .profile-modal,
+  .team-editor-modal,
+  .app-deploy-modal,
+  .notification-compose-modal,
+  .control-editor-modal {
+    height: min(96dvh,var(--agora-visible-height,100dvh));
+    max-height: calc(var(--agora-visible-height,100dvh) - env(safe-area-inset-top,0px));
+  }
+  .modal-head {
+    position: relative;
+    z-index: 6;
+    background: color-mix(in srgb,var(--glass-strong) 97%,var(--wall-a));
+  }
+  .team-editor-actions,
+  .app-deploy-actions,
+  .notification-compose-actions,
+  .control-editor-actions {
+    position: sticky;
+    bottom: calc(-22px - env(safe-area-inset-bottom,0px));
+    z-index: 7;
+  }
 }
 
 @page { size: A4 landscape; margin: 0; }

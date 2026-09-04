@@ -904,6 +904,10 @@ export default function App() {
   const lpInputRef = useRef(null);
   const launchpadCloseTimerRef = useRef(null);
   const launchpadTouchRef = useRef(null);
+  const workspaceScrollRef = useRef(null);
+  const workspaceScrollTopRef = useRef(0);
+  const workspaceWasSuspendedRef = useRef(false);
+  const workspaceRestoreFrameRef = useRef(null);
 
   /* --- Ventanas --- */
   const [openApps, setOpenApps] = useState([]);
@@ -1059,6 +1063,50 @@ export default function App() {
     window.addEventListener('resize', updateResponsiveLayout);
     return () => window.removeEventListener('resize', updateResponsiveLayout);
   }, []);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const syncVisibleViewport = () => {
+      const visibleHeight = Math.round(viewport?.height || window.innerHeight);
+      document.documentElement.style.setProperty('--agora-visible-height', `${visibleHeight}px`);
+    };
+
+    syncVisibleViewport();
+    window.addEventListener('resize', syncVisibleViewport);
+    viewport?.addEventListener('resize', syncVisibleViewport);
+    viewport?.addEventListener('scroll', syncVisibleViewport);
+    return () => {
+      window.removeEventListener('resize', syncVisibleViewport);
+      viewport?.removeEventListener('resize', syncVisibleViewport);
+      viewport?.removeEventListener('scroll', syncVisibleViewport);
+      document.documentElement.style.removeProperty('--agora-visible-height');
+    };
+  }, []);
+
+  useEffect(() => {
+    const scroller = workspaceScrollRef.current;
+    if (!scroller) return undefined;
+
+    const shouldSuspendWorkspace = workspaceMode === 'focus' && activeAppId !== null;
+    if (shouldSuspendWorkspace) {
+      if (!workspaceWasSuspendedRef.current) workspaceScrollTopRef.current = scroller.scrollTop;
+      workspaceWasSuspendedRef.current = true;
+      return undefined;
+    }
+
+    const wasSuspended = workspaceWasSuspendedRef.current;
+    workspaceWasSuspendedRef.current = false;
+    if (!wasSuspended) return undefined;
+
+    window.cancelAnimationFrame(workspaceRestoreFrameRef.current);
+    scroller.style.overflowY = 'hidden';
+    workspaceRestoreFrameRef.current = window.requestAnimationFrame(() => {
+      scroller.style.overflowY = '';
+      scroller.scrollTop = workspaceScrollTopRef.current;
+    });
+
+    return () => window.cancelAnimationFrame(workspaceRestoreFrameRef.current);
+  }, [activeAppId, currentView, workspaceMode]);
 
   useEffect(() => {
     if (!showUtilitiesFolder) return undefined;
@@ -1523,11 +1571,21 @@ export default function App() {
   };
 
   const navigateToView = (view) => {
+    const isChangingModule = currentView !== view;
+    if (isChangingModule) workspaceScrollTopRef.current = 0;
     setActiveAppId(null);
     setCurrentView(view);
     closeSpotlight();
     setShowNotificationCenter(false);
     setShowMobileMenu(false);
+    if (isChangingModule) {
+      window.requestAnimationFrame(() => {
+        const scroller = workspaceScrollRef.current;
+        if (!scroller) return;
+        scroller.style.overflowY = '';
+        scroller.scrollTop = 0;
+      });
+    }
   };
 
   const saveNotificationDraft = async (e) => {
@@ -1864,7 +1922,7 @@ export default function App() {
     prioritizeWindow(appId);
   };
 
-  const goDesktop = () => { setActiveAppId(null); setCurrentView('dashboard'); setShowMobileMenu(false); };
+  const goDesktop = () => navigateToView('dashboard');
   const handleWorkspaceBackground = () => {
     if (workspaceMode !== 'desktop') return;
     goDesktop();
@@ -3698,7 +3756,7 @@ export default function App() {
           {menuItems.filter(m => !m.admin || isAdmin).map(m => (
             <button key={m.id}
               className={`menu-item ${currentView === m.id && activeAppId === null ? 'active' : ''}`}
-              onClick={() => { setActiveAppId(null); setCurrentView(m.id); }}>
+              onClick={() => navigateToView(m.id)}>
               {m.label}
             </button>
           ))}
@@ -3798,7 +3856,7 @@ export default function App() {
 
       {/* ================= WORKSPACE ================= */}
       <main className="workspace">
-        <div className="workspace-scroll" onMouseDown={handleWorkspaceBackground} style={{
+        <div ref={workspaceScrollRef} className={`workspace-scroll ${workspaceMode === 'focus' && activeAppId !== null ? 'scroll-suspended' : 'scroll-ready'}`} onMouseDown={handleWorkspaceBackground} style={{
           opacity: activeAppId === null || workspaceMode === 'desktop' ? 1 : 0,
           pointerEvents: activeAppId === null || workspaceMode === 'desktop' ? 'auto' : 'none',
         }}>
@@ -3859,7 +3917,8 @@ export default function App() {
               </div>
             </Rnd>
           ) : (
-            <div key={app.id} className={`focus-app-layer ${COMPACT_SYSTEM_TOOLS.has(app.sys) ? 'compact-utility' : ''}`} style={{
+            <div key={app.id} aria-hidden={activeAppId !== app.id} className={`focus-app-layer ${COMPACT_SYSTEM_TOOLS.has(app.sys) ? 'compact-utility' : ''}`} style={{
+              display: activeAppId === app.id ? undefined : 'none',
               opacity: activeAppId === app.id ? 1 : 0,
               pointerEvents: activeAppId === app.id ? 'auto' : 'none',
             }}>
