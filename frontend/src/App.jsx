@@ -1025,7 +1025,10 @@ export default function App() {
   };
   const closeOverlays = () => { closeSpotlight(); closeLaunchpad(); setShowUtilitiesFolder(false); };
 
-  useEffect(() => () => window.clearTimeout(launchpadCloseTimerRef.current), []);
+  useEffect(() => () => {
+    window.clearTimeout(launchpadCloseTimerRef.current);
+    window.cancelAnimationFrame(workspaceRestoreFrameRef.current);
+  }, []);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -1087,25 +1090,35 @@ export default function App() {
     const scroller = workspaceScrollRef.current;
     if (!scroller) return undefined;
 
+    window.cancelAnimationFrame(workspaceRestoreFrameRef.current);
     const shouldSuspendWorkspace = workspaceMode === 'focus' && activeAppId !== null;
     if (shouldSuspendWorkspace) {
       if (!workspaceWasSuspendedRef.current) workspaceScrollTopRef.current = scroller.scrollTop;
       workspaceWasSuspendedRef.current = true;
+      scroller.style.overflowY = 'hidden';
+      scroller.style.touchAction = 'none';
+      scroller.style.overscrollBehaviorY = 'none';
+      scroller.style.webkitOverflowScrolling = 'auto';
       return undefined;
     }
 
     const wasSuspended = workspaceWasSuspendedRef.current;
     workspaceWasSuspendedRef.current = false;
-    if (!wasSuspended) return undefined;
-
-    window.cancelAnimationFrame(workspaceRestoreFrameRef.current);
-    scroller.style.overflowY = 'hidden';
+    const targetScrollTop = workspaceScrollTopRef.current;
+    scroller.style.overflowY = 'auto';
+    scroller.style.touchAction = 'pan-y';
+    scroller.style.overscrollBehaviorY = 'contain';
+    scroller.style.webkitOverflowScrolling = 'auto';
+    scroller.scrollTop = targetScrollTop;
+    void scroller.offsetHeight;
     workspaceRestoreFrameRef.current = window.requestAnimationFrame(() => {
-      scroller.style.overflowY = '';
-      scroller.scrollTop = workspaceScrollTopRef.current;
+      if (workspaceWasSuspendedRef.current) return;
+      scroller.style.overflowY = 'auto';
+      scroller.style.touchAction = 'pan-y';
+      scroller.style.webkitOverflowScrolling = 'touch';
+      if (wasSuspended) scroller.scrollTop = targetScrollTop;
     });
-
-    return () => window.cancelAnimationFrame(workspaceRestoreFrameRef.current);
+    return undefined;
   }, [activeAppId, currentView, workspaceMode]);
 
   useEffect(() => {
@@ -1582,7 +1595,9 @@ export default function App() {
       window.requestAnimationFrame(() => {
         const scroller = workspaceScrollRef.current;
         if (!scroller) return;
-        scroller.style.overflowY = '';
+        scroller.style.overflowY = 'auto';
+        scroller.style.touchAction = 'pan-y';
+        scroller.style.webkitOverflowScrolling = 'touch';
         scroller.scrollTop = 0;
       });
     }
@@ -3917,7 +3932,7 @@ export default function App() {
               </div>
             </Rnd>
           ) : (
-            <div key={app.id} aria-hidden={activeAppId !== app.id} className={`focus-app-layer ${COMPACT_SYSTEM_TOOLS.has(app.sys) ? 'compact-utility' : ''}`} style={{
+            <div key={app.id} hidden={activeAppId !== app.id} aria-hidden={activeAppId !== app.id} className={`focus-app-layer ${COMPACT_SYSTEM_TOOLS.has(app.sys) ? 'compact-utility' : ''}`} style={{
               display: activeAppId === app.id ? undefined : 'none',
               opacity: activeAppId === app.id ? 1 : 0,
               pointerEvents: activeAppId === app.id ? 'auto' : 'none',
