@@ -11,6 +11,7 @@ const IcoUser = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M20 21
 const IcoLock = ({ s = 18 }) => <svg width={s} height={s} {...S}><rect x="3" y="11" width="18" height="11" rx="2.5" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>;
 const IcoGrid = ({ s = 18 }) => <svg width={s} height={s} {...S}><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></svg>;
 const IcoDesktopIco = ({ s = 18 }) => <svg width={s} height={s} {...S}><rect x="2" y="3.5" width="20" height="14" rx="2.5" /><path d="M9 21h6M12 17.5V21" /></svg>;
+const IcoMore = ({ s = 18 }) => <svg width={s} height={s} {...S} strokeWidth="2.2"><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></svg>;
 const IcoPlus = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M12 5v14M5 12h14" /></svg>;
 const IcoLogout = ({ s = 16 }) => <svg width={s} height={s} {...S}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></svg>;
 const IcoX = ({ s = 10 }) => <svg width={s} height={s} {...S} strokeWidth="2.4"><path d="M18 6 6 18M6 6l12 12" /></svg>;
@@ -875,6 +876,10 @@ export default function App() {
   const [workspaceMode, setWorkspaceMode] = useState('focus');
   const [currentView, setCurrentView] = useState('dashboard');
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [isCompactLayout, setIsCompactLayout] = useState(() => typeof window !== 'undefined' && (
+    window.innerWidth <= 860 || (window.innerWidth <= 1180 && window.innerHeight > window.innerWidth && window.matchMedia?.('(pointer: coarse)').matches)
+  ));
   const [showAppearancePanel, setShowAppearancePanel] = useState(false);
   const [showWidgetGallery, setShowWidgetGallery] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
@@ -898,6 +903,7 @@ export default function App() {
   const searchInputRef = useRef(null);
   const lpInputRef = useRef(null);
   const launchpadCloseTimerRef = useRef(null);
+  const launchpadTouchRef = useRef(null);
 
   /* --- Ventanas --- */
   const [openApps, setOpenApps] = useState([]);
@@ -998,11 +1004,11 @@ export default function App() {
   }, []);
 
   /* --- Overlays: abrir / cerrar --- */
-  const openSpotlight = () => { setSearchQuery(''); setIsLaunchpadOpen(false); setShowUtilitiesFolder(false); setIsSpotlightOpen(true); };
+  const openSpotlight = () => { setSearchQuery(''); setIsLaunchpadOpen(false); setShowUtilitiesFolder(false); setShowMobileMenu(false); setIsSpotlightOpen(true); };
   const closeSpotlight = () => { setIsSpotlightOpen(false); setSearchQuery(''); };
   const openLaunchpad = () => {
     window.clearTimeout(launchpadCloseTimerRef.current);
-    setLpQuery(''); setLaunchpadPage(0); setShowUtilitiesFolder(false); setIsSpotlightOpen(false);
+    setLpQuery(''); setLaunchpadPage(0); setShowUtilitiesFolder(false); setShowMobileMenu(false); setIsSpotlightOpen(false);
     setIsLaunchpadClosing(false); setIsLaunchpadOpen(true);
   };
   const closeLaunchpad = () => {
@@ -1025,6 +1031,7 @@ export default function App() {
       }
       if (e.key === 'Escape') {
         setIsSpotlightOpen(false); setIsLaunchpadOpen(false); setShowUserMenu(false);
+        setShowMobileMenu(false);
         setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
         setPublicationTypeOpen(false); setShowUtilitiesFolder(false); setShowTeamEditor(false); setShowAppDeployModal(false);
         setShowNotificationCenter(false); setShowNotificationComposer(false); setShowIncidentEditor(false); setShowMaintenanceEditor(false);
@@ -1039,9 +1046,18 @@ export default function App() {
   useEffect(() => { if (isLaunchpadOpen) lpInputRef.current?.focus(); }, [isLaunchpadOpen]);
 
   useEffect(() => {
-    const updateLaunchpadCapacity = () => setLaunchpadPageSize(window.innerWidth >= 1180 ? 18 : window.innerWidth >= 760 ? 12 : 8);
-    window.addEventListener('resize', updateLaunchpadCapacity);
-    return () => window.removeEventListener('resize', updateLaunchpadCapacity);
+    const updateResponsiveLayout = () => {
+      const compact = window.innerWidth <= 860 || (
+        window.innerWidth <= 1180 && window.innerHeight > window.innerWidth && window.matchMedia?.('(pointer: coarse)').matches
+      );
+      setIsCompactLayout(compact);
+      setLaunchpadPageSize(window.innerWidth >= 1180 ? 18 : window.innerWidth >= 760 ? 12 : 8);
+      if (compact) setWorkspaceMode('focus');
+      else setShowMobileMenu(false);
+    };
+    updateResponsiveLayout();
+    window.addEventListener('resize', updateResponsiveLayout);
+    return () => window.removeEventListener('resize', updateResponsiveLayout);
   }, []);
 
   useEffect(() => {
@@ -1332,7 +1348,7 @@ export default function App() {
   const handleLogout = () => {
     document.body.setAttribute('data-theme', 'light');
     setIsLoggedIn(false); setUserData(null); setOpenApps([]); setActiveAppId(null);
-    setShowUserMenu(false); setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
+    setShowUserMenu(false); setShowMobileMenu(false); setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
     setShowBoardManager(false); setPublicationTypeOpen(false); setBoardCarouselPaused(false);
     setShowUtilitiesFolder(false); setTeams([]); setTeamsError(''); setSelectedTeamId(''); setShowTeamEditor(false);
     setCurrentView('dashboard'); setPassword(''); setCaptchaVerified(false); setPomodoroRunning(false);
@@ -1511,6 +1527,7 @@ export default function App() {
     setCurrentView(view);
     closeSpotlight();
     setShowNotificationCenter(false);
+    setShowMobileMenu(false);
   };
 
   const saveNotificationDraft = async (e) => {
@@ -1847,7 +1864,7 @@ export default function App() {
     prioritizeWindow(appId);
   };
 
-  const goDesktop = () => { setActiveAppId(null); setCurrentView('dashboard'); };
+  const goDesktop = () => { setActiveAppId(null); setCurrentView('dashboard'); setShowMobileMenu(false); };
   const handleWorkspaceBackground = () => {
     if (workspaceMode !== 'desktop') return;
     goDesktop();
@@ -2365,6 +2382,22 @@ export default function App() {
      ====================================================================== */
   const renderLaunchpad = () => {
     if (!isLaunchpadOpen) return null;
+    const handleLaunchpadTouchStart = event => {
+      const touch = event.touches?.[0];
+      launchpadTouchRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+    };
+    const handleLaunchpadTouchEnd = event => {
+      const start = launchpadTouchRef.current;
+      const touch = event.changedTouches?.[0];
+      launchpadTouchRef.current = null;
+      if (!start || !touch) return;
+      const deltaX = touch.clientX - start.x;
+      const deltaY = touch.clientY - start.y;
+      if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+      setLaunchpadPage(page => deltaX < 0
+        ? Math.min(launchpadPages.length - 1, page + 1)
+        : Math.max(0, page - 1));
+    };
     const handleLaunchpadBackground = event => {
       const target = event.target;
       if (target instanceof Element && target.closest('.lp-item, .lp-search, .lp-page-arrow, .lp-page-dots button')) return;
@@ -2378,7 +2411,7 @@ export default function App() {
         </div>
         <div className="lp-stage">
           <button className="lp-page-arrow previous" disabled={launchpadPage === 0} onClick={() => setLaunchpadPage(page => Math.max(0, page - 1))} aria-label="Hoja anterior"><IcoChevron s={24} /></button>
-          <div className="lp-pages-viewport">
+          <div className="lp-pages-viewport" onTouchStart={handleLaunchpadTouchStart} onTouchEnd={handleLaunchpadTouchEnd}>
             <div className="lp-pages-track" style={{ transform: `translateX(-${launchpadPage * 100}%)` }}>
               {launchpadPages.map((entries, pageIndex) => (
                 <section className="lp-page" key={`launchpad-page-${pageIndex}`} aria-hidden={pageIndex !== launchpadPage}>
@@ -3585,13 +3618,15 @@ export default function App() {
      SHELL DEL SISTEMA
      ====================================================================== */
   const menuItems = [
-    { id: 'dashboard', label: 'Escritorio', admin: false },
-    { id: 'teams', label: 'Equipos', admin: false },
-    { id: 'control', label: 'Control', admin: false },
-    { id: 'analytics', label: 'Dashboard', admin: true },
-    { id: 'catalog', label: 'Catálogo', admin: true },
-    { id: 'users', label: 'Identidades', admin: true },
+    { id: 'dashboard', label: 'Escritorio', admin: false, icon: IcoDesktopIco, detail: 'Inicio y widgets personales' },
+    { id: 'teams', label: 'Equipos', admin: false, icon: IcoUsers, detail: 'Tareas, personas y seguimiento' },
+    { id: 'control', label: 'Control', admin: false, icon: IcoPulse, detail: 'Salud del ecosistema' },
+    { id: 'analytics', label: 'Dashboard', admin: true, icon: IcoChart, detail: 'Analítica administrativa' },
+    { id: 'catalog', label: 'Catálogo', admin: true, icon: IcoGrid, detail: 'Gobierno de aplicativos' },
+    { id: 'users', label: 'Identidades', admin: true, icon: IcoUser, detail: 'Directorio corporativo' },
   ];
+  const currentMenuItem = menuItems.find(item => item.id === currentView) || menuItems[0];
+  const mobileMenuItems = menuItems.filter(item => !item.admin || isAdmin);
   const activeAccent = ACCENT_COLORS.find(color => color.id === workspaceAppearance.accent) || ACCENT_COLORS[0];
 
   const renderWindowBody = (app) => {
@@ -3634,6 +3669,7 @@ export default function App() {
       data-shape={workspaceAppearance.shape}
       data-motion={workspaceAppearance.motion}
       data-dock-scale={workspaceAppearance.dockScale}
+      data-layout={isCompactLayout ? 'compact' : 'desktop'}
       style={{ '--brand-green': activeAccent.hex }}>
       {renderSpotlight()}
       {renderLaunchpad()}
@@ -3653,6 +3689,10 @@ export default function App() {
 
       {/* ================= MENU BAR ================= */}
       <header className="menubar">
+        <button className="mobile-brand" onClick={goDesktop} aria-label="Ir al escritorio de Ágora OS">
+          <span className="mobile-brand-mark">A</span>
+          <span><strong>Ágora OS</strong><small>{activeAppId ? openApps.find(app => app.id === activeAppId)?.nombre : currentMenuItem.label}</small></span>
+        </button>
         <div className="menubar-left">
           <div className="menu-logo-spacer" aria-hidden="true" />
           {menuItems.filter(m => !m.admin || isAdmin).map(m => (
@@ -3665,26 +3705,26 @@ export default function App() {
         </div>
 
         <div className="menubar-right">
-          <button className="nexo-menu-button" title="Ágora Nexo" onClick={() => setShowAgoraNexo(true)}><IcoSparkles s={14} /><span>Nexo</span></button>
+          <button className="nexo-menu-button hide-on-compact" title="Ágora Nexo" onClick={() => setShowAgoraNexo(true)}><IcoSparkles s={14} /><span>Nexo</span></button>
           <button className="menu-icon-btn" title="Buscar (⌘K)" onClick={openSpotlight}><IcoSearch s={16} /></button>
-          <button className={`menu-icon-btn notification-menu-button ${notifications.some(item => !item.read) ? 'has-unread' : ''}`} title="Notificaciones" onClick={() => { setShowUserMenu(false); setShowNotificationCenter(value => !value); }}><IcoBell s={16} />{notifications.some(item => !item.read) && <span>{Math.min(99, notifications.filter(item => !item.read).length)}</span>}</button>
-          {isAdmin && <button className="menu-icon-btn executive-menu-button" title="Modo sala ejecutiva" onClick={openExecutiveRoom}><IcoPresentation s={16} /></button>}
-          <button className={`menu-icon-btn ${workspaceMode === 'desktop' ? 'on' : ''}`}
+          <button className={`menu-icon-btn notification-menu-button ${notifications.some(item => !item.read) ? 'has-unread' : ''}`} title="Notificaciones" onClick={() => { setShowUserMenu(false); setShowMobileMenu(false); setShowNotificationCenter(value => !value); }}><IcoBell s={16} />{notifications.some(item => !item.read) && <span>{Math.min(99, notifications.filter(item => !item.read).length)}</span>}</button>
+          {isAdmin && <button className="menu-icon-btn executive-menu-button hide-on-compact" title="Modo sala ejecutiva" onClick={openExecutiveRoom}><IcoPresentation s={16} /></button>}
+          <button className={`menu-icon-btn hide-on-compact ${workspaceMode === 'desktop' ? 'on' : ''}`}
             title={workspaceMode === 'desktop' ? 'Ventanas libres' : 'Modo enfoque'}
             onClick={() => setWorkspaceMode(m => m === 'focus' ? 'desktop' : 'focus')}>
             {workspaceMode === 'focus' ? <IcoWindows s={16} /> : <IcoFocus s={16} />}
           </button>
-          <button className="menu-icon-btn" title="Personalizar escritorio" onClick={() => { setShowUserMenu(false); setShowAppearancePanel(true); }}>
+          <button className="menu-icon-btn hide-on-compact" title="Personalizar escritorio" onClick={() => { setShowUserMenu(false); setShowAppearancePanel(true); }}>
             <IcoSliders s={16} />
           </button>
-          <button className="menu-icon-btn" title="Añadir widgets" onClick={() => { setShowUserMenu(false); setShowWidgetGallery(true); }}>
+          <button className="menu-icon-btn hide-on-compact" title="Añadir widgets" onClick={() => { setShowUserMenu(false); setShowWidgetGallery(true); }}>
             <IcoWidgets s={16} />
           </button>
-          <span className="menu-clock">
+          <span className="menu-clock hide-on-compact">
             {currentTime.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}{'  '}
             {menuClockLabel}
           </span>
-          <button className="menu-user" onClick={() => setShowUserMenu(v => !v)}>
+          <button className="menu-user" onClick={() => { setShowMobileMenu(false); setShowUserMenu(v => !v); }}>
             <span className="menu-avatar">{initialsOf(welcomeName)}</span>
             <span className="menu-user-name">{welcomeName}</span>
           </button>
@@ -3716,6 +3756,44 @@ export default function App() {
             </button>
           </div>
         </>
+      )}
+
+      {showMobileMenu && (
+        <div className="mobile-menu-layer" role="presentation" onPointerDown={() => setShowMobileMenu(false)}>
+          <aside className="mobile-menu-sheet" role="dialog" aria-modal="true" aria-label="Navegación de Ágora OS" onPointerDown={event => event.stopPropagation()}>
+            <span className="mobile-sheet-handle" aria-hidden="true" />
+            <header className="mobile-menu-head">
+              <div className="mobile-menu-identity">
+                <span>{initialsOf(welcomeName)}</span>
+                <div><strong>{welcomeName}</strong><small>{profilePreferences.roleLabel.trim() || userData.rolGlobal}</small></div>
+              </div>
+              <button onClick={() => setShowMobileMenu(false)} aria-label="Cerrar menú"><IcoX s={14} /></button>
+            </header>
+
+            <div className="mobile-module-grid">
+              {mobileMenuItems.map(item => {
+                const ModuleIcon = item.icon;
+                return <button key={item.id} className={currentView === item.id && activeAppId === null ? 'active' : ''} onClick={() => navigateToView(item.id)}>
+                  <span><ModuleIcon s={19} /></span>
+                  <strong>{item.label}</strong>
+                  <small>{item.detail}</small>
+                </button>;
+              })}
+            </div>
+
+            {openApps.length > 0 && <section className="mobile-open-apps">
+              <header><span>Aplicativos abiertos</span><small>{openApps.length}</small></header>
+              <div>{openApps.map(app => <article key={app.id} className={activeAppId === app.id ? 'active' : ''}><button className="mobile-open-app-main" onClick={() => { setShowMobileMenu(false); handleDockClick(app.id); }}><AppIcon app={app} size={38} /><span><strong>{app.nombre}</strong><small>{activeAppId === app.id ? 'En uso' : 'Tocar para continuar'}</small></span></button><button className="mobile-app-close" onClick={event => closeApp(event, app.id)} aria-label={`Cerrar ${app.nombre}`}><IcoX s={10} /></button></article>)}</div>
+            </section>}
+
+            <div className="mobile-quick-actions">
+              <button onClick={() => { setShowMobileMenu(false); setShowAppearancePanel(true); }}><IcoSliders s={17} /><span>Personalizar</span></button>
+              <button onClick={() => { setShowMobileMenu(false); setShowWidgetGallery(true); }}><IcoWidgets s={17} /><span>Widgets</span></button>
+              <button onClick={() => { setShowMobileMenu(false); setShowAgoraNexo(true); }}><IcoSparkles s={17} /><span>Ágora Nexo</span></button>
+              {isAdmin && <button onClick={() => { setShowMobileMenu(false); openExecutiveRoom(); }}><IcoPresentation s={17} /><span>Sala ejecutiva</span></button>}
+            </div>
+          </aside>
+        </div>
       )}
 
       {/* ================= WORKSPACE ================= */}
@@ -3795,6 +3873,11 @@ export default function App() {
                 </div>
               ) : (
                 <>
+                  <div className="mobile-app-toolbar">
+                    <button className="mobile-app-back" onClick={goDesktop} aria-label="Volver al escritorio"><IcoChevron s={17} /></button>
+                    <span><AppIcon app={app} size={27} /><strong>{app.nombre}</strong></span>
+                    <button className="mobile-app-dismiss" onClick={event => closeApp(event, app.id)} aria-label={`Cerrar ${app.nombre}`}><IcoX s={12} /></button>
+                  </div>
                   {loadingApps[app.id] && !app.sys && <div className="loader-veil"><div className="spinner" /></div>}
                   <div className="focus-app-content">{renderWindowBody(app)}</div>
                 </>
@@ -3803,6 +3886,14 @@ export default function App() {
           )
         ))}
       </main>
+
+      <nav className="mobile-tabbar" aria-label="Navegación principal móvil">
+        <button className={currentView === 'dashboard' && activeAppId === null ? 'active' : ''} onClick={() => navigateToView('dashboard')} aria-current={currentView === 'dashboard' && activeAppId === null ? 'page' : undefined}><IcoDesktopIco s={20} /><span>Inicio</span></button>
+        <button className={currentView === 'teams' && activeAppId === null ? 'active' : ''} onClick={() => navigateToView('teams')} aria-current={currentView === 'teams' && activeAppId === null ? 'page' : undefined}><IcoUsers s={20} /><span>Equipos</span></button>
+        <button className="mobile-launchpad-button" onClick={openLaunchpad} aria-label="Abrir Launchpad"><span><IcoGrid s={22} /></span><small>Apps</small></button>
+        <button className={currentView === 'control' && activeAppId === null ? 'active' : ''} onClick={() => navigateToView('control')} aria-current={currentView === 'control' && activeAppId === null ? 'page' : undefined}><IcoPulse s={20} /><span>Control</span></button>
+        <button className={showMobileMenu ? 'active' : ''} onClick={() => { setShowUserMenu(false); setShowNotificationCenter(false); setShowMobileMenu(value => !value); }} aria-expanded={showMobileMenu}><IcoMore s={21} /><span>Más</span></button>
+      </nav>
 
       {/* ================= DOCK FLOTANTE ================= */}
       <div className="dock-wrap">
