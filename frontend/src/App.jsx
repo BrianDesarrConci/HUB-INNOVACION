@@ -51,6 +51,11 @@ const IcoRocket = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M14 
 const IcoSparkles = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="m12 2 1.7 4.3L18 8l-4.3 1.7L12 14l-1.7-4.3L6 8l4.3-1.7zM19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9zM5 13l1.2 2.8L9 17l-2.8 1.2L5 21l-1.2-2.8L1 17l2.8-1.2z" /></svg>;
 const IcoDocument = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M14 2.5H6a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8.5z" /><path d="M14 2.5v6h6M8 13h8M8 17h6" /></svg>;
 const IcoPresentation = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M3 4h18v12H3zM8 21l4-5 4 5M12 2v2" /><path d="m7 12 3-3 2 2 4-4" /></svg>;
+const IcoMic = ({ s = 18 }) => <svg width={s} height={s} {...S}><rect x="9" y="2.5" width="6" height="12" rx="3" /><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.5 21h7" /></svg>;
+const IcoSend = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="m3 11 18-8-8 18-2.5-7.5zM10.5 13.5 21 3" /></svg>;
+const IcoTarget = ({ s = 18 }) => <svg width={s} height={s} {...S}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></svg>;
+const IcoGrip = ({ s = 18 }) => <svg width={s} height={s} {...S}><circle cx="8" cy="6" r="1" /><circle cx="16" cy="6" r="1" /><circle cx="8" cy="12" r="1" /><circle cx="16" cy="12" r="1" /><circle cx="8" cy="18" r="1" /><circle cx="16" cy="18" r="1" /></svg>;
+const IcoDatabase = ({ s = 18 }) => <svg width={s} height={s} {...S}><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" /></svg>;
 
 const NexoActionLoader = ({ s = 15 }) => (
   <span className="nexo-action-loader" style={{ '--nexo-loader-size': `${s}px` }} aria-hidden="true">
@@ -120,6 +125,14 @@ const formatUsageTime = (seconds = 0) => {
   return `${hours.toLocaleString('es-CO', { minimumFractionDigits: hours < 10 ? 1 : 0, maximumFractionDigits: 1 })} h`;
 };
 
+const relativeTime = (timestamp) => {
+  const elapsed = Math.max(0, Date.now() - Number(timestamp || 0));
+  if (elapsed < 60000) return 'Ahora';
+  if (elapsed < 3600000) return `Hace ${Math.floor(elapsed / 60000)} min`;
+  if (elapsed < 86400000) return `Hace ${Math.floor(elapsed / 3600000)} h`;
+  return `Hace ${Math.floor(elapsed / 86400000)} d`;
+};
+
 const isAppEnabled = app => String(app?.estado || 'Activo').trim().toLowerCase() !== 'inactivo';
 
 const REPORT_COLORS = {
@@ -182,12 +195,15 @@ const reportCard = (x, y, width, height, content, options = {}) => `<g filter="u
 const buildTeamReportSvgs = team => {
   const tasks = team.tasks || [];
   const members = team.members || [];
+  const objectives = team.objectives || [];
   const today = dateKey();
   const generatedAt = new Date();
   const completed = tasks.filter(task => task.status === 'completada').length;
   const inProgress = tasks.filter(task => task.status === 'en_progreso').length;
-  const pending = tasks.filter(task => task.status === 'pendiente').length;
+  const pending = tasks.filter(task => ['backlog', 'pendiente'].includes(task.status)).length;
+  const review = tasks.filter(task => task.status === 'revision').length;
   const openTasks = tasks.filter(task => task.status !== 'completada');
+  const blockedTasks = openTasks.filter(task => task.blocked);
   const overdueTasks = openTasks.filter(task => task.dueDate && task.dueDate < today);
   const highPriority = openTasks.filter(task => task.priority === 'alta').length;
   const completion = tasks.length ? Math.round(completed / tasks.length * 100) : 0;
@@ -199,7 +215,7 @@ const buildTeamReportSvgs = team => {
   const taskChunks = [];
   for (let index = 0; index < tasks.length; index += 6) taskChunks.push(tasks.slice(index, index + 6));
   if (!taskChunks.length) taskChunks.push([]);
-  const pageCount = 2 + taskChunks.length;
+  const pageCount = 3 + taskChunks.length;
   const pages = [];
 
   const hero = `
@@ -291,6 +307,22 @@ const buildTeamReportSvgs = team => {
     const empty = chunk.length ? '' : reportCard(60, 300, 1120, 280, `<circle cx="620" cy="383" r="42" fill="#E5F3E9"/><text x="620" y="397" text-anchor="middle" font-size="38" font-weight="800" fill="${REPORT_COLORS.green}">✓</text><text x="620" y="463" text-anchor="middle" font-size="23" font-weight="800" fill="${REPORT_COLORS.ink}">Sin tareas registradas</text><text x="620" y="497" text-anchor="middle" font-size="15" fill="${REPORT_COLORS.muted}">Cuando el líder asigne compromisos aparecerán en este informe.</text>`, { soft: true });
     pages.push({ section: `Tareas ${chunkIndex + 1}/${taskChunks.length}`, body: `${title}${stats}${cards}${empty}`, pageNumber });
   });
+
+  const boardStatus = TEAM_TASK_COLUMNS.map((column, index) => {
+    const count = tasks.filter(task => task.status === column.id).length;
+    const x = 60 + index * 228;
+    const colors = ['#77619C', '#71849D', REPORT_COLORS.blue, REPORT_COLORS.amber, REPORT_COLORS.green];
+    return reportCard(x, 190, 208, 118, `<circle cx="${x + 38}" cy="228" r="16" fill="${colors[index]}" fill-opacity=".14"/><circle cx="${x + 38}" cy="228" r="6" fill="${colors[index]}"/><text x="${x + 65}" y="222" font-size="11" font-weight="800" fill="${REPORT_COLORS.muted}" letter-spacing=".7">${svgEscape(column.label.toUpperCase())}</text><text x="${x + 65}" y="259" font-size="30" font-weight="800" fill="${REPORT_COLORS.ink}">${count}</text>`, { radius: 22, soft: true });
+  }).join('');
+  const objectiveCards = objectives.slice(0, 6).map((objective, index) => {
+    const column = index % 2; const row = Math.floor(index / 2); const x = 60 + column * 570; const y = 390 + row * 220;
+    const progress = Math.min(100, Math.max(0, Number(objective.progress) || 0));
+    const content = `<text x="${x + 28}" y="${y + 38}" font-size="11" font-weight="800" fill="${REPORT_COLORS.green}" letter-spacing="1">${svgEscape((objective.period || 'PERIODO ACTUAL').toUpperCase())}</text>${reportTextLines(reportWrap(objective.title, 40, 2), x + 28, y + 76, { size: 20, weight: 800, color: REPORT_COLORS.ink, lineHeight: 24 })}${reportTextLines(reportWrap(objective.target || objective.description || 'Meta gerencial del equipo', 53, 2), x + 28, y + 132, { size: 13, color: REPORT_COLORS.muted, lineHeight: 18 })}<rect x="${x + 28}" y="${y + 170}" width="430" height="11" rx="6" fill="#E6E8ED"/><rect x="${x + 28}" y="${y + 170}" width="${Math.max(progress ? 8 : 0, 430 * progress / 100)}" height="11" rx="6" fill="${REPORT_COLORS.green}"/><text x="${x + 508}" y="${y + 181}" text-anchor="end" font-size="18" font-weight="800" fill="${REPORT_COLORS.ink}">${progress}%</text>`;
+    return reportCard(x, y, 540, 198, content, { radius: 25, soft: true });
+  }).join('');
+  const blockerRows = blockedTasks.slice(0, 4).map((task, index) => `<rect x="88" y="${1160 + index * 82}" width="1064" height="64" rx="17" fill="#FFF8F7" stroke="#F2D7D4"/><circle cx="116" cy="${1192 + index * 82}" r="8" fill="${REPORT_COLORS.red}"/><text x="140" y="${1187 + index * 82}" font-size="15" font-weight="800" fill="${REPORT_COLORS.ink}">${svgEscape(reportWrap(task.title, 55, 1)[0])}</text><text x="140" y="${1208 + index * 82}" font-size="12" fill="${REPORT_COLORS.muted}">${svgEscape(reportWrap(task.blockerReason || 'Bloqueo pendiente de gestionar', 80, 1)[0])}</text>`).join('');
+  const boardBody = `<text x="60" y="116" font-size="34" font-weight="800" fill="${REPORT_COLORS.ink}">Ágora Boards</text><text x="60" y="147" font-size="15" fill="${REPORT_COLORS.muted}">Objetivos, flujo de entrega y bloqueos en una lectura gerencial.</text>${boardStatus}<text x="60" y="354" font-size="13" font-weight="800" fill="${REPORT_COLORS.green}" letter-spacing="1.2">OBJETIVOS DEL PERIODO</text>${objectiveCards || reportCard(60, 390, 1120, 220, `<text x="620" y="482" text-anchor="middle" font-size="22" font-weight="800" fill="${REPORT_COLORS.ink}">Sin objetivos registrados</text><text x="620" y="520" text-anchor="middle" font-size="14" fill="${REPORT_COLORS.muted}">Crea objetivos en Ágora Boards para conectar tareas y resultados.</text>`, { soft: true })}<text x="60" y="1110" font-size="13" font-weight="800" fill="${blockedTasks.length ? REPORT_COLORS.red : REPORT_COLORS.green}" letter-spacing="1.2">BLOQUEOS ACTIVOS · ${blockedTasks.length}</text>${blockerRows || `<rect x="60" y="1140" width="1120" height="100" rx="24" fill="#EAF6EE"/><text x="620" y="1200" text-anchor="middle" font-size="18" font-weight="800" fill="${REPORT_COLORS.green}">Sin bloqueos activos reportados</text>`}<text x="60" y="1550" font-size="13" fill="${REPORT_COLORS.muted}">En revisión: ${review} | Compromisos abiertos: ${openTasks.length} | Cumplimiento general: ${completion}%</text>`;
+  pages.push({ section: 'Ágora Boards', body: boardBody });
 
   const now = generatedAt;
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -481,14 +513,18 @@ const BOARD_TYPES = [
 ];
 
 const TEAM_TASK_COLUMNS = [
-  { id: 'pendiente', label: 'Pendientes' },
-  { id: 'en_progreso', label: 'En progreso' },
-  { id: 'completada', label: 'Completadas' },
+  { id: 'backlog', label: 'Ideas' },
+  { id: 'pendiente', label: 'Por hacer' },
+  { id: 'en_progreso', label: 'En curso' },
+  { id: 'revision', label: 'En revisión' },
+  { id: 'completada', label: 'Completado' },
 ];
 
 const TEAM_STATUS_LABELS = {
+  backlog: 'Ideas',
   pendiente: 'Pendiente',
   en_progreso: 'En progreso',
+  revision: 'En revisión',
   completada: 'Completada',
 };
 
@@ -858,6 +894,39 @@ const StopwatchTool = () => {
   );
 };
 
+const parseNexoDate = (text, base = new Date()) => {
+  const normalized = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const result = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  if (/pasado manana/.test(normalized)) result.setDate(result.getDate() + 2);
+  else if (/\bmanana\b/.test(normalized)) result.setDate(result.getDate() + 1);
+  else if (/\bhoy\b/.test(normalized)) { /* fecha actual */ }
+  else {
+    const explicit = normalized.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/);
+    if (explicit) { const rawYear = Number(explicit[3] || base.getFullYear()); return new Date(rawYear < 100 ? 2000 + rawYear : rawYear, Number(explicit[2]) - 1, Number(explicit[1])); }
+    const weekdays = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+    const weekdayIndex = weekdays.findIndex(day => normalized.includes(day));
+    if (weekdayIndex < 0) return null;
+    let distance = (weekdayIndex - base.getDay() + 7) % 7;
+    if (distance === 0) distance = 7;
+    result.setDate(result.getDate() + distance);
+  }
+  return result;
+};
+
+const parseNexoTime = (text) => {
+  const normalized = String(text || '').toLowerCase().replace(/\./g, '');
+  const match = normalized.match(/(?:a\s+las?|a\s+la|hora)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || 0);
+  if (hour > 23 || minute > 59) return null;
+  if (match[3] === 'pm' && hour < 12) hour += 12;
+  if (match[3] === 'am' && hour === 12) hour = 0;
+  return { hour, minute };
+};
+
+const nexoMessage = (role, text, extra = {}) => ({ id: `nexo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, role, text, ...extra });
+
 /* ========================================================================== 
    APP
    ========================================================================== */
@@ -924,6 +993,11 @@ export default function App() {
   /* --- Datos --- */
   const [appsList, setAppsList] = useState([]);
   const [usersList, setUsersList] = useState([]);
+  const [people360, setPeople360] = useState(null);
+  const [people360Loading, setPeople360Loading] = useState(false);
+  const [people360Error, setPeople360Error] = useState('');
+  const [peopleQuery, setPeopleQuery] = useState('');
+  const [selectedPersonId, setSelectedPersonId] = useState('');
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState('');
   const [newTaskColor, setNewTaskColor] = useState('navy');
@@ -964,8 +1038,10 @@ export default function App() {
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [showTeamEditor, setShowTeamEditor] = useState(false);
   const [teamDraft, setTeamDraft] = useState({ id: '', name: '', leaderId: '', memberIds: [] });
-  const [teamTaskDraft, setTeamTaskDraft] = useState({ title: '', description: '', assignedTo: '', dueDate: dateKey(), priority: 'media' });
-  const [teamSection, setTeamSection] = useState('overview');
+  const [teamTaskDraft, setTeamTaskDraft] = useState({ title: '', description: '', assignedTo: '', dueDate: dateKey(), priority: 'media', objectiveId: '' });
+  const [teamObjectiveDraft, setTeamObjectiveDraft] = useState({ title: '', description: '', target: '', period: dateKey().slice(0, 7), progress: 0 });
+  const [teamSection, setTeamSection] = useState('board');
+  const [teamDragTaskId, setTeamDragTaskId] = useState('');
   const [teamTaskFilter, setTeamTaskFilter] = useState('all');
   const [teamCalendarMonth, setTeamCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [teamCalendarDate, setTeamCalendarDate] = useState(dateKey());
@@ -988,6 +1064,14 @@ export default function App() {
   const [lifecycleSaving, setLifecycleSaving] = useState(false);
   const [lifecyclePendingAction, setLifecyclePendingAction] = useState('');
   const [showAgoraNexo, setShowAgoraNexo] = useState(false);
+  const [agendaEvents, setAgendaEvents] = useState([]);
+  const [nexoInput, setNexoInput] = useState('');
+  const [nexoListening, setNexoListening] = useState(false);
+  const [nexoWorking, setNexoWorking] = useState(false);
+  const [nexoMessages, setNexoMessages] = useState([]);
+  const [nexoPendingAction, setNexoPendingAction] = useState(null);
+  const [nexoClarification, setNexoClarification] = useState(null);
+  const speechRecognitionRef = useRef(null);
   const [showExecutiveRoom, setShowExecutiveRoom] = useState(false);
   const [executiveSlide, setExecutiveSlide] = useState(0);
 
@@ -1006,6 +1090,8 @@ export default function App() {
     const t = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => () => speechRecognitionRef.current?.abort?.(), []);
 
   /* --- Overlays: abrir / cerrar --- */
   const openSpotlight = () => { setSearchQuery(''); setIsLaunchpadOpen(false); setShowUtilitiesFolder(false); setShowMobileMenu(false); setIsSpotlightOpen(true); };
@@ -1258,6 +1344,7 @@ export default function App() {
       view: details.view || '',
       sessionId: details.sessionId || sessionIdRef.current || '',
       authToken: details.authToken || userData?.sessionToken || '',
+      device: typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches ? 'Móvil/Tablet' : 'Escritorio',
     };
     fetch(GAS_API_URL, {
       method: 'POST', body: JSON.stringify({ action: 'trackEvent', eventData }),
@@ -1275,6 +1362,25 @@ export default function App() {
   const fetchUsers = async () => {
     try { const r = await post({ action: 'getUsers' }); if (r.status === 'success') setUsersList(r.data || []); }
     catch { /* offline */ }
+  };
+  const fetchPeople360 = async (session = userData) => {
+    if (!session?.usuario || !session?.sessionToken || session.rolGlobal !== 'Administrador') return;
+    setPeople360Loading(true); setPeople360Error('');
+    try {
+      const response = await post({ action: 'getPeople360', usuario: session.usuario, authToken: session.sessionToken, days: analyticsRange });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible consultar Personas 360.');
+      setPeople360(response.data);
+      setSelectedPersonId(current => response.data?.people?.some(person => person.idRed === current) ? current : (response.data?.people?.[0]?.idRed || ''));
+    } catch (peopleError) { setPeople360Error(peopleError.message || 'No fue posible consultar Personas 360.'); }
+    finally { setPeople360Loading(false); }
+  };
+
+  const fetchAgenda = async (session = userData, silent = false) => {
+    if (!session?.usuario || !session?.sessionToken) return;
+    try {
+      const response = await post({ action: 'getAgenda', usuario: session.usuario, authToken: session.sessionToken });
+      if (response.status === 'success') setAgendaEvents(response.data || []);
+    } catch (agendaError) { if (!silent) setTeamsError(agendaError.message || 'No fue posible consultar la agenda.'); }
   };
   const fetchBoardPosts = async () => {
     try {
@@ -1304,6 +1410,17 @@ export default function App() {
     } catch (controlError) {
       setEcosystemError(controlError.message || 'No fue posible consultar el estado del ecosistema.');
     } finally { setEcosystemLoading(false); }
+  };
+
+  const runServiceChecks = async () => {
+    if (!isAdmin || ecosystemLoading) return;
+    setEcosystemLoading(true); setEcosystemError('');
+    try {
+      const response = await post({ action: 'runServiceChecks', usuario: userData.usuario, authToken: userData.sessionToken });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible verificar los servicios.');
+      await fetchEcosystemControl();
+    } catch (controlError) { setEcosystemError(controlError.message || 'No fue posible verificar los servicios.'); }
+    finally { setEcosystemLoading(false); }
   };
 
   const fetchTeams = async (session = userData) => {
@@ -1339,8 +1456,14 @@ export default function App() {
   }, [analyticsRange, currentView, isLoggedIn, userData]);
 
   useEffect(() => {
+    if (!isLoggedIn || !userData || currentView !== 'users' || userData.rolGlobal !== 'Administrador') return;
+    fetchPeople360();
+  }, [analyticsRange, currentView, isLoggedIn, userData]);
+
+  useEffect(() => {
     if (!isLoggedIn || !userData || currentView !== 'teams') return;
     fetchTeams(userData);
+    fetchAgenda(userData, true);
   }, [currentView, isLoggedIn, userData]);
 
   useEffect(() => {
@@ -1398,7 +1521,8 @@ export default function App() {
       if (r.status === 'success') {
         const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         sessionIdRef.current = sessionId;
-        setIsLoggedIn(true); setUserData(r); fetchApps(r); fetchUsers(); fetchBoardPosts(); fetchTeams(r); fetchNotifications(r);
+        setIsLoggedIn(true); setUserData(r); fetchApps(r); fetchUsers(); fetchBoardPosts(); fetchTeams(r); fetchNotifications(r); fetchAgenda(r, true);
+        if (r.rolGlobal === 'Administrador') fetchPeople360(r);
         emitAnalytics('session_start', { usuario: r.usuario, authToken: r.sessionToken, sessionId });
       }
       else setError(r.message || 'Credenciales no válidas.');
@@ -1416,7 +1540,8 @@ export default function App() {
     setTheme('light'); setWorkspaceAppearance(DEFAULT_APPEARANCE); setAnalyticsData(null); setAnalyticsError('');
     setNotifications([]); setShowNotificationCenter(false); setShowNotificationComposer(false);
     setEcosystemData(null); setEcosystemError(''); setSelectedPortfolioAppId(''); setPortfolioDraft(null);
-    setShowAgoraNexo(false); setShowExecutiveRoom(false); setExecutiveSlide(0);
+    setPeople360(null); setPeople360Error(''); setSelectedPersonId(''); setAgendaEvents([]);
+    setShowAgoraNexo(false); setNexoMessages([]); setNexoPendingAction(null); setNexoClarification(null); setShowExecutiveRoom(false); setExecutiveSlide(0);
     sessionIdRef.current = '';
   };
 
@@ -1567,6 +1692,26 @@ export default function App() {
       if (response.status !== 'success') throw new Error(response.message || 'No fue posible actualizar la tarea.');
       await fetchTeams();
     } catch (teamError) { setTeamsError(teamError.message); }
+    finally { setTeamsLoading(false); setTeamsPendingAction(''); }
+  };
+
+  const moveBoardTask = async (status) => {
+    const task = selectedTeam?.tasks?.find(item => item.id === teamDragTaskId);
+    setTeamDragTaskId('');
+    if (!task || task.status === status || String(task.assignedTo).toUpperCase() !== String(userData?.usuario).toUpperCase()) return;
+    await updateTeamTaskStatus(task, status);
+  };
+
+  const saveTeamObjective = async (event) => {
+    event.preventDefault();
+    if (!selectedTeam || !teamObjectiveDraft.title.trim()) return;
+    setTeamsPendingAction('objective-save'); setTeamsLoading(true); setTeamsError('');
+    try {
+      const response = await post({ action: 'saveTeamObjective', usuario: userData.usuario, authToken: userData.sessionToken, objectiveData: { ...teamObjectiveDraft, teamId: selectedTeam.id } });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible guardar el objetivo.');
+      setTeamObjectiveDraft({ title: '', description: '', target: '', period: dateKey().slice(0, 7), progress: 0 });
+      await fetchTeams();
+    } catch (teamError) { setTeamsError(teamError.message || 'No fue posible guardar el objetivo.'); }
     finally { setTeamsLoading(false); setTeamsPendingAction(''); }
   };
 
@@ -1745,6 +1890,8 @@ export default function App() {
     fetchAnalytics();
     fetchEcosystemControl();
     fetchTeams();
+    fetchPeople360();
+    fetchAgenda(userData, true);
   };
 
   const closeExecutiveRoom = () => {
@@ -2024,6 +2171,168 @@ export default function App() {
 
   const selectedTeam = teams.find(team => team.id === selectedTeamId) || teams[0] || null;
   const canManageSelectedTeam = Boolean(selectedTeam?.canManage || isAdmin);
+
+  const nexoManagedTeams = teams.filter(team => team.canManage || isAdmin);
+  const nexoUpcomingAgenda = agendaEvents.filter(event => event.startsAt >= Date.now()).slice(0, 5);
+
+  const buildNexoBriefing = () => {
+    const overdue = teamDashboardTasks.filter(task => task.dueDate && task.dueDate < todayKey);
+    const dueSoon = teamDashboardTasks.filter(task => task.dueDate && task.dueDate >= todayKey && task.dueDate <= dateKey(new Date(Date.now() + 3 * 86400000)));
+    const activeIncidents = (ecosystemData?.incidents || []).filter(incident => !['Resuelto', 'Cerrado'].includes(incident.status));
+    const nextMeeting = nexoUpcomingAgenda[0];
+    const lines = [
+      overdue.length ? `${overdue.length} tarea${overdue.length === 1 ? '' : 's'} vencida${overdue.length === 1 ? '' : 's'} requiere${overdue.length === 1 ? '' : 'n'} atención.` : 'No tienes tareas vencidas.',
+      dueSoon.length ? `${dueSoon.length} compromiso${dueSoon.length === 1 ? '' : 's'} vence${dueSoon.length === 1 ? '' : 'n'} en los próximos tres días.` : 'No hay vencimientos cercanos asignados.',
+      nextMeeting ? `Tu próxima reunión es “${nextMeeting.title}” el ${new Date(nextMeeting.startsAt).toLocaleString('es-CO', { weekday: 'long', hour: 'numeric', minute: '2-digit' })}.` : 'Tu agenda no tiene reuniones próximas.',
+      activeIncidents.length ? `${activeIncidents.length} incidente${activeIncidents.length === 1 ? '' : 's'} activo${activeIncidents.length === 1 ? '' : 's'} en el ecosistema.` : 'El ecosistema no reporta incidentes activos.',
+    ];
+    return lines.join(' ');
+  };
+
+  const openNexo = () => {
+    setShowMobileMenu(false);
+    setShowAgoraNexo(true);
+    fetchAgenda(userData, true);
+    if (!nexoMessages.length) setNexoMessages([
+      nexoMessage('assistant', `${greeting}, ${welcomeName}. Soy Ágora Nexo Ejecutivo.`),
+      nexoMessage('assistant', buildNexoBriefing(), { kind: 'briefing' }),
+    ]);
+  };
+
+  const matchNexoTeam = (text) => {
+    const normalized = String(text || '').toLowerCase();
+    return nexoManagedTeams.find(team => normalized.includes(team.name.toLowerCase()) || normalized.includes(team.id.toLowerCase())) || (nexoManagedTeams.length === 1 ? nexoManagedTeams[0] : null);
+  };
+
+  const matchNexoAssignee = (text, team) => {
+    const normalized = String(text || '').toLowerCase();
+    return team?.members?.find(member => normalized.includes(String(member.userId).toLowerCase()) || normalized.includes(String(member.name).toLowerCase())) || null;
+  };
+
+  const nextNexoQuestion = (draft) => {
+    if (!draft.teamId && nexoManagedTeams.length > 1) return { field: 'teamId', text: `¿Para cuál equipo? Puedes decir ${nexoManagedTeams.slice(0, 3).map(team => team.name).join(', ')}.` };
+    if (draft.type === 'meeting' && !draft.date) return { field: 'date', text: '¿Para qué fecha debo programar la reunión?' };
+    if (draft.type === 'meeting' && !draft.time) return { field: 'time', text: '¿A qué hora debe comenzar?' };
+    if (draft.type === 'task' && !draft.assignedTo) return { field: 'assignedTo', text: '¿A qué integrante del equipo debo asignarla?' };
+    if (draft.type === 'task' && !draft.date) return { field: 'date', text: '¿Cuál es la fecha límite de la tarea?' };
+    return null;
+  };
+
+  const presentNexoConfirmation = (draft) => {
+    setNexoClarification(null);
+    setNexoPendingAction(draft);
+    const team = teams.find(item => item.id === draft.teamId);
+    if (draft.type === 'meeting') {
+      const start = new Date(draft.date); start.setHours(draft.time.hour, draft.time.minute, 0, 0);
+      setNexoMessages(messages => [...messages, nexoMessage('assistant', `Confirmo: crearé “${draft.title}” para ${team?.name || 'tu agenda'}, el ${start.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${start.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })}, con duración de ${draft.duration} minutos.`, { kind: 'confirmation' })]);
+    } else {
+      const assignee = team?.members?.find(member => member.userId === draft.assignedTo);
+      setNexoMessages(messages => [...messages, nexoMessage('assistant', `Confirmo: asignaré “${draft.title}” a ${assignee?.name || draft.assignedTo}, con fecha límite ${new Date(`${dateKey(draft.date)}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}.`, { kind: 'confirmation' })]);
+    }
+  };
+
+  const continueNexoClarification = (text) => {
+    const draft = { ...nexoClarification.draft };
+    const field = nexoClarification.field;
+    if (field === 'teamId') draft.teamId = matchNexoTeam(text)?.id || '';
+    if (field === 'date') draft.date = parseNexoDate(text);
+    if (field === 'time') draft.time = parseNexoTime(text);
+    if (field === 'assignedTo') {
+      const team = teams.find(item => item.id === draft.teamId) || selectedTeam;
+      draft.assignedTo = matchNexoAssignee(text, team)?.userId || '';
+    }
+    const next = nextNexoQuestion(draft);
+    if (next && !draft[field]) {
+      setNexoMessages(messages => [...messages, nexoMessage('assistant', `No logré identificar ese dato. ${next.text}`)]);
+      return;
+    }
+    if (next) {
+      setNexoClarification({ draft, field: next.field });
+      setNexoMessages(messages => [...messages, nexoMessage('assistant', next.text)]);
+    } else presentNexoConfirmation(draft);
+  };
+
+  const submitNexoCommand = (rawCommand) => {
+    const command = String(rawCommand || '').trim();
+    if (!command || nexoWorking) return;
+    setNexoInput('');
+    setNexoMessages(messages => [...messages, nexoMessage('user', command)]);
+    if (nexoClarification) { continueNexoClarification(command); return; }
+    const normalized = command.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (/\b(reunion|reunir|comite|agenda|programa)\b/.test(normalized) && /\b(crea|crear|agenda|agendar|programa|programar)\b/.test(normalized)) {
+      const team = matchNexoTeam(command);
+      const date = parseNexoDate(command);
+      const time = parseNexoTime(command);
+      const durationMatch = normalized.match(/(?:durante|duracion de)\s+(\d{1,3})\s*(min|minutos|hora|horas)/);
+      const duration = durationMatch ? Number(durationMatch[1]) * (durationMatch[2].startsWith('hora') ? 60 : 1) : 60;
+      const purpose = command.match(/para\s+(.+?)(?:\s+(?:hoy|mañana|pasado|el\s+(?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo))|$)/i)?.[1];
+      const draft = { type: 'meeting', title: purpose ? `Reunión para ${purpose.trim()}` : 'Reunión de seguimiento', date, time, duration: Math.min(240, Math.max(15, duration)), teamId: team?.id || '', input: command };
+      const next = nextNexoQuestion(draft);
+      if (next) { setNexoClarification({ draft, field: next.field }); setNexoMessages(messages => [...messages, nexoMessage('assistant', next.text)]); }
+      else presentNexoConfirmation(draft);
+      return;
+    }
+    if (/\b(tarea|pendiente|compromiso)\b/.test(normalized) && /\b(crea|crear|asigna|asignar)\b/.test(normalized)) {
+      const team = matchNexoTeam(command) || selectedTeam;
+      const assignee = matchNexoAssignee(command, team);
+      const title = command.replace(/^(crea|crear|asigna|asignar)\s+(una\s+)?(tarea|pendiente|compromiso)\s*/i, '').split(/\s+(?:a|para)\s+(?=[A-ZÁÉÍÓÚÑ])/)[0].trim() || 'Nueva tarea';
+      const draft = { type: 'task', title, date: parseNexoDate(command), teamId: team?.id || '', assignedTo: assignee?.userId || '', input: command };
+      const next = nextNexoQuestion(draft);
+      if (next) { setNexoClarification({ draft, field: next.field }); setNexoMessages(messages => [...messages, nexoMessage('assistant', next.text)]); }
+      else presentNexoConfirmation(draft);
+      return;
+    }
+    let response = '';
+    if (/vencid|atrasad/.test(normalized)) response = teamDashboardTasks.filter(task => task.dueDate && task.dueDate < todayKey).length ? `Tienes ${teamDashboardTasks.filter(task => task.dueDate && task.dueDate < todayKey).length} tareas vencidas. Puedo ayudarte a priorizarlas desde Ágora Boards.` : 'No tienes tareas vencidas en este momento.';
+    else if (/agenda|reunion|reuniones/.test(normalized)) response = nexoUpcomingAgenda.length ? `Tienes ${nexoUpcomingAgenda.length} reuniones próximas. La siguiente es “${nexoUpcomingAgenda[0].title}”.` : 'No tienes reuniones próximas en la agenda de Ágora.';
+    else if (/estado|salud|incidente|ecosistema/.test(normalized)) response = (ecosystemData?.summary?.activeIncidents || 0) ? `El ecosistema tiene ${ecosystemData.summary.activeIncidents} incidentes activos y ${ecosystemData.summary.operational || 0} servicios disponibles.` : `El ecosistema está estable, con ${ecosystemData?.summary?.operational || appsList.length} servicios disponibles.`;
+    else if (/resumen|briefing|dia|hoy/.test(normalized)) response = buildNexoBriefing();
+    else response = 'Puedo darte tu briefing, consultar tareas vencidas, revisar la salud del ecosistema, crear una reunión o asignar una tarea. También puedes hablarme con el micrófono.';
+    setNexoMessages(messages => [...messages, nexoMessage('assistant', response)]);
+    post({ action: 'logNexoAction', usuario: userData.usuario, authToken: userData.sessionToken, input: command, intent: 'consulta', nexoAction: 'respuesta_contextual', actionStatus: 'Consultada', detail: response }).catch(() => {});
+  };
+
+  const confirmNexoAction = async () => {
+    const draft = nexoPendingAction;
+    if (!draft) return;
+    setNexoWorking(true);
+    try {
+      if (draft.type === 'meeting') {
+        const startsAt = new Date(draft.date); startsAt.setHours(draft.time.hour, draft.time.minute, 0, 0);
+        const endsAt = new Date(startsAt.getTime() + draft.duration * 60000);
+        const response = await post({ action: 'saveAgendaEvent', usuario: userData.usuario, authToken: userData.sessionToken, eventData: { title: draft.title, description: 'Creada mediante Ágora Nexo Ejecutivo.', startsAt: startsAt.getTime(), endsAt: endsAt.getTime(), teamId: draft.teamId, source: 'Ágora Nexo', input: draft.input } });
+        if (response.status !== 'success') throw new Error(response.message || 'No fue posible crear la reunión.');
+        await Promise.all([fetchAgenda(userData, true), fetchNotifications(userData, true)]);
+        setNexoMessages(messages => [...messages, nexoMessage('assistant', 'La reunión quedó creada y las personas del equipo recibirán una notificación.', { kind: 'success' })]);
+      } else {
+        const response = await post({ action: 'addTeamTask', usuario: userData.usuario, authToken: userData.sessionToken, taskData: { teamId: draft.teamId, title: draft.title, description: 'Asignada mediante Ágora Nexo Ejecutivo.', assignedTo: draft.assignedTo, dueDate: dateKey(draft.date), priority: 'media' } });
+        if (response.status !== 'success') throw new Error(response.message || 'No fue posible asignar la tarea.');
+        await Promise.all([fetchTeams(), fetchNotifications(userData, true)]);
+        setNexoMessages(messages => [...messages, nexoMessage('assistant', 'La tarea quedó asignada en Ágora Boards y ya aparece en los pendientes del responsable.', { kind: 'success' })]);
+      }
+      setNexoPendingAction(null);
+    } catch (actionError) { setNexoMessages(messages => [...messages, nexoMessage('assistant', actionError.message || 'No pude completar la acción.', { kind: 'error' })]); }
+    finally { setNexoWorking(false); }
+  };
+
+  const cancelNexoAction = () => {
+    setNexoPendingAction(null); setNexoClarification(null);
+    setNexoMessages(messages => [...messages, nexoMessage('assistant', 'Entendido. No realicé ningún cambio.')]);
+  };
+
+  const toggleNexoVoice = () => {
+    if (nexoListening) { speechRecognitionRef.current?.stop(); return; }
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Recognition) { setNexoMessages(messages => [...messages, nexoMessage('assistant', 'El reconocimiento de voz no está disponible en este navegador. Puedes escribir el comando.')]); return; }
+    const recognition = new Recognition();
+    recognition.lang = 'es-CO'; recognition.interimResults = false; recognition.continuous = false;
+    recognition.onstart = () => setNexoListening(true);
+    recognition.onend = () => setNexoListening(false);
+    recognition.onerror = () => { setNexoListening(false); setNexoMessages(messages => [...messages, nexoMessage('assistant', 'No pude acceder al micrófono. Revisa el permiso del navegador e inténtalo nuevamente.')]); };
+    recognition.onresult = event => { const transcript = event.results?.[0]?.[0]?.transcript || ''; setNexoInput(transcript); submitNexoCommand(transcript); };
+    speechRecognitionRef.current = recognition;
+    recognition.start();
+  };
 
   const openEntry = (entry) => entry.sysType ? launchSystemApp(entry.sysType) : launchApp(entry);
   const welcomeName = profilePreferences.displayName.trim() || userData?.usuario || '';
@@ -2526,12 +2835,12 @@ export default function App() {
       { id: 'control', label: 'Centro de control', detail: 'Salud, incidentes y mantenimientos', keywords: 'estado salud incidentes mantenimiento', icon: IcoPulse, action: () => navigateToView('control') },
       { id: 'launchpad', label: 'Abrir Launchpad', detail: 'Todos los aplicativos', keywords: 'aplicaciones apps launchpad', icon: IcoGrid, action: openLaunchpad },
       { id: 'appearance', label: 'Personalizar escritorio', detail: 'Apariencia, color y movimiento', keywords: 'tema fondo oscuro apariencia', icon: IcoSliders, action: () => setShowAppearancePanel(true) },
-      { id: 'nexo', label: 'Abrir Ágora Nexo', detail: 'La próxima inteligencia de Ágora OS', keywords: 'ia inteligencia asistente nexo', icon: IcoSparkles, action: () => setShowAgoraNexo(true) },
+      { id: 'nexo', label: 'Abrir Ágora Nexo', detail: 'Briefing y acciones ejecutivas por voz', keywords: 'ia inteligencia asistente nexo voz reuniones tareas', icon: IcoSparkles, action: openNexo },
       ...(isAdmin ? [
         { id: 'analytics', label: 'Abrir Dashboard', detail: 'Adopción y comportamiento del ecosistema', keywords: 'analitica métricas uso', icon: IcoChart, action: () => navigateToView('analytics') },
         { id: 'catalog', label: 'Gestionar Catálogo', detail: 'Gobierno y ciclo de vida', keywords: 'catalogo aplicaciones portafolio', icon: IcoRocket, action: () => navigateToView('catalog') },
         { id: 'notification', label: 'Crear notificación', detail: 'Publicar una alerta empresarial', keywords: 'notificar alerta comunicado', icon: IcoBell, action: () => setShowNotificationComposer(true) },
-        { id: 'executive', label: 'Iniciar modo sala ejecutiva', detail: 'Presentación para la dirección', keywords: 'junta presentación sala informe', icon: IcoPresentation, action: openExecutiveRoom },
+        { id: 'executive', label: 'Iniciar Sala Ejecutiva 2.0', detail: 'Narrativa gerencial del ecosistema', keywords: 'junta presentación sala informe', icon: IcoPresentation, action: openExecutiveRoom },
       ] : []),
     ];
     const executeCommand = (entry) => {
@@ -3060,6 +3369,8 @@ export default function App() {
       return day;
     });
     const selectedDayTasks = teamTasks.filter(task => task.dueDate === teamCalendarDate);
+    const teamMeetings = agendaEvents.filter(event => !event.teamId || event.teamId === selectedTeam?.id);
+    const selectedDayMeetings = teamMeetings.filter(event => dateKey(new Date(event.startsAt)) === teamCalendarDate);
     const selectedCalendarDate = new Date(`${teamCalendarDate}T12:00:00`);
 
     return (
@@ -3092,7 +3403,7 @@ export default function App() {
                   return (
                     <button key={team.id} className={selectedTeam?.id === team.id ? 'active' : ''} onClick={() => {
                       setSelectedTeamId(team.id);
-                      setTeamSection('overview');
+                      setTeamSection('board');
                       setTeamTaskDraft(current => ({ ...current, assignedTo: team.members[0]?.userId || '' }));
                     }}>
                       <span className="team-list-avatar">{initialsOf(team.name)}</span>
@@ -3112,11 +3423,17 @@ export default function App() {
               </div>
 
               <nav className="team-section-tabs" aria-label="Secciones del equipo">
+                <button className={teamSection === 'board' ? 'active' : ''} onClick={() => setTeamSection('board')}><IcoGrid s={15} /> Ágora Boards <span>{openTasks.length}</span></button>
                 <button className={teamSection === 'overview' ? 'active' : ''} onClick={() => setTeamSection('overview')}><IcoChart s={15} /> Resumen ejecutivo</button>
                 <button className={teamSection === 'tasks' ? 'active' : ''} onClick={() => setTeamSection('tasks')}><IcoCheck s={15} /> Tareas <span>{openTasks.length}</span></button>
                 <button className={teamSection === 'calendar' ? 'active' : ''} onClick={() => setTeamSection('calendar')}><IcoCal s={15} /> Calendario</button>
                 <button className={teamSection === 'people' ? 'active' : ''} onClick={() => setTeamSection('people')}><IcoUsers s={15} /> Personas <span>{selectedTeam.members.length}</span></button>
               </nav>
+
+              {teamSection === 'board' && <div className="agora-board-section">
+                <section className="board-objectives"><header><div><span><IcoTarget s={15} /> DIRECCIÓN GERENCIAL</span><h4>Objetivos del periodo</h4></div>{canManageSelectedTeam && <button onClick={() => document.querySelector('.board-objective-form input')?.focus()}><IcoPlus s={13} /> Nuevo objetivo</button>}</header><div className="board-objective-strip">{!selectedTeam.objectives?.length ? <article className="empty"><IcoTarget s={20} /><span><strong>Conecta el trabajo con un resultado</strong><small>Crea el primer objetivo gerencial del equipo.</small></span></article> : selectedTeam.objectives.slice(0, 4).map(objective => <article key={objective.id}><div><span>{objective.period || 'PERIODO ACTUAL'}</span><strong>{objective.title}</strong><small>{objective.target || objective.description || 'Meta del equipo'}</small></div><em>{objective.progress}%</em><i><b style={{ width: `${objective.progress}%` }} /></i></article>)}</div>{canManageSelectedTeam && <form className="board-objective-form" onSubmit={saveTeamObjective}><label><span>Objetivo</span><input required value={teamObjectiveDraft.title} onChange={event => setTeamObjectiveDraft(current => ({ ...current, title: event.target.value }))} placeholder="Ej. Reducir tiempos de respuesta" /></label><label><span>Meta</span><input value={teamObjectiveDraft.target} onChange={event => setTeamObjectiveDraft(current => ({ ...current, target: event.target.value }))} placeholder="Ej. 95% dentro del SLA" /></label><label><span>Periodo</span><input type="month" value={teamObjectiveDraft.period} onChange={event => setTeamObjectiveDraft(current => ({ ...current, period: event.target.value }))} /></label><button disabled={teamsLoading}>{teamsPendingAction === 'objective-save' ? <NexoActionLoader /> : <IcoPlus s={14} />} Guardar</button></form>}</section>
+                <section className="agora-kanban"><header><div><span>FLUJO DE ENTREGA</span><h4>Tablero gerencial</h4><p>El líder prioriza y supervisa; cada responsable mueve sus propias tareas.</p></div><button className="btn btn-primary" onClick={() => setTeamSection('tasks')} disabled={!canManageSelectedTeam}><IcoPlus s={14} /> Asignar tarea</button></header><div className="agora-kanban-scroll">{TEAM_TASK_COLUMNS.map(column => { const columnTasks = teamTasks.filter(task => task.status === column.id); return <section key={column.id} className={`kanban-column status-${column.id}`} onDragOver={event => event.preventDefault()} onDrop={() => moveBoardTask(column.id)}><header><span><i />{column.label}</span><strong>{columnTasks.length}</strong></header><div>{columnTasks.length === 0 ? <div className="kanban-empty">Suelta aquí una tarea</div> : columnTasks.map(task => { const member = selectedTeam.members.find(item => String(item.userId).toUpperCase() === String(task.assignedTo).toUpperCase()); const canMove = String(task.assignedTo).toUpperCase() === userId; const objective = selectedTeam.objectives?.find(item => item.id === task.objectiveId); return <article key={task.id} className={`${task.priority} ${task.blocked ? 'blocked' : ''} ${canMove ? 'draggable' : ''}`} draggable={canMove} onDragStart={() => setTeamDragTaskId(task.id)} onDragEnd={() => setTeamDragTaskId('')}><div className="kanban-card-top"><span>{task.priority}</span>{canMove ? <IcoGrip s={15} /> : <IcoShield s={13} />}</div>{objective && <small className="kanban-objective"><IcoTarget s={11} /> {objective.title}</small>}<h5>{task.title}</h5><p>{task.description || 'Sin detalle adicional.'}</p>{task.blocked && <div className="kanban-blocker"><IcoShield s={12} /> {task.blockerReason || 'Tarea bloqueada'}</div>}<div className="kanban-progress"><i><b style={{ width: `${task.progress || (task.status === 'completada' ? 100 : 0)}%` }} /></i><span>{task.progress || (task.status === 'completada' ? 100 : 0)}%</span></div><footer><span className="people-avatar mini">{initialsOf(member?.name || task.assignedTo)}</span><time className={task.dueDate && task.dueDate < todayKey && task.status !== 'completada' ? 'overdue' : ''}><IcoCal s={12} />{task.dueDate ? new Date(`${task.dueDate}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }) : 'Sin fecha'}</time></footer>{!canMove && <small className="kanban-owner-note">Estado a cargo de {member?.name || task.assignedTo}</small>}</article>; })}</div></section>; })}</div></section>
+              </div>}
 
               {teamSection === 'overview' && <div className="team-executive-content">
                 <section className="team-kpi-grid">
@@ -3131,7 +3448,7 @@ export default function App() {
                     <header><div><span>Distribución del trabajo</span><h4>Estado de las tareas</h4></div><small>{totalTasks} totales</small></header>
                     <div className="team-status-chart">
                       <div className="team-donut" style={{ '--done': `${completion * 3.6}deg`, '--progress': `${(completion + (totalTasks ? inProgress / totalTasks * 100 : 0)) * 3.6}deg` }}><span><strong>{openTasks.length}</strong><small>abiertas</small></span></div>
-                      <div className="team-chart-legend"><span><i className="pending" /> Pendientes <b>{teamTasks.filter(task => task.status === 'pendiente').length}</b></span><span><i className="progress" /> En progreso <b>{inProgress}</b></span><span><i className="done" /> Completadas <b>{completed}</b></span></div>
+                      <div className="team-chart-legend"><span><i className="pending" /> Backlog / por hacer <b>{teamTasks.filter(task => ['backlog', 'pendiente'].includes(task.status)).length}</b></span><span><i className="progress" /> En curso / revisión <b>{teamTasks.filter(task => ['en_progreso', 'revision'].includes(task.status)).length}</b></span><span><i className="done" /> Completadas <b>{completed}</b></span></div>
                     </div>
                   </article>
 
@@ -3169,6 +3486,7 @@ export default function App() {
                   <label><span>Responsable</span><select className="field" value={teamTaskDraft.assignedTo} onChange={e => setTeamTaskDraft(current => ({ ...current, assignedTo: e.target.value }))} required><option value="">Seleccionar</option>{selectedTeam.members.map(member => <option key={member.userId} value={member.userId}>{member.name} ({member.userId})</option>)}</select></label>
                   <label><span>Fecha límite</span><input className="field" type="date" value={teamTaskDraft.dueDate} onChange={e => setTeamTaskDraft(current => ({ ...current, dueDate: e.target.value }))} /></label>
                   <label><span>Prioridad</span><select className="field" value={teamTaskDraft.priority} onChange={e => setTeamTaskDraft(current => ({ ...current, priority: e.target.value }))}><option value="baja">Baja</option><option value="media">Media</option><option value="alta">Alta</option></select></label>
+                  <label><span>Objetivo relacionado</span><select className="field" value={teamTaskDraft.objectiveId} onChange={e => setTeamTaskDraft(current => ({ ...current, objectiveId: e.target.value }))}><option value="">Sin objetivo</option>{(selectedTeam.objectives || []).map(objective => <option key={objective.id} value={objective.id}>{objective.title}</option>)}</select></label>
                   <button className="btn btn-primary" type="submit" disabled={teamsLoading}>{teamsPendingAction === 'task-add' ? <><NexoActionLoader /> Asignando…</> : 'Asignar tarea'}</button>
                 </form>}
 
@@ -3177,7 +3495,7 @@ export default function App() {
                   {filteredTeamTasks.length === 0 ? <div className="team-task-list-empty"><IcoCheck s={24} /><strong>Sin tareas en esta vista</strong><span>Cambia el filtro o asigna una nueva responsabilidad.</span></div> : filteredTeamTasks.map(task => {
                     const isAssignee = String(task.assignedTo).toUpperCase() === userId;
                     const isOverdue = task.status !== 'completada' && task.dueDate && task.dueDate < todayKey;
-                    return <article key={task.id} className={`team-executive-task priority-${task.priority} ${isOverdue ? 'overdue' : ''}`}><span className="team-task-priority-line" /><div className="team-task-main"><div><span className={`team-priority-pill ${task.priority}`}>{task.priority}</span><span className={`team-status-pill ${task.status}`}>{TEAM_STATUS_LABELS[task.status]}</span>{isOverdue && <span className="team-overdue-pill">Vencida</span>}</div><h4>{task.title}</h4><p>{task.description || 'Sin descripción adicional.'}</p></div><div className="team-task-assignee"><span className="team-person-avatar">{initialsOf(memberName(task.assignedTo))}</span><div><small>Responsable</small><strong>{memberName(task.assignedTo)}</strong><span>{task.assignedTo}</span></div></div><div className="team-task-date"><IcoCal s={16} /><div><small>Fecha límite</small><strong>{task.dueDate ? new Date(`${task.dueDate}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Sin fecha'}</strong></div></div><div className="team-task-status-control">{isAssignee ? <><small>Actualizar mi estado</small><div>{TEAM_TASK_COLUMNS.map(status => <button key={status.id} className={task.status === status.id ? 'active' : ''} disabled={teamsLoading || task.status === status.id} onClick={() => updateTeamTaskStatus(task, status.id)} title={status.label}>{teamsPendingAction === `task-status-${task.id}-${status.id}` ? <NexoActionLoader s={12} /> : status.id === 'pendiente' ? 'Por hacer' : status.id === 'en_progreso' ? 'En curso' : 'Finalizar'}</button>)}</div></> : <><small>Estado gestionado por</small><strong>{memberName(task.assignedTo)}</strong><span>Solo el responsable puede actualizarlo.</span></>}</div></article>;
+                    return <article key={task.id} className={`team-executive-task priority-${task.priority} ${isOverdue ? 'overdue' : ''}`}><span className="team-task-priority-line" /><div className="team-task-main"><div><span className={`team-priority-pill ${task.priority}`}>{task.priority}</span><span className={`team-status-pill ${task.status}`}>{TEAM_STATUS_LABELS[task.status]}</span>{isOverdue && <span className="team-overdue-pill">Vencida</span>}</div><h4>{task.title}</h4><p>{task.description || 'Sin descripción adicional.'}</p></div><div className="team-task-assignee"><span className="team-person-avatar">{initialsOf(memberName(task.assignedTo))}</span><div><small>Responsable</small><strong>{memberName(task.assignedTo)}</strong><span>{task.assignedTo}</span></div></div><div className="team-task-date"><IcoCal s={16} /><div><small>Fecha límite</small><strong>{task.dueDate ? new Date(`${task.dueDate}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Sin fecha'}</strong></div></div><div className="team-task-status-control">{isAssignee ? <><small>Actualizar mi estado</small><div>{TEAM_TASK_COLUMNS.map(status => <button key={status.id} className={task.status === status.id ? 'active' : ''} disabled={teamsLoading || task.status === status.id} onClick={() => updateTeamTaskStatus(task, status.id)} title={status.label}>{teamsPendingAction === `task-status-${task.id}-${status.id}` ? <NexoActionLoader s={12} /> : status.label}</button>)}</div></> : <><small>Estado gestionado por</small><strong>{memberName(task.assignedTo)}</strong><span>Solo el responsable puede actualizarlo.</span></>}</div></article>;
                   })}
                 </div>
               </div>}
@@ -3189,13 +3507,14 @@ export default function App() {
                   <div className="team-calendar-grid">{teamCalendarDays.map(day => {
                     const key = dateKey(day);
                     const dayTasks = teamTasks.filter(task => task.dueDate === key);
+                    const dayMeetings = teamMeetings.filter(event => dateKey(new Date(event.startsAt)) === key);
                     const isOutside = day.getMonth() !== teamCalendarMonth.getMonth();
-                    return <button key={key} className={`${isOutside ? 'outside' : ''} ${key === teamCalendarDate ? 'selected' : ''} ${key === todayKey ? 'today' : ''}`} onClick={() => setTeamCalendarDate(key)}><span>{day.getDate()}</span>{dayTasks.length > 0 && <div>{dayTasks.slice(0, 3).map(task => <i key={task.id} className={`${task.priority} ${task.status}`} />)}{dayTasks.length > 3 && <small>+{dayTasks.length - 3}</small>}</div>}</button>;
+                    return <button key={key} className={`${isOutside ? 'outside' : ''} ${key === teamCalendarDate ? 'selected' : ''} ${key === todayKey ? 'today' : ''}`} onClick={() => setTeamCalendarDate(key)}><span>{day.getDate()}</span>{(dayTasks.length > 0 || dayMeetings.length > 0) && <div>{dayMeetings.slice(0, 1).map(meeting => <i key={meeting.id} className="meeting" />)}{dayTasks.slice(0, dayMeetings.length ? 2 : 3).map(task => <i key={task.id} className={`${task.priority} ${task.status}`} />)}{dayTasks.length + dayMeetings.length > 3 && <small>+{dayTasks.length + dayMeetings.length - 3}</small>}</div>}</button>;
                   })}</div>
                 </section>
                 <aside className="team-day-agenda">
-                  <span className="team-agenda-eyebrow">Agenda seleccionada</span><h4>{selectedCalendarDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</h4><p>{selectedDayTasks.length} compromiso{selectedDayTasks.length === 1 ? '' : 's'} programado{selectedDayTasks.length === 1 ? '' : 's'}</p>
-                  <div className="team-day-task-list">{selectedDayTasks.length === 0 ? <div className="team-calendar-empty"><IcoCal s={25} /><strong>Día disponible</strong><span>No hay tareas con vencimiento en esta fecha.</span></div> : selectedDayTasks.map(task => <article key={task.id} className={`priority-${task.priority}`}><div><span className={`team-priority-pill ${task.priority}`}>{task.priority}</span><span className={`team-status-pill ${task.status}`}>{TEAM_STATUS_LABELS[task.status]}</span></div><h5>{task.title}</h5><p>{memberName(task.assignedTo)}</p></article>)}</div>
+                  <span className="team-agenda-eyebrow">Agenda seleccionada</span><h4>{selectedCalendarDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</h4><p>{selectedDayTasks.length + selectedDayMeetings.length} compromiso{selectedDayTasks.length + selectedDayMeetings.length === 1 ? '' : 's'} programado{selectedDayTasks.length + selectedDayMeetings.length === 1 ? '' : 's'}</p>
+                  <div className="team-day-task-list">{selectedDayTasks.length === 0 && selectedDayMeetings.length === 0 ? <div className="team-calendar-empty"><IcoCal s={25} /><strong>Día disponible</strong><span>No hay tareas ni reuniones para esta fecha.</span></div> : <>{selectedDayMeetings.map(meeting => <article key={meeting.id} className="meeting"><div><span className="team-status-pill meeting">Reunión</span><span>{new Date(meeting.startsAt).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })}</span></div><h5>{meeting.title}</h5><p>Creada por {meeting.createdBy}</p></article>)}{selectedDayTasks.map(task => <article key={task.id} className={`priority-${task.priority}`}><div><span className={`team-priority-pill ${task.priority}`}>{task.priority}</span><span className={`team-status-pill ${task.status}`}>{TEAM_STATUS_LABELS[task.status]}</span></div><h5>{task.title}</h5><p>{memberName(task.assignedTo)}</p></article>)}</>}</div>
                   {canManageSelectedTeam && <button className="btn btn-primary team-calendar-assign" onClick={() => { setTeamTaskDraft(current => ({ ...current, dueDate: teamCalendarDate })); setTeamSection('tasks'); }}>Asignar tarea para esta fecha</button>}
                 </aside>
               </div>}
@@ -3533,7 +3852,7 @@ export default function App() {
           <p>Disponibilidad, incidentes, mantenimientos y responsables del ecosistema.</p>
           <div className="control-hero-meta"><span><IcoCheck s={13} /> Monitoreo centralizado</span><span><IcoClock s={13} /> Actualizado {currentTime.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })}</span></div>
         </div>
-        <div className="control-hero-actions"><button className="btn btn-secondary" onClick={() => fetchEcosystemControl()} disabled={ecosystemLoading}>{ecosystemLoading ? <NexoActionLoader /> : <IcoRefresh s={15} />} {ecosystemLoading ? 'Sincronizando…' : 'Actualizar'}</button>{isAdmin && <><button className="btn btn-secondary" onClick={() => { setIncidentDraft(current => ({ ...current, appId: current.appId || appsList[0]?.id || '' })); setShowIncidentEditor(true); }}><IcoShield s={15} /> Registrar incidente</button><button className="btn btn-primary" onClick={() => { setMaintenanceDraft(current => ({ ...current, appId: current.appId || appsList[0]?.id || '' })); setShowMaintenanceEditor(true); }}><IcoCal s={15} /> Programar mantenimiento</button></>}</div>
+        <div className="control-hero-actions"><button className="btn btn-secondary" onClick={() => fetchEcosystemControl()} disabled={ecosystemLoading}>{ecosystemLoading ? <NexoActionLoader /> : <IcoRefresh s={15} />} {ecosystemLoading ? 'Sincronizando…' : 'Actualizar'}</button>{isAdmin && <><button className="btn btn-secondary control-check-button" onClick={runServiceChecks} disabled={ecosystemLoading}><IcoPulse s={15} /> Verificar servicios</button><button className="btn btn-secondary" onClick={() => { setIncidentDraft(current => ({ ...current, appId: current.appId || appsList[0]?.id || '' })); setShowIncidentEditor(true); }}><IcoShield s={15} /> Registrar incidente</button><button className="btn btn-primary" onClick={() => { setMaintenanceDraft(current => ({ ...current, appId: current.appId || appsList[0]?.id || '' })); setShowMaintenanceEditor(true); }}><IcoCal s={15} /> Programar mantenimiento</button></>}</div>
       </section>
       {ecosystemError && <div className="teams-alert"><IcoShield s={17} /><span><strong>No fue posible completar la operación.</strong>{ecosystemError}</span><button onClick={() => setEcosystemError('')}><IcoX s={11} /></button></div>}
       <section className="control-summary-grid">
@@ -3547,7 +3866,7 @@ export default function App() {
         <div className="control-section-head"><div><span>Mapa de servicios</span><h3>Salud de los aplicativos</h3></div><small>{(control.apps || []).length} servicios monitoreados</small></div>
         <div className="control-app-grid">{(control.apps || []).map(app => {
           const meta = OPERATIONAL_STATUS_META[app.estadoOperativo] || OPERATIONAL_STATUS_META.Disponible;
-          return <article key={app.id} className={`control-app-card ${meta.tone}`} onClick={() => isAdmin && openPortfolioApp(app)}><AppIcon app={app} size={42} /><div><strong>{app.nombre}</strong><small>{app.grupo || 'Sin grupo'} · Criticidad {app.criticidad || 'Media'}</small><span className="control-status-pill"><i /> {meta.label}</span></div><div className="control-app-owner"><small>Responsable</small><strong>{app.responsableTecnico || app.propietario || 'Por definir'}</strong></div>{isAdmin && <span className="control-app-open"><IcoChevron s={13} /></span>}</article>;
+          return <article key={app.id} className={`control-app-card ${meta.tone}`} onClick={() => isAdmin && openPortfolioApp(app)}><AppIcon app={app} size={42} /><div><strong>{app.nombre}</strong><small>{app.grupo || 'Sin grupo'} · Criticidad {app.criticidad || 'Media'}</small><span className="control-status-pill"><i /> {meta.label}</span></div><div className="control-app-owner"><small>Verificación técnica</small><strong>{app.lastCheckAt ? `${app.latencyMs || 0} ms · HTTP ${app.lastStatusCode || '—'}` : 'Pendiente'}</strong><span>{app.lastCheckAt ? `${app.availability30d || 0}% disponible · ${relativeTime(app.lastCheckAt)}` : 'Ejecuta Verificar servicios'}</span></div>{isAdmin && <span className="control-app-open"><IcoChevron s={13} /></span>}</article>;
         })}</div>
       </section>
       <div className="control-detail-grid">
@@ -3622,7 +3941,17 @@ export default function App() {
 
   const renderAgoraNexo = () => {
     if (!showAgoraNexo) return null;
-    return <div className="nexo-overlay" onMouseDown={() => setShowAgoraNexo(false)}><section className="nexo-modal" onMouseDown={e => e.stopPropagation()}><button className="nexo-close" onClick={() => setShowAgoraNexo(false)}><IcoX s={13} /></button><div className="nexo-orb" aria-hidden="true"><i /><i /><i /><span><IcoSparkles s={32} /></span></div><span className="nexo-kicker">PRÓXIMAMENTE</span><h2>Ágora <strong>Nexo</strong></h2><p>Algo grande se está preparando en Ágora OS.</p><small>Una nueva forma de conectar conocimiento, personas, procesos y decisiones.</small><div className="nexo-status"><i /><span>Estamos diseñando esta experiencia con el nivel de seguridad y precisión que merece.</span></div></section></div>;
+    return <div className="nexo-overlay nexo-live-overlay" onMouseDown={() => setShowAgoraNexo(false)}><section className="nexo-modal nexo-live-modal" onMouseDown={event => event.stopPropagation()}>
+      <header className="nexo-live-head"><div className="nexo-live-identity"><div className={`nexo-mini-orb ${nexoListening ? 'listening' : ''}`}><IcoSparkles s={21} /></div><div><span>ÁGORA INTELLIGENCE</span><h2>Ágora <strong>Nexo</strong></h2><small><i /> Disponible con contexto del ecosistema</small></div></div><button className="nexo-close" onClick={() => setShowAgoraNexo(false)}><IcoX s={13} /></button></header>
+      <div className="nexo-live-layout">
+        <aside className="nexo-brief-panel"><span className="nexo-kicker">BRIEFING EJECUTIVO</span><h3>Tu día, priorizado.</h3><div className="nexo-signal-grid"><article><IcoCheck s={16} /><span><strong>{teamDashboardTasks.length}</strong><small>Tareas abiertas</small></span></article><article><IcoCal s={16} /><span><strong>{nexoUpcomingAgenda.length}</strong><small>Reuniones próximas</small></span></article><article><IcoPulse s={16} /><span><strong>{ecosystemData?.summary?.activeIncidents || 0}</strong><small>Alertas operativas</small></span></article><article><IcoUsers s={16} /><span><strong>{nexoManagedTeams.length}</strong><small>Equipos a cargo</small></span></article></div><div className="nexo-suggestions"><span>Puedes pedirme</span>{['Dame mi briefing', '¿Qué tareas están vencidas?', 'Crea una reunión mañana a las 10 am', 'Asigna una tarea a mi equipo'].map(suggestion => <button key={suggestion} onClick={() => submitNexoCommand(suggestion)}>{suggestion}<IcoChevron s={11} /></button>)}</div><p><IcoShield s={13} /> Nexo solicita confirmación antes de crear información.</p></aside>
+        <section className="nexo-conversation"><div className="nexo-message-stream">{nexoMessages.map(message => <article key={message.id} className={`${message.role} ${message.kind || ''}`}><span>{message.role === 'assistant' ? <IcoSparkles s={14} /> : initialsOf(welcomeName)}</span><div><small>{message.role === 'assistant' ? 'NEXO' : 'TÚ'}</small><p>{message.text}</p></div></article>)}{nexoWorking && <article className="assistant working"><span><NexoActionLoader s={15} /></span><div><small>NEXO</small><p>Estoy completando la acción…</p></div></article>}</div>
+          {nexoPendingAction && <div className="nexo-confirm-bar"><div><IcoShield s={16} /><span><strong>Acción pendiente de confirmación</strong><small>Nada se ejecutará sin tu autorización.</small></span></div><button onClick={cancelNexoAction} disabled={nexoWorking}>Cancelar</button><button className="confirm" onClick={confirmNexoAction} disabled={nexoWorking}>{nexoWorking ? <NexoActionLoader /> : <IcoCheck s={12} />} Confirmar</button></div>}
+          <form className="nexo-command-bar" onSubmit={event => { event.preventDefault(); submitNexoCommand(nexoInput); }}><button type="button" className={nexoListening ? 'listening' : ''} onClick={toggleNexoVoice} aria-label={nexoListening ? 'Detener micrófono' : 'Hablar con Nexo'}><IcoMic s={19} /><i /></button><input value={nexoInput} onChange={event => setNexoInput(event.target.value)} placeholder={nexoListening ? 'Te estoy escuchando…' : 'Escribe o habla con Ágora Nexo'} autoFocus /><button type="submit" className="send" disabled={!nexoInput.trim() || nexoWorking}><IcoSend s={18} /></button></form>
+          <footer>La voz se procesa mediante el servicio de reconocimiento disponible en tu navegador. Ágora no almacena el audio.</footer>
+        </section>
+      </div>
+    </section></div>;
   };
 
   const renderExecutiveRoom = () => {
@@ -3631,6 +3960,8 @@ export default function App() {
     const summary = analytics.summary || {};
     const control = ecosystemData || { summary: {}, incidents: [] };
     const controlSummary = control.summary || {};
+    const peopleSummary = people360?.summary || {};
+    const executivePeople = people360?.people || [];
     const teamTasks = teams.flatMap(team => team.tasks || []);
     const completeTasks = teamTasks.filter(task => task.status === 'completada').length;
     const openTeamTasks = teamTasks.filter(task => task.status !== 'completada');
@@ -3639,6 +3970,8 @@ export default function App() {
     const maxDaily = Math.max(1, ...(analytics.daily || []).map(day => day.totalSeconds || day.appOpens || 0));
     const topApp = analytics.topApps?.[0];
     const activeIncidents = (control.incidents || []).filter(item => !['Resuelto', 'Cerrado'].includes(item.status));
+    const teamObjectives = teams.flatMap(team => (team.objectives || []).map(objective => ({ ...objective, teamName: team.name })));
+    const blockedTeamTasks = teamTasks.filter(task => task.blocked && task.status !== 'completada');
     const signals = [
       overdueTeamTasks.length ? `${overdueTeamTasks.length} compromisos de equipo requieren recuperación.` : 'Los equipos no presentan compromisos vencidos.',
       activeIncidents.length ? `${activeIncidents.length} incidentes activos deben revisarse con Tecnología.` : 'El ecosistema no presenta incidentes activos.',
@@ -3647,45 +3980,38 @@ export default function App() {
     const slides = [
       <section className="executive-slide executive-cover" key="cover"><div className="executive-brand"><span>ÁGORA OS</span><small>INTELIGENCIA DEL ECOSISTEMA</small></div><div className="executive-cover-copy"><span>COMITÉ EJECUTIVO · {analyticsRange} DÍAS</span><h1>El ecosistema digital<br />en una sola mirada.</h1><p>Adopción, operación, equipos y señales clave para orientar decisiones.</p></div><div className="executive-cover-stats"><article><strong>{summary.uniqueUsers || 0}</strong><span>usuarios activos</span></article><article><strong>{formatUsageTime(summary.totalSeconds || 0)}</strong><span>uso efectivo</span></article><article><strong>{controlSummary.operational || 0}/{controlSummary.totalApps || appsList.length}</strong><span>apps disponibles</span></article></div><footer><span>Generado el {currentTime.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}</span><strong>CONFIDENCIAL · MULTIVAL</strong></footer></section>,
       <section className="executive-slide" key="adoption"><header><div><span>01 · ADOPCIÓN</span><h2>Cómo se mueve Ágora</h2></div><strong>{formatUsageTime(summary.totalSeconds || 0)}</strong></header><div className="executive-kpis"><article><span>Usuarios únicos</span><strong>{summary.uniqueUsers || 0}</strong><small>{summary.activeToday || 0} activos hoy</small></article><article><span>Sesiones</span><strong>{summary.sessions || 0}</strong><small>En el periodo seleccionado</small></article><article><span>Aperturas</span><strong>{summary.appOpens || 0}</strong><small>Interacciones con aplicativos</small></article><article><span>Aplicación líder</span><strong className="textual">{topApp?.name || 'Sin datos'}</strong><small>{topApp ? formatUsageTime(topApp.totalSeconds) : 'Esperando actividad'}</small></article></div><div className="executive-adoption-grid"><div className="executive-trend"><h3>Actividad reciente</h3><div>{(analytics.daily || []).slice(-14).map(day => <span key={day.date}><i style={{ height: `${Math.max(6, (day.totalSeconds || day.appOpens || 0) / maxDaily * 100)}%` }} /><small>{new Date(`${day.date}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric' })}</small></span>)}</div></div><div className="executive-ranking"><h3>Aplicativos con mayor uso</h3>{(analytics.topApps || []).slice(0, 5).map((app, index) => <article key={app.id}><b>{String(index + 1).padStart(2, '0')}</b><div><strong>{app.name}</strong><span><i style={{ width: `${Math.max(4, app.totalSeconds / Math.max(1, topApp?.totalSeconds || 1) * 100)}%` }} /></span></div><small>{formatUsageTime(app.totalSeconds)}</small></article>)}</div></div></section>,
-      <section className="executive-slide" key="operation"><header><div><span>02 · CONTINUIDAD</span><h2>Salud del ecosistema</h2></div><strong>{controlSummary.totalApps ? Math.round((controlSummary.operational || 0) / controlSummary.totalApps * 100) : 100}%</strong></header><div className="executive-operation-grid"><article className="executive-health"><div className="executive-health-orbit"><span><strong>{controlSummary.operational || 0}</strong><small>disponibles</small></span></div><h3>Operación general</h3><p>{activeIncidents.length ? 'Existen alertas activas que requieren seguimiento.' : 'Todos los servicios reportados se encuentran bajo control.'}</p></article><div className="executive-status-board"><article><i className="healthy" /><span><strong>{controlSummary.operational || 0}</strong>Disponibles</span></article><article><i className="warning" /><span><strong>{controlSummary.degraded || 0}</strong>Degradados</span></article><article><i className="critical" /><span><strong>{controlSummary.unavailable || 0}</strong>Interrumpidos</span></article><article><i className="maintenance" /><span><strong>{controlSummary.upcomingMaintenance || 0}</strong>Mantenimientos</span></article></div><div className="executive-incidents"><h3>Alertas prioritarias</h3>{activeIncidents.length ? activeIncidents.slice(0, 4).map(incident => <article key={incident.id}><span className={`severity-${incident.severity.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`} /><div><strong>{incident.title}</strong><small>{appsList.find(app => app.id === incident.appId)?.nombre || 'Aplicativo'} · {incident.status}</small></div><b>{incident.severity}</b></article>) : <div className="executive-clear"><IcoCheck s={24} /><strong>Sin incidentes activos</strong></div>}</div></div></section>,
-      <section className="executive-slide" key="teams"><header><div><span>03 · GESTIÓN</span><h2>Desempeño de los equipos</h2></div><strong>{teamCompletion}%</strong></header><div className="executive-team-kpis"><article><span>Equipos activos</span><strong>{teams.length}</strong></article><article><span>Compromisos</span><strong>{teamTasks.length}</strong></article><article><span>En ejecución</span><strong>{openTeamTasks.length}</strong></article><article className={overdueTeamTasks.length ? 'risk' : ''}><span>Vencidos</span><strong>{overdueTeamTasks.length}</strong></article></div><div className="executive-team-list">{teams.slice(0, 6).map(team => { const total = team.tasks?.length || 0; const done = team.tasks?.filter(task => task.status === 'completada').length || 0; const percent = total ? Math.round(done / total * 100) : 0; return <article key={team.id}><span className="team-list-avatar">{initialsOf(team.name)}</span><div><strong>{team.name}</strong><small>{team.leaderName || team.leaderId} · {team.members?.length || 0} personas</small><i><b style={{ width: `${percent}%` }} /></i></div><em>{percent}%</em></article>; })}</div></section>,
-      <section className="executive-slide executive-decisions" key="decisions"><header><div><span>04 · DECISIONES</span><h2>Lo que requiere atención</h2></div><IcoSparkles s={28} /></header><div className="executive-signal-list">{signals.map((signal, index) => <article key={signal}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{index === 0 ? 'Gestión del equipo' : index === 1 ? 'Continuidad operativa' : 'Adopción digital'}</strong><p>{signal}</p></div><i /></article>)}</div><div className="executive-closing"><span>PRÓXIMO PASO</span><h3>Convertir información en decisiones claras.</h3><p>Ágora OS consolida la actividad del ecosistema para enfocar conversaciones, responsables y acciones.</p></div></section>,
+      <section className="executive-slide executive-people-slide" key="people"><header><div><span>02 · PERSONAS</span><h2>Adopción con contexto humano</h2></div><strong>{peopleSummary.active || 0}/{peopleSummary.total || 0}</strong></header><div className="executive-team-kpis"><article><span>Personas activas</span><strong>{peopleSummary.active || 0}</strong></article><article><span>Sin actividad</span><strong>{peopleSummary.inactive || 0}</strong></article><article><span>Apps adoptadas</span><strong>{peopleSummary.appsInUse || 0}</strong></article><article><span>Uso efectivo</span><strong className="compact">{formatUsageTime(peopleSummary.totalSeconds || 0)}</strong></article></div><div className="executive-people-list">{executivePeople.slice().sort((a, b) => b.totalSeconds - a.totalSeconds).slice(0, 6).map(person => <article key={person.idRed}><span className="people-avatar">{initialsOf(person.nombre || person.idRed)}</span><div><strong>{person.nombre || person.idRed}</strong><small>{person.area || person.rol} · {person.applications?.length || 0} apps</small><i><b style={{ width: `${Math.min(100, person.authorizedApps ? (person.applications?.length || 0) / person.authorizedApps * 100 : 0)}%` }} /></i></div><em>{formatUsageTime(person.totalSeconds || 0)}</em></article>)}</div><footer className="executive-data-ethics"><IcoShield s={18} /><span><strong>Analítica responsable</strong>Se mide adopción y tiempo activo, nunca el contenido del trabajo.</span></footer></section>,
+      <section className="executive-slide" key="operation"><header><div><span>03 · CONTINUIDAD</span><h2>Salud del ecosistema</h2></div><strong>{controlSummary.totalApps ? Math.round((controlSummary.operational || 0) / controlSummary.totalApps * 100) : 100}%</strong></header><div className="executive-operation-grid"><article className="executive-health"><div className="executive-health-orbit"><span><strong>{controlSummary.operational || 0}</strong><small>disponibles</small></span></div><h3>Operación general</h3><p>{activeIncidents.length ? 'Existen alertas activas que requieren seguimiento.' : 'Todos los servicios reportados se encuentran bajo control.'}</p></article><div className="executive-status-board"><article><i className="healthy" /><span><strong>{controlSummary.operational || 0}</strong>Disponibles</span></article><article><i className="warning" /><span><strong>{controlSummary.degraded || 0}</strong>Degradados</span></article><article><i className="critical" /><span><strong>{controlSummary.unavailable || 0}</strong>Interrumpidos</span></article><article><i className="maintenance" /><span><strong>{controlSummary.upcomingMaintenance || 0}</strong>Mantenimientos</span></article></div><div className="executive-incidents"><h3>Alertas prioritarias</h3>{activeIncidents.length ? activeIncidents.slice(0, 4).map(incident => <article key={incident.id}><span className={`severity-${incident.severity.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`} /><div><strong>{incident.title}</strong><small>{appsList.find(app => app.id === incident.appId)?.nombre || 'Aplicativo'} · {incident.status}</small></div><b>{incident.severity}</b></article>) : <div className="executive-clear"><IcoCheck s={24} /><strong>Sin incidentes activos</strong></div>}</div></div></section>,
+      <section className="executive-slide" key="teams"><header><div><span>04 · GESTIÓN</span><h2>Desempeño de los equipos</h2></div><strong>{teamCompletion}%</strong></header><div className="executive-team-kpis"><article><span>Equipos activos</span><strong>{teams.length}</strong></article><article><span>Compromisos</span><strong>{teamTasks.length}</strong></article><article><span>En ejecución</span><strong>{openTeamTasks.length}</strong></article><article className={overdueTeamTasks.length ? 'risk' : ''}><span>Vencidos</span><strong>{overdueTeamTasks.length}</strong></article></div><div className="executive-team-list">{teams.slice(0, 6).map(team => { const total = team.tasks?.length || 0; const done = team.tasks?.filter(task => task.status === 'completada').length || 0; const percent = total ? Math.round(done / total * 100) : 0; return <article key={team.id}><span className="team-list-avatar">{initialsOf(team.name)}</span><div><strong>{team.name}</strong><small>{team.leaderName || team.leaderId} · {team.members?.length || 0} personas</small><i><b style={{ width: `${percent}%` }} /></i></div><em>{percent}%</em></article>; })}</div></section>,
+      <section className="executive-slide executive-board-slide" key="boards"><header><div><span>05 · PORTAFOLIO</span><h2>Objetivos y flujo de entrega</h2></div><strong>{teamObjectives.length}</strong></header><div className="executive-team-kpis"><article><span>Objetivos activos</span><strong>{teamObjectives.filter(item => item.status !== 'Cerrado').length}</strong></article><article><span>Bloqueos</span><strong>{blockedTeamTasks.length}</strong></article><article><span>En revisión</span><strong>{teamTasks.filter(task => task.status === 'revision').length}</strong></article><article><span>Backlog</span><strong>{teamTasks.filter(task => task.status === 'backlog').length}</strong></article></div><div className="executive-objective-list">{teamObjectives.length ? teamObjectives.slice(0, 6).map(objective => <article key={objective.id}><span>{objective.teamName}</span><div><strong>{objective.title}</strong><small>{objective.target || 'Meta gerencial'}</small><i><b style={{ width: `${objective.progress}%` }} /></i></div><em>{objective.progress}%</em></article>) : <div className="executive-clear"><IcoTarget s={25} /><strong>Crea objetivos en Ágora Boards</strong></div>}</div></section>,
+      <section className="executive-slide executive-decisions" key="decisions"><header><div><span>06 · DECISIONES</span><h2>Lo que requiere atención</h2></div><IcoSparkles s={28} /></header><div className="executive-signal-list">{signals.map((signal, index) => <article key={signal}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{index === 0 ? 'Gestión del equipo' : index === 1 ? 'Continuidad operativa' : 'Adopción digital'}</strong><p>{signal}</p></div><i /></article>)}</div><div className="executive-closing"><span>PRÓXIMO PASO</span><h3>Convertir información en decisiones claras.</h3><p>Ágora OS consolida la actividad del ecosistema para enfocar conversaciones, responsables y acciones.</p></div></section>,
     ];
     const totalSlides = slides.length;
     return <div className="executive-room"><div className="executive-room-topbar"><div><span>ÁGORA OS</span><small>Modo sala ejecutiva</small></div><div><button onClick={() => window.print()}><IcoDownload s={15} /> Exportar PDF</button><button onClick={toggleExecutiveFullscreen}><IcoExpand s={15} /> Pantalla completa</button><button className="executive-exit" onClick={closeExecutiveRoom}><IcoX s={13} /> Salir</button></div></div><div className="executive-stage">{slides[executiveSlide]}<button className="executive-arrow prev" disabled={executiveSlide === 0} onClick={() => setExecutiveSlide(slide => Math.max(0, slide - 1))}><IcoChevron s={24} /></button><button className="executive-arrow next" disabled={executiveSlide === totalSlides - 1} onClick={() => setExecutiveSlide(slide => Math.min(totalSlides - 1, slide + 1))}><IcoChevron s={24} /></button></div><div className="executive-navigation"><span>{String(executiveSlide + 1).padStart(2, '0')} / {String(totalSlides).padStart(2, '0')}</span><div>{slides.map((_, index) => <button key={index} className={index === executiveSlide ? 'active' : ''} onClick={() => setExecutiveSlide(index)} aria-label={`Ir a la vista ${index + 1}`} />)}</div><small>Usa las flechas para presentar</small></div><div className="executive-print-deck" aria-hidden="true">{slides}</div></div>;
   };
 
-  const renderUsers = () => (
-    <div className="panel enter">
-      <div className="panel-head">
-        <div>
-          <h2 className="panel-title">Directorio de identidades</h2>
-          <p className="panel-sub">{usersList.length} usuarios sincronizados</p>
-        </div>
+  const renderUsers = () => {
+    const summary = people360?.summary || { total: usersList.length, active: 0, inactive: 0, totalSeconds: 0, appsInUse: 0 };
+    const people = people360?.people || usersList.map(person => ({ ...person, applications: [], teams: [], tasks: { total: 0, open: 0, completed: 0 }, totalSeconds: 0, sessions: 0, lastAccess: 0 }));
+    const query = peopleQuery.trim().toLowerCase();
+    const filtered = people.filter(person => !query || [person.nombre, person.idRed, person.correo, person.area, person.cargo].some(value => String(value || '').toLowerCase().includes(query)));
+    const selected = people.find(person => person.idRed === selectedPersonId) || filtered[0] || people[0];
+    const maxUsage = Math.max(1, ...(selected?.applications || []).map(app => app.totalSeconds || 0));
+    const adoption = selected?.authorizedApps ? Math.min(100, Math.round((selected.applications.length / selected.authorizedApps) * 100)) : 0;
+    return <div className="people360-page enter">
+      <section className="people360-hero"><div><span className="analytics-eyebrow"><IcoUsers s={15} /> Talento, acceso y adopción</span><h2>Ágora Personas 360</h2><p>Una lectura responsable de la relación entre las personas, sus equipos y el ecosistema digital.</p></div><div className="people360-actions"><label><IcoSearch s={15} /><input value={peopleQuery} onChange={event => setPeopleQuery(event.target.value)} placeholder="Buscar persona, área o cargo" /></label><button className="btn btn-secondary" onClick={() => fetchPeople360()} disabled={people360Loading}>{people360Loading ? <NexoActionLoader /> : <IcoRefresh s={15} />} Actualizar</button></div></section>
+      {people360Error && <div className="teams-alert"><IcoShield s={17} /><span><strong>No fue posible completar la consulta.</strong>{people360Error}</span></div>}
+      <section className="people360-kpis"><article><span className="green"><IcoUsers s={18} /></span><div><small>Personas registradas</small><strong>{summary.total || 0}</strong><p>{summary.active || 0} con actividad en el periodo</p></div></article><article><span className="navy"><IcoClock s={18} /></span><div><small>Uso efectivo</small><strong>{formatUsageTime(summary.totalSeconds || 0)}</strong><p>Tiempo activo consolidado</p></div></article><article><span className="violet"><IcoGrid s={18} /></span><div><small>Aplicativos adoptados</small><strong>{summary.appsInUse || 0}</strong><p>Herramientas con uso real</p></div></article><article><span className="amber"><IcoPulse s={18} /></span><div><small>Sin actividad reciente</small><strong>{summary.inactive || 0}</strong><p>Oportunidad de acompañamiento</p></div></article></section>
+      <div className="people360-layout"><aside className="people360-directory"><header><div><span>Directorio corporativo</span><strong>{filtered.length} personas</strong></div><small>{analyticsRange} días</small></header><div>{filtered.map(person => <button key={person.idRed} className={selected?.idRed === person.idRed ? 'active' : ''} onClick={() => setSelectedPersonId(person.idRed)}><span className="people-avatar">{initialsOf(person.nombre || person.idRed)}</span><span><strong>{person.nombre || person.idRed}</strong><small>{person.cargo || person.rol} · {person.area || 'Área sin registrar'}</small><em>{person.lastAccess ? relativeTime(person.lastAccess) : 'Sin actividad'}</em></span><i className={person.lastAccess ? 'online' : ''} /></button>)}</div></aside>
+        {selected && <main className="people360-profile"><header className="people-profile-head"><div className="people-profile-identity"><span>{initialsOf(selected.nombre || selected.idRed)}</span><div><small>{selected.area || 'DIRECTORIO CORPORATIVO'}</small><h3>{selected.nombre || selected.idRed}</h3><p>{selected.cargo || selected.rol} · {selected.empresa || 'Multival'}</p></div></div><div className="people-profile-state"><span className={String(selected.estado).toLowerCase() === 'activo' ? 'active' : ''}><i /> {selected.estado || 'Activo'}</span><small>Último acceso</small><strong>{selected.lastAccess ? new Date(selected.lastAccess).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : 'Sin registro'}</strong></div></header>
+          <section className="people-profile-metrics"><article><small>Adopción del catálogo</small><strong>{adoption}%</strong><i><b style={{ width: `${adoption}%` }} /></i><p>{selected.applications.length} aplicaciones utilizadas</p></article><article><small>Tiempo de uso</small><strong>{formatUsageTime(selected.totalSeconds || 0)}</strong><p>{selected.sessions || 0} sesiones en el periodo</p></article><article><small>Compromisos</small><strong>{selected.tasks?.open || 0}</strong><p>{selected.tasks?.completed || 0} completados</p></article><article><small>Equipos</small><strong>{selected.teams?.length || 0}</strong><p>{selected.teams?.map(team => team.name).join(', ') || 'Sin equipo asignado'}</p></article></section>
+          <section className="people-app-usage"><header><div><span>Huella digital responsable</span><h4>Aplicativos utilizados</h4></div><small>Solo actividad y duración; nunca contenido</small></header><div>{!selected.applications.length ? <div className="people-empty"><IcoDatabase s={24} /><strong>Aún no hay uso consolidado</strong><p>La información aparecerá con las próximas sesiones.</p></div> : selected.applications.slice(0, 8).map(app => { const catalogApp = appsList.find(item => String(item.id) === String(app.id)); return <article key={app.id}><AppIcon app={catalogApp || { nombre: app.name }} size={38} /><div><span><strong>{app.name}</strong><small>{app.group || 'Sin grupo'}</small></span><i><b style={{ width: `${Math.max(4, app.totalSeconds / maxUsage * 100)}%` }} /></i></div><span><strong>{formatUsageTime(app.totalSeconds)}</strong><small>{app.opens} aperturas · {relativeTime(app.lastAccess)}</small></span></article>; })}</div></section>
+          <section className="people-access-inventory"><header><div><span>CONTROL DE ACCESO</span><h4>Herramientas habilitadas</h4></div><strong>{selected.authorizedApps || 0}</strong></header><div>{(selected.access || []).slice(0, 10).map(access => <article key={access.id || access.appId}><span className={String(access.status).toLowerCase() === 'activo' ? 'active' : ''}><IcoKey s={14} /></span><div><strong>{access.appName}</strong><small>{access.level} · {access.grantedBy || 'Política corporativa'}</small></div><em className={access.used ? 'used' : ''}>{access.used ? 'Con uso' : 'Sin uso'}</em><b>{access.status}</b></article>)}</div></section>
+          <section className="people-audit-strip"><IcoShield s={18} /><div><strong>Lectura apta para auditoría</strong><p>Identidad, estado, equipos y adopción se presentan sin capturar documentos, mensajes ni contenido de los aplicativos.</p></div><span>SQL READY · UUID</span></section>
+        </main>}
       </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table className="table">
-          <thead><tr><th>ID de red</th><th>Correo</th><th>Rol</th><th>Estado</th></tr></thead>
-          <tbody>
-            {usersList.length === 0 ? (
-              <tr><td colSpan="4" style={{ textAlign: 'center', color: 'var(--ink-3)', padding: 40 }}>Sincronizando identidades…</td></tr>
-            ) : usersList.map(u => (
-              <tr key={u.id}>
-                <td className="mono" style={{ fontWeight: 550 }}>{u.idRed}</td>
-                <td style={{ color: 'var(--ink-2)' }}>{u.correo}</td>
-                <td><span className={`tag ${u.rol === 'Administrador' ? 'admin' : ''}`}>{u.rol}</span></td>
-                <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ink-2)', fontSize: 12.5 }}>
-                    <span className="dot" /> Autorizado
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+    </div>;
+  };
 
   /* ======================================================================
      SHELL DEL SISTEMA
@@ -3696,7 +4022,7 @@ export default function App() {
     { id: 'control', label: 'Control', admin: false, icon: IcoPulse, detail: 'Salud del ecosistema' },
     { id: 'analytics', label: 'Dashboard', admin: true, icon: IcoChart, detail: 'Analítica administrativa' },
     { id: 'catalog', label: 'Catálogo', admin: true, icon: IcoGrid, detail: 'Gobierno de aplicativos' },
-    { id: 'users', label: 'Identidades', admin: true, icon: IcoUser, detail: 'Directorio corporativo' },
+    { id: 'users', label: 'Personas 360', admin: true, icon: IcoUser, detail: 'Talento, acceso y adopción' },
   ];
   const currentMenuItem = menuItems.find(item => item.id === currentView) || menuItems[0];
   const mobileMenuItems = menuItems.filter(item => !item.admin || isAdmin);
@@ -3778,10 +4104,10 @@ export default function App() {
         </div>
 
         <div className="menubar-right">
-          <button className="nexo-menu-button hide-on-compact" title="Ágora Nexo" onClick={() => setShowAgoraNexo(true)}><IcoSparkles s={14} /><span>Nexo</span></button>
+          <button className="nexo-menu-button hide-on-compact" title="Ágora Nexo" onClick={openNexo}><IcoSparkles s={14} /><span>Nexo</span></button>
           <button className="menu-icon-btn" title="Buscar (⌘K)" onClick={openSpotlight}><IcoSearch s={16} /></button>
           <button className={`menu-icon-btn notification-menu-button ${notifications.some(item => !item.read) ? 'has-unread' : ''}`} title="Notificaciones" onClick={() => { setShowUserMenu(false); setShowMobileMenu(false); setShowNotificationCenter(value => !value); }}><IcoBell s={16} />{notifications.some(item => !item.read) && <span>{Math.min(99, notifications.filter(item => !item.read).length)}</span>}</button>
-          {isAdmin && <button className="menu-icon-btn executive-menu-button hide-on-compact" title="Modo sala ejecutiva" onClick={openExecutiveRoom}><IcoPresentation s={16} /></button>}
+          {isAdmin && <button className="menu-icon-btn executive-menu-button hide-on-compact" title="Sala Ejecutiva 2.0" onClick={openExecutiveRoom}><IcoPresentation s={16} /></button>}
           <button className={`menu-icon-btn hide-on-compact ${workspaceMode === 'desktop' ? 'on' : ''}`}
             title={workspaceMode === 'desktop' ? 'Ventanas libres' : 'Modo enfoque'}
             onClick={() => setWorkspaceMode(m => m === 'focus' ? 'desktop' : 'focus')}>
@@ -3862,8 +4188,8 @@ export default function App() {
             <div className="mobile-quick-actions">
               <button onClick={() => { setShowMobileMenu(false); setShowAppearancePanel(true); }}><IcoSliders s={17} /><span>Personalizar</span></button>
               <button onClick={() => { setShowMobileMenu(false); setShowWidgetGallery(true); }}><IcoWidgets s={17} /><span>Widgets</span></button>
-              <button onClick={() => { setShowMobileMenu(false); setShowAgoraNexo(true); }}><IcoSparkles s={17} /><span>Ágora Nexo</span></button>
-              {isAdmin && <button onClick={() => { setShowMobileMenu(false); openExecutiveRoom(); }}><IcoPresentation s={17} /><span>Sala ejecutiva</span></button>}
+              <button onClick={openNexo}><IcoSparkles s={17} /><span>Ágora Nexo</span></button>
+              {isAdmin && <button onClick={() => { setShowMobileMenu(false); openExecutiveRoom(); }}><IcoPresentation s={17} /><span>Sala Ejecutiva 2.0</span></button>}
             </div>
           </aside>
         </div>
