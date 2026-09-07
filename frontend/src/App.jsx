@@ -952,6 +952,29 @@ const scoreNexoAlternative = alternative => {
 const bestNexoAlternative = result => Array.from(result || [])
   .sort((a, b) => scoreNexoAlternative(b) - scoreNexoAlternative(a))[0] || null;
 
+const nexoWakeCommand = value => {
+  const normalized = String(value || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\b(?:oye|hola|ey|hey)\s+(?:ahora|a\s+gora)\b/g, 'oye agora')
+    .replace(/\ba\s+gora\b/g, 'agora')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const wakeMatch = normalized.match(/^(?:(?:oye|hola|ey|hey)\s+)?agora(?:\s+nexo)?\b/);
+  if (!wakeMatch) return null;
+  return normalized.slice((wakeMatch.index || 0) + wakeMatch[0].length).replace(/^[,;:.\s-]+/, '').trim();
+};
+
+const scoreNexoVoice = voice => {
+  const name = String(voice?.name || '').toLowerCase();
+  const lang = String(voice?.lang || '').toLowerCase();
+  let score = lang === 'es-co' ? 120 : lang === 'es-mx' ? 110 : lang === 'es-419' ? 105 : lang === 'es-us' ? 100 : lang === 'es-es' ? 95 : lang.startsWith('es') ? 70 : 0;
+  if (/natural|neural|premium|enhanced|online/.test(name)) score += 55;
+  if (/google|microsoft|apple/.test(name)) score += 28;
+  if (/salome|paulina|dalia|elvira|sabina|helena|monica|soledad|luciana|ximena/.test(name)) score += 24;
+  if (voice?.localService) score += 5;
+  return score;
+};
+
 /* ========================================================================== 
    APP
    ========================================================================== */
@@ -1099,15 +1122,24 @@ export default function App() {
   const [nexoWakeEnabled, setNexoWakeEnabled] = useState(false);
   const [nexoWakeListening, setNexoWakeListening] = useState(false);
   const [nexoVoiceReplies, setNexoVoiceReplies] = useState(() => localStorage.getItem('agora_nexo_voice_replies') === 'true');
+  const [nexoVoiceError, setNexoVoiceError] = useState('');
+  const [nexoVoices, setNexoVoices] = useState([]);
+  const [nexoVoiceName, setNexoVoiceName] = useState(() => localStorage.getItem('agora_nexo_voice_name') || '');
   const [nexoWorking, setNexoWorking] = useState(false);
   const [nexoMessages, setNexoMessages] = useState([]);
   const [nexoPendingAction, setNexoPendingAction] = useState(null);
   const [nexoClarification, setNexoClarification] = useState(null);
+  const [nexoAmbient, setNexoAmbient] = useState({ visible: false, phase: 'idle', text: '', transcript: '' });
   const speechRecognitionRef = useRef(null);
   const wakeRecognitionRef = useRef(null);
   const wakeEnabledRef = useRef(false);
   const wakeSuspendedRef = useRef(false);
   const wakeRestartTimerRef = useRef(null);
+  const nexoSpeechResumeTimerRef = useRef(null);
+  const nexoSpeechPlaybackRef = useRef(0);
+  const nexoAmbientTimerRef = useRef(null);
+  const nexoSurfaceRef = useRef('chat');
+  const nexoMessageStreamRef = useRef(null);
   const nexoCommandRef = useRef(null);
   const [showExecutiveRoom, setShowExecutiveRoom] = useState(false);
   const [executiveSlide, setExecutiveSlide] = useState(0);
@@ -1132,8 +1164,33 @@ export default function App() {
     speechRecognitionRef.current?.abort?.();
     wakeRecognitionRef.current?.abort?.();
     window.clearTimeout(wakeRestartTimerRef.current);
+    window.clearTimeout(nexoSpeechResumeTimerRef.current);
+    window.clearTimeout(nexoAmbientTimerRef.current);
     window.speechSynthesis?.cancel?.();
   }, []);
+
+  useEffect(() => {
+    if (!window.speechSynthesis) return undefined;
+    const loadVoices = () => {
+      const spanishVoices = window.speechSynthesis.getVoices()
+        .filter(voice => /^es(?:-|$)/i.test(voice.lang))
+        .sort((a, b) => scoreNexoVoice(b) - scoreNexoVoice(a) || a.name.localeCompare(b.name));
+      setNexoVoices(spanishVoices);
+      if (spanishVoices.length) setNexoVoiceName(current => current && spanishVoices.some(voice => voice.name === current) ? current : spanishVoices[0].name);
+    };
+    loadVoices();
+    window.speechSynthesis.addEventListener?.('voiceschanged', loadVoices);
+    return () => window.speechSynthesis.removeEventListener?.('voiceschanged', loadVoices);
+  }, []);
+
+  useEffect(() => {
+    if (!showAgoraNexo || !nexoMessageStreamRef.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      const stream = nexoMessageStreamRef.current;
+      stream?.scrollTo({ top: stream.scrollHeight, behavior: 'smooth' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [showAgoraNexo, nexoMessages, nexoWorking, nexoPendingAction, nexoVoiceError]);
 
   /* --- Overlays: abrir / cerrar --- */
   const openSpotlight = () => { setSearchQuery(''); setIsLaunchpadOpen(false); setShowUtilitiesFolder(false); setShowMobileMenu(false); setIsSpotlightOpen(true); };
@@ -1575,7 +1632,8 @@ export default function App() {
   const handleLogout = () => {
     wakeEnabledRef.current = false; wakeSuspendedRef.current = false;
     wakeRecognitionRef.current?.abort?.(); speechRecognitionRef.current?.abort?.();
-    window.clearTimeout(wakeRestartTimerRef.current); window.speechSynthesis?.cancel?.();
+    nexoSpeechPlaybackRef.current += 1;
+    window.clearTimeout(wakeRestartTimerRef.current); window.clearTimeout(nexoSpeechResumeTimerRef.current); window.clearTimeout(nexoAmbientTimerRef.current); window.speechSynthesis?.cancel?.();
     document.body.setAttribute('data-theme', 'light');
     setIsLoggedIn(false); setUserData(null); setOpenApps([]); setActiveAppId(null);
     setShowUserMenu(false); setShowMobileMenu(false); setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
@@ -1586,7 +1644,7 @@ export default function App() {
     setNotifications([]); setShowNotificationCenter(false); setShowNotificationComposer(false);
     setEcosystemData(null); setEcosystemError(''); setSelectedPortfolioAppId(''); setPortfolioDraft(null);
     setPeople360(null); setPeople360Error(''); setSelectedPersonId(''); setAgendaEvents([]);
-    setShowAgoraNexo(false); setShowNexoAstroPanel(false); setNexoWakeEnabled(false); setNexoWakeListening(false); setNexoListening(false); setNexoVoiceStatus('idle'); setNexoMessages([]); setNexoPendingAction(null); setNexoClarification(null); setShowExecutiveRoom(false); setExecutiveSlide(0);
+    setShowAgoraNexo(false); setShowNexoAstroPanel(false); setNexoWakeEnabled(false); setNexoWakeListening(false); setNexoListening(false); setNexoVoiceStatus('idle'); setNexoVoiceError(''); setNexoMessages([]); setNexoPendingAction(null); setNexoClarification(null); setNexoAmbient({ visible: false, phase: 'idle', text: '', transcript: '' }); setShowExecutiveRoom(false); setExecutiveSlide(0);
     sessionIdRef.current = '';
   };
 
@@ -2073,6 +2131,18 @@ export default function App() {
     }
   };
 
+  const closeAllApps = () => {
+    setOpenApps([]); setActiveAppId(null); setWindowLayers({}); setMinimizedApps({}); setMaximizedApps({}); setLoadingApps({}); setWindowMotion({});
+  };
+
+  const minimizeApps = (appIds) => {
+    const ids = (appIds || []).filter(Boolean);
+    if (!ids.length) return;
+    setMinimizedApps(current => ids.reduce((next, id) => ({ ...next, [id]: true }), { ...current }));
+    const remaining = topVisibleWindow(openApps.filter(app => !ids.includes(app.id)));
+    setActiveAppId(remaining?.id || null);
+  };
+
   const toggleMinimize = (e, appId) => {
     e.stopPropagation();
     if (windowMotion[appId]) return;
@@ -2234,42 +2304,95 @@ export default function App() {
     return lines.join(' ');
   };
 
-  const speakNexoResponse = (text) => {
-    if (!nexoVoiceReplies || !window.speechSynthesis || !text) return;
+  const showNexoAmbient = (phase, text = '', transcript = '') => {
+    window.clearTimeout(nexoAmbientTimerRef.current);
+    setNexoAmbient({ visible: true, phase, text, transcript });
+  };
+
+  const dismissNexoAmbient = () => {
+    window.clearTimeout(nexoAmbientTimerRef.current);
+    setNexoAmbient(current => ({ ...current, visible: false, phase: 'idle', transcript: '' }));
+  };
+
+  const scheduleNexoAmbientDismiss = (delay = 6200) => {
+    window.clearTimeout(nexoAmbientTimerRef.current);
+    nexoAmbientTimerRef.current = window.setTimeout(() => dismissNexoAmbient(), delay);
+  };
+
+  const speakNexoResponse = (text, { force = false, onStart, onFinish, resumeWake = true } = {}) => {
+    if ((!nexoVoiceReplies && !force) || !window.speechSynthesis || !text) return false;
+    const playbackId = nexoSpeechPlaybackRef.current + 1;
+    nexoSpeechPlaybackRef.current = playbackId;
+    window.clearTimeout(nexoSpeechResumeTimerRef.current);
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(String(text).replace(/[“”]/g, ''));
-    utterance.lang = 'es-CO';
-    utterance.rate = 1.02;
-    utterance.pitch = 0.96;
-    const voices = window.speechSynthesis.getVoices();
-    utterance.voice = voices.find(voice => /^es-(CO|MX|ES)/i.test(voice.lang)) || voices.find(voice => /^es/i.test(voice.lang)) || null;
+    wakeSuspendedRef.current = true;
+    wakeRecognitionRef.current?.abort?.();
+    const utterance = new SpeechSynthesisUtterance(String(text).replace(/[“”*_#]/g, '').replace(/\s+/g, ' ').trim());
+    const selectedVoice = nexoVoices.find(voice => voice.name === nexoVoiceName)
+      || nexoVoices[0]
+      || window.speechSynthesis.getVoices().filter(voice => /^es(?:-|$)/i.test(voice.lang)).sort((a, b) => scoreNexoVoice(b) - scoreNexoVoice(a))[0]
+      || null;
+    utterance.voice = selectedVoice;
+    utterance.lang = selectedVoice?.lang || 'es-CO';
+    utterance.rate = 0.96;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    let speechFinished = false;
+    const finishSpeech = () => {
+      if (speechFinished) return;
+      speechFinished = true;
+      if (playbackId !== nexoSpeechPlaybackRef.current) return;
+      onFinish?.();
+      if (resumeWake) {
+        nexoSpeechResumeTimerRef.current = window.setTimeout(() => {
+          if (speechRecognitionRef.current) return;
+          wakeSuspendedRef.current = false;
+          scheduleWakeRestart();
+        }, 450);
+      }
+    };
+    utterance.onstart = () => onStart?.();
+    utterance.onend = finishSpeech;
+    utterance.onerror = finishSpeech;
     window.speechSynthesis.speak(utterance);
+    return true;
   };
 
   const respondNexo = (text, extra = {}) => {
     setNexoMessages(messages => [...messages, nexoMessage('assistant', text, extra)]);
-    speakNexoResponse(text);
+    const isAmbient = nexoSurfaceRef.current === 'ambient';
+    const keepAmbientOpen = ['confirmation', 'question'].includes(extra.kind);
+    if (isAmbient) showNexoAmbient(extra.kind === 'error' ? 'error' : 'responding', text);
+    const finishAmbientResponse = () => {
+      if (!isAmbient) return;
+      if (keepAmbientOpen) {
+        setNexoAmbient(current => ({ ...current, visible: true, phase: 'waiting' }));
+        window.clearTimeout(nexoAmbientTimerRef.current);
+        nexoAmbientTimerRef.current = window.setTimeout(() => startNexoVoice({ ambient: true, followUp: true }), 520);
+      } else scheduleNexoAmbientDismiss(extra.kind === 'error' ? 8500 : 6200);
+    };
+    const speaking = speakNexoResponse(text, {
+      onStart: () => { if (isAmbient) setNexoAmbient(current => ({ ...current, phase: 'speaking' })); },
+      onFinish: finishAmbientResponse,
+      resumeWake: !keepAmbientOpen,
+    });
+    if (!speaking) window.setTimeout(() => {
+      finishAmbientResponse();
+      if (!keepAmbientOpen) resumeWakeAfterCommand();
+    }, 120);
   };
 
   const configureNexoRecognition = (recognition, continuous = false) => {
     recognition.lang = 'es-CO';
     recognition.interimResults = true;
     recognition.continuous = continuous;
-    recognition.maxAlternatives = 5;
-    const Phrase = window.SpeechRecognitionPhrase || window.webkitSpeechRecognitionPhrase;
-    if ('phrases' in recognition && Phrase) {
-      try {
-        recognition.phrases = ['Ágora', 'Ágora Nexo', 'reunión', 'equipos de trabajo', 'Ágora Boards', 'Personas 360', 'centro de control', 'aplicación', 'tarea pendiente']
-          .map(phrase => new Phrase(phrase, 5));
-      } catch { /* El sesgo contextual es progresivo y depende del navegador. */ }
-    }
-    if ('processLocally' in recognition) {
-      try { recognition.processLocally = false; } catch { /* Compatibilidad del navegador. */ }
-    }
+    recognition.maxAlternatives = 3;
     return recognition;
   };
 
   const openNexo = () => {
+    nexoSurfaceRef.current = 'chat';
+    dismissNexoAmbient();
     setShowMobileMenu(false);
     setShowNexoAstroPanel(false);
     setShowAgoraNexo(true);
@@ -2303,14 +2426,22 @@ export default function App() {
     setNexoClarification(null);
     setNexoPendingAction(draft);
     const team = teams.find(item => item.id === draft.teamId);
+    const voiceChoice = nexoSurfaceRef.current === 'ambient' ? ' Di “confirmar” o “cancelar”.' : '';
     if (draft.type === 'meeting') {
       const start = new Date(draft.date); start.setHours(draft.time.hour, draft.time.minute, 0, 0);
-      respondNexo(`Confirmo: crearé “${draft.title}” para ${team?.name || 'tu agenda'}, el ${start.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${start.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })}, con duración de ${draft.duration} minutos.`, { kind: 'confirmation' });
+      respondNexo(`Confirmo: crearé “${draft.title}” para ${team?.name || 'tu agenda'}, el ${start.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${start.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })}, con duración de ${draft.duration} minutos.${voiceChoice}`, { kind: 'confirmation' });
     } else if (draft.type === 'task') {
       const assignee = team?.members?.find(member => member.userId === draft.assignedTo);
-      respondNexo(`Confirmo: asignaré “${draft.title}” a ${assignee?.name || draft.assignedTo}, con fecha límite ${new Date(`${dateKey(draft.date)}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}.`, { kind: 'confirmation' });
+      respondNexo(`Confirmo: asignaré “${draft.title}” a ${assignee?.name || draft.assignedTo}, con fecha límite ${new Date(`${dateKey(draft.date)}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}.${voiceChoice}`, { kind: 'confirmation' });
     } else if (draft.type === 'taskStatus') {
-      respondNexo(`Confirmo: cambiaré la tarea “${draft.title}” al estado ${TEAM_STATUS_LABELS[draft.status] || draft.status}.`, { kind: 'confirmation' });
+      respondNexo(`Confirmo: cambiaré la tarea “${draft.title}” al estado ${TEAM_STATUS_LABELS[draft.status] || draft.status}.${voiceChoice}`, { kind: 'confirmation' });
+    } else if (draft.type === 'teamTaskDelete') {
+      respondNexo(`Confirmo: eliminaré definitivamente la tarea “${draft.title}” de ${team?.name || 'Ágora Boards'}.${voiceChoice}`, { kind: 'confirmation' });
+    } else if (draft.type === 'personalTaskDelete') {
+      respondNexo(`Confirmo: eliminaré el pendiente personal “${draft.title}”.${voiceChoice}`, { kind: 'confirmation' });
+    } else if (draft.type === 'personalTaskCreate') {
+      const dueLabel = draft.dueDate === todayKey ? 'hoy' : new Date(`${draft.dueDate}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' });
+      respondNexo(`Confirmo: crearé el pendiente personal “${draft.title}” para ${dueLabel}.${voiceChoice}`, { kind: 'confirmation' });
     }
   };
 
@@ -2326,12 +2457,12 @@ export default function App() {
     }
     const next = nextNexoQuestion(draft);
     if (next && !draft[field]) {
-      respondNexo(`No logré identificar ese dato. ${next.text}`);
+      respondNexo(`No logré identificar ese dato. ${next.text}`, { kind: 'question' });
       return;
     }
     if (next) {
       setNexoClarification({ draft, field: next.field });
-      respondNexo(next.text);
+      respondNexo(next.text, { kind: 'question' });
     } else presentNexoConfirmation(draft);
   };
 
@@ -2340,12 +2471,100 @@ export default function App() {
     if (!command || nexoWorking) return;
     setNexoInput('');
     setNexoMessages(messages => [...messages, nexoMessage('user', command)]);
-    if (nexoClarification) { continueNexoClarification(command); return; }
     const normalized = nexoSpeechKey(command).replace(/^agora(?:\s+nexo)?[,\s]*/, '');
     const completeQuery = (response, action = 'respuesta_contextual') => {
       respondNexo(response);
       post({ action: 'logNexoAction', usuario: userData.usuario, authToken: userData.sessionToken, input: command, intent: 'consulta', nexoAction: action, actionStatus: 'Consultada', detail: response }).catch(() => {});
     };
+    const namedOpenApp = openApps.find(app => normalized.includes(nexoSpeechKey(app.nombre)));
+
+    if (nexoPendingAction && /^(?:si\s+)?(?:confirmar|confirma|confirmo|aceptar|acepto|autorizar|autorizo|adelante)(?:\s+por favor)?$|^si$/i.test(normalized)) {
+      if (nexoSurfaceRef.current === 'ambient') showNexoAmbient('processing', 'Ejecutando la acción autorizada…');
+      confirmNexoAction();
+      return;
+    }
+    if ((nexoPendingAction || nexoClarification) && /^(?:no\s+)?(?:cancelar|cancela|cancelo|detener|deten|olvidalo)(?:\s+por favor)?$|^no$/i.test(normalized)) {
+      cancelNexoAction();
+      return;
+    }
+    if (nexoClarification) { continueNexoClarification(command); return; }
+
+    if (/\b(?:cierra|cerrar|sal de)\b/.test(normalized) && (/\b(?:app|apps|aplicacion|aplicaciones|ventana|ventanas)\b/.test(normalized) || namedOpenApp)) {
+      if (!openApps.length) { completeQuery('No tienes aplicaciones abiertas en este momento.', 'consultar_apps_abiertas'); return; }
+      const closeEverything = /\b(?:todas|todos|todo)\b/.test(normalized);
+      if (closeEverything) {
+        const count = openApps.length;
+        closeAllApps();
+        completeQuery(`Cerré ${count} ${count === 1 ? 'aplicación' : 'aplicaciones'} y dejé tu escritorio despejado.`, 'cerrar_aplicaciones');
+        return;
+      }
+      const target = namedOpenApp || openApps.find(app => app.id === activeAppId);
+      if (!target) completeQuery('Dime el nombre de la aplicación que deseas cerrar.', 'app_no_identificada');
+      else { closeApp(null, target.id); completeQuery(`Cerré ${target.nombre}.`, 'cerrar_aplicacion'); }
+      return;
+    }
+
+    if (/\b(?:minimiza|minimizar|oculta|ocultar)\b/.test(normalized) && (/\b(?:app|apps|aplicacion|aplicaciones|ventana|ventanas)\b/.test(normalized) || namedOpenApp)) {
+      if (!openApps.length) { completeQuery('No tienes aplicaciones abiertas para minimizar.', 'consultar_apps_abiertas'); return; }
+      const minimizeEverything = /\b(?:todas|todos|todo)\b/.test(normalized);
+      const target = minimizeEverything ? null : (namedOpenApp || openApps.find(app => app.id === activeAppId));
+      if (!minimizeEverything && !target) completeQuery('Dime cuál aplicación deseas minimizar.', 'app_no_identificada');
+      else {
+        const ids = minimizeEverything ? openApps.map(app => app.id) : [target.id];
+        minimizeApps(ids);
+        completeQuery(minimizeEverything ? 'Minimicé todas las aplicaciones. Tu sesión continúa disponible en el Dock.' : `Minimicé ${target.nombre}.`, 'minimizar_aplicacion');
+      }
+      return;
+    }
+
+    if (/\b(?:que|cuales|cuantas|lista|muestra)\b.*\b(?:apps|aplicaciones|ventanas)\b.*\b(?:abiertas|abiertos|sesion)\b/.test(normalized)) {
+      const names = openApps.map(app => app.nombre);
+      completeQuery(names.length ? `Tienes ${names.length} ${names.length === 1 ? 'aplicación abierta' : 'aplicaciones abiertas'}: ${names.join(', ')}.` : 'No tienes aplicaciones abiertas.', 'consultar_apps_abiertas');
+      return;
+    }
+
+    if (/\b(?:abre|abrir|recupera|volver a)\b.*\b(?:ultima|reciente)\b.*\b(?:app|aplicacion)?\b/.test(normalized)) {
+      const recentApp = recents.length ? activeAppsList.find(app => app.id === recents[0].id) : null;
+      if (!recentApp) completeQuery('No encontré una aplicación reciente disponible.', 'app_reciente_no_disponible');
+      else { completeQuery(`Abriendo nuevamente ${recentApp.nombre}.`, 'abrir_aplicacion_reciente'); setShowAgoraNexo(false); launchApp(recentApp); }
+      return;
+    }
+
+    if (/\b(?:crea|crear|agrega|agregar|anota|anotar)\b/.test(normalized) && /\b(?:pendiente personal|tarea personal|para mi)\b/.test(normalized)) {
+      const title = command
+        .replace(/^(?:Ágora(?:\s+Nexo)?[,\s]*)?/i, '')
+        .replace(/^(?:crea|crear|agrega|agregar|anota|anotar)\s+(?:un|una)?\s*(?:pendiente|tarea)?\s*(?:personal|para mí|para mi)?\s*/i, '')
+        .replace(/\s+(?:para hoy|para mañana|mañana|hoy)$/i, '').trim() || 'Nuevo pendiente';
+      presentNexoConfirmation({ type: 'personalTaskCreate', title, dueDate: dateKey(parseNexoDate(command) || new Date()), input: command });
+      return;
+    }
+
+    if (/\b(?:elimina|eliminar|borra|borrar|quita|quitar)\b/.test(normalized) && /\b(?:tarea|pendiente|compromiso)\b/.test(normalized)) {
+      const personalMatches = tasks.filter(task => normalized.includes(nexoSpeechKey(task.text)));
+      const manageableTeamTasks = teams.flatMap(team => (team.canManage || isAdmin) ? (team.tasks || []).map(task => ({ ...task, teamId: team.id, teamName: team.name })) : []);
+      const teamMatches = manageableTeamTasks.filter(task => normalized.includes(nexoSpeechKey(task.title)));
+      const wantsPersonal = /\bpersonal\b/.test(normalized);
+      const wantsTeam = /\b(?:equipo|boards?)\b/.test(normalized);
+      const candidates = wantsPersonal ? personalMatches : wantsTeam ? teamMatches : [...personalMatches, ...teamMatches];
+      if (candidates.length !== 1) {
+        const available = wantsPersonal ? tasks.map(task => task.text) : wantsTeam ? manageableTeamTasks.map(task => task.title) : [...tasks.map(task => task.text), ...manageableTeamTasks.map(task => task.title)];
+        completeQuery(available.length ? `No identifiqué una única tarea. Indica su nombre exacto. Por ejemplo: “elimina la tarea ${available[0]}”.` : 'No encontré tareas que tengas permiso para eliminar.', 'tarea_no_identificada');
+        return;
+      }
+      const target = candidates[0];
+      if ('text' in target) presentNexoConfirmation({ type: 'personalTaskDelete', id: target.id, title: target.text, input: command });
+      else presentNexoConfirmation({ type: 'teamTaskDelete', id: target.id, teamId: target.teamId, title: target.title, input: command });
+      return;
+    }
+
+    if (/\b(?:completa|completar|termina|terminar|finaliza|finalizar|marca)\b/.test(normalized) && /\b(?:pendiente personal|tarea personal)\b/.test(normalized)) {
+      const pendingPersonal = tasks.filter(task => !task.done);
+      const matches = pendingPersonal.filter(task => normalized.includes(nexoSpeechKey(task.text)));
+      const target = matches.length === 1 ? matches[0] : pendingPersonal.length === 1 ? pendingPersonal[0] : null;
+      if (!target) completeQuery('No identifiqué un pendiente personal único. Dime su nombre exacto.', 'tarea_no_identificada');
+      else { setTasks(current => current.map(task => task.id === target.id ? { ...task, done: true } : task)); completeQuery(`Marqué “${target.text}” como completado.`, 'completar_pendiente_personal'); }
+      return;
+    }
     if (/\b(reunion|reunir|comite|agenda|programa)\b/.test(normalized) && /\b(crea|crear|agenda|agendar|programa|programar)\b/.test(normalized)) {
       const team = matchNexoTeam(command);
       const date = parseNexoDate(command);
@@ -2355,7 +2574,7 @@ export default function App() {
       const purpose = command.match(/para\s+(.+?)(?:\s+(?:hoy|mañana|pasado|el\s+(?:lunes|martes|miércoles|miercoles|jueves|viernes|sábado|sabado|domingo))|$)/i)?.[1];
       const draft = { type: 'meeting', title: purpose ? `Reunión para ${purpose.trim()}` : 'Reunión de seguimiento', date, time, duration: Math.min(240, Math.max(15, duration)), teamId: team?.id || '', input: command };
       const next = nextNexoQuestion(draft);
-      if (next) { setNexoClarification({ draft, field: next.field }); respondNexo(next.text); }
+      if (next) { setNexoClarification({ draft, field: next.field }); respondNexo(next.text, { kind: 'question' }); }
       else presentNexoConfirmation(draft);
       return;
     }
@@ -2365,7 +2584,7 @@ export default function App() {
       const title = command.replace(/^(crea|crear|asigna|asignar)\s+(una\s+)?(tarea|pendiente|compromiso)\s*/i, '').split(/\s+(?:a|para)\s+(?=[A-ZÁÉÍÓÚÑ])/)[0].trim() || 'Nueva tarea';
       const draft = { type: 'task', title, date: parseNexoDate(command), teamId: team?.id || '', assignedTo: assignee?.userId || '', input: command };
       const next = nextNexoQuestion(draft);
-      if (next) { setNexoClarification({ draft, field: next.field }); respondNexo(next.text); }
+      if (next) { setNexoClarification({ draft, field: next.field }); respondNexo(next.text, { kind: 'question' }); }
       else presentNexoConfirmation(draft);
       return;
     }
@@ -2379,6 +2598,48 @@ export default function App() {
       const matchedTask = ownTasks.find(task => normalized.includes(nexoSpeechKey(task.title))) || (ownTasks.length === 1 ? ownTasks[0] : null);
       if (!matchedTask) completeQuery('No pude identificar una tarea única. Dime su nombre o abre Ágora Boards para seleccionarla.', 'tarea_no_identificada');
       else presentNexoConfirmation({ type: 'taskStatus', id: matchedTask.id, teamId: matchedTask.teamId, title: matchedTask.title, status: requestedStatus, input: command });
+      return;
+    }
+
+    if (/\b(?:que puedes hacer|ayuda|comandos de voz|que comandos)\b/.test(normalized)) {
+      completeQuery('Puedo abrir, cerrar y minimizar aplicaciones; buscar herramientas; navegar por Ágora; crear reuniones y tareas; eliminar tareas con confirmación; actualizar tus propios estados; gestionar pendientes personales; consultar agenda, vencimientos, carga, notificaciones y salud del ecosistema; controlar el modo de enfoque y cambiar la apariencia.', 'ayuda_nexo');
+      return;
+    }
+
+    if (/\b(?:abre|abrir|muestra|mostrar|revisa|revisar)\b.*\bnotificaciones\b/.test(normalized)) {
+      const unread = notifications.filter(item => !item.read).length;
+      setShowNotificationCenter(true);
+      completeQuery(unread ? `Abriendo el Centro de notificaciones. Tienes ${unread} ${unread === 1 ? 'novedad pendiente' : 'novedades pendientes'}.` : 'Abriendo el Centro de notificaciones. Todo está al día.', 'abrir_notificaciones');
+      return;
+    }
+
+    if (/\b(?:cuantas|hay|tengo|pendientes)\b.*\bnotificaciones\b|\bnotificaciones\b.*\b(?:sin leer|pendientes)\b/.test(normalized)) {
+      const unread = notifications.filter(item => !item.read).length;
+      completeQuery(unread ? `Tienes ${unread} ${unread === 1 ? 'notificación sin leer' : 'notificaciones sin leer'}.` : 'No tienes notificaciones pendientes.', 'consultar_notificaciones');
+      return;
+    }
+
+    if (/\b(?:inicia|iniciar|activa|activar|continua|continuar)\b.*\b(?:enfoque|temporizador|pomodoro)\b/.test(normalized)) {
+      if (pomodoroSeconds <= 0) setPomodoroSeconds(focusMinutes * 60);
+      setPomodoroRunning(true);
+      completeQuery(`Inicié tu sesión de enfoque de ${focusMinutes} minutos.`, 'iniciar_enfoque');
+      return;
+    }
+
+    if (/\b(?:pausa|pausar|deten|detener)\b.*\b(?:enfoque|temporizador|pomodoro)\b/.test(normalized)) {
+      setPomodoroRunning(false);
+      completeQuery(`Pausé el modo de enfoque en ${pomodoroLabel}.`, 'pausar_enfoque');
+      return;
+    }
+
+    if (/\b(?:reinicia|reiniciar|restablece|restablecer)\b.*\b(?:enfoque|temporizador|pomodoro)\b/.test(normalized)) {
+      setPomodoroRunning(false); setPomodoroSeconds(focusMinutes * 60);
+      completeQuery(`Restablecí el temporizador a ${focusMinutes} minutos.`, 'reiniciar_enfoque');
+      return;
+    }
+
+    if (/\b(?:que hora es|dime la hora|hora actual)\b/.test(normalized)) {
+      completeQuery(`Son las ${currentTime.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })}.`, 'consultar_hora');
       return;
     }
 
@@ -2431,7 +2692,7 @@ export default function App() {
     }
     else if (/reciente|ultima aplicacion|uso mas/.test(normalized)) response = recents.length ? `Tu aplicación más reciente es ${recents[0].nombre}. Has utilizado ${recents.length} herramientas recientemente.` : 'Aún no hay aplicaciones recientes en esta sesión.';
     else if (/resumen|briefing|dia|hoy/.test(normalized)) response = buildNexoBriefing();
-    else response = 'Puedo navegar por Ágora, abrir aplicaciones, buscar información, cambiar el tema, darte tu briefing, revisar agenda, carga y vencimientos, crear reuniones, asignar tareas o actualizar el estado de tus propias tareas.';
+    else response = 'Puedo abrir, cerrar o minimizar aplicaciones; navegar y buscar; crear reuniones, tareas de equipo y pendientes personales; eliminar tareas con confirmación; actualizar tus propios estados; consultar agenda, vencimientos, carga, notificaciones y salud del ecosistema; controlar el modo de enfoque y cambiar la apariencia. También puedes decir “qué puedes hacer”.';
     completeQuery(response);
   };
 
@@ -2457,9 +2718,20 @@ export default function App() {
         if (response.status !== 'success') throw new Error(response.message || 'No fue posible actualizar el estado.');
         await fetchTeams();
         respondNexo(`La tarea quedó en ${TEAM_STATUS_LABELS[draft.status] || draft.status}.`, { kind: 'success' });
+      } else if (draft.type === 'teamTaskDelete') {
+        const response = await post({ action: 'deleteTeamTask', usuario: userData.usuario, authToken: userData.sessionToken, id: draft.id, input: draft.input });
+        if (response.status !== 'success') throw new Error(response.message || 'No fue posible eliminar la tarea.');
+        await fetchTeams();
+        respondNexo(`Eliminé la tarea “${draft.title}” de Ágora Boards y conservé el registro de auditoría.`, { kind: 'success' });
+      } else if (draft.type === 'personalTaskDelete') {
+        setTasks(current => current.filter(task => task.id !== draft.id));
+        respondNexo(`Eliminé el pendiente personal “${draft.title}”.`, { kind: 'success' });
+      } else if (draft.type === 'personalTaskCreate') {
+        setTasks(current => [...current, { id: Date.now(), text: draft.title, done: false, color: 'green', dueDate: draft.dueDate || dateKey() }]);
+        respondNexo(`Creé el pendiente personal “${draft.title}” para ${draft.dueDate === todayKey ? 'hoy' : new Date(`${draft.dueDate}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })}.`, { kind: 'success' });
       }
       setNexoPendingAction(null);
-    } catch (actionError) { respondNexo(actionError.message || 'No pude completar la acción.', { kind: 'error' }); }
+    } catch (actionError) { setNexoPendingAction(null); respondNexo(actionError.message || 'No pude completar la acción.', { kind: 'error' }); }
     finally { setNexoWorking(false); }
   };
 
@@ -2474,14 +2746,17 @@ export default function App() {
     'not-allowed': 'El navegador bloqueó el micrófono. Autoriza el permiso del sitio y vuelve a intentarlo.',
     'service-not-allowed': 'El servicio de voz está bloqueado por la configuración del navegador.',
     'audio-capture': 'No encontré un micrófono disponible. Revisa el dispositivo de entrada.',
-    network: 'La transcripción de voz perdió conexión. Puedes continuar escribiendo.',
-    'no-speech': 'No detecté una instrucción clara. Acércate al micrófono e inténtalo de nuevo.',
-  }[errorCode] || 'No pude completar la lectura de voz. Inténtalo nuevamente o escribe el comando.');
+    network: 'La transcripción perdió conexión. Verifica internet o continúa escribiendo.',
+    'no-speech': 'No alcancé a escuchar una instrucción. Pulsa el micrófono y habla después de que indique “Te escucho”.',
+    'language-not-supported': 'Este navegador no tiene disponible el reconocimiento en español de Colombia.',
+    'phrases-not-supported': 'El navegador rechazó una función avanzada de voz. Ágora cambió automáticamente al modo compatible.',
+    'bad-grammar': 'El servicio de voz no pudo interpretar la estructura del comando. Inténtalo con una frase más corta.',
+  }[errorCode] || 'El servicio de voz del navegador no respondió. Puedes reintentar o continuar escribiendo.');
 
   const scheduleWakeRestart = () => {
     window.clearTimeout(wakeRestartTimerRef.current);
     if (!wakeEnabledRef.current || wakeSuspendedRef.current || document.hidden) return;
-    wakeRestartTimerRef.current = window.setTimeout(() => startNexoWakeListener(), 700);
+    wakeRestartTimerRef.current = window.setTimeout(() => startNexoWakeListener(), 450);
   };
 
   const resumeWakeAfterCommand = () => {
@@ -2489,16 +2764,30 @@ export default function App() {
     scheduleWakeRestart();
   };
 
-  const startNexoVoice = () => {
+  const startNexoVoice = ({ ambient = false, followUp = false } = {}) => {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    openNexo();
-    if (!Recognition) { window.setTimeout(() => respondNexo('El reconocimiento de voz no está disponible en este navegador. Puedes escribir el comando.'), 0); return; }
+    if (ambient) {
+      nexoSurfaceRef.current = 'ambient';
+      setShowAgoraNexo(false); setShowNexoAstroPanel(false);
+      showNexoAmbient('listening', followUp ? 'Te escucho. Continúa con la respuesta.' : 'Te escucho. ¿Qué necesitas?');
+    } else openNexo();
+    if (!Recognition) {
+      setNexoVoiceStatus('error');
+      setNexoVoiceError('El reconocimiento de voz no está disponible en este navegador. El chat escrito continúa habilitado.');
+      if (ambient) showNexoAmbient('error', 'El reconocimiento de voz no está disponible. Puedes abrir el chat de Nexo.');
+      return;
+    }
+    nexoSpeechPlaybackRef.current += 1;
+    window.clearTimeout(nexoSpeechResumeTimerRef.current);
+    window.speechSynthesis?.cancel?.();
     wakeSuspendedRef.current = true;
     wakeRecognitionRef.current?.abort?.();
     let receivedFinal = false;
+    let commandSubmitted = false;
     const recognition = configureNexoRecognition(new Recognition(), false);
     recognition.onstart = () => {
-      setNexoListening(true); setNexoVoiceStatus('listening'); setNexoInterimTranscript(''); setNexoConfidence(0);
+      setNexoListening(true); setNexoVoiceStatus('listening'); setNexoVoiceError(''); setNexoInterimTranscript(''); setNexoConfidence(0);
+      if (ambient) showNexoAmbient('listening', followUp ? 'Continúa, te estoy escuchando.' : 'Te escucho. ¿Qué necesitas?');
     };
     recognition.onresult = event => {
       let interim = '';
@@ -2511,18 +2800,28 @@ export default function App() {
         if (result.isFinal) { finalTranscript += ` ${alternative.transcript}`; finalConfidence = Math.max(finalConfidence, Number(alternative.confidence || 0)); }
         else interim += ` ${alternative.transcript}`;
       }
-      if (interim.trim()) { setNexoVoiceStatus('hearing'); setNexoInterimTranscript(normalizeNexoSpeech(interim)); setNexoInput(normalizeNexoSpeech(interim)); }
-      if (finalTranscript.trim()) {
-        receivedFinal = true;
+      if (interim.trim()) {
+        const interimText = normalizeNexoSpeech(interim);
+        setNexoVoiceStatus('hearing'); setNexoInterimTranscript(interimText); setNexoInput(interimText);
+        if (ambient) showNexoAmbient('hearing', 'Estoy entendiendo tu solicitud…', interimText);
+      }
+      if (finalTranscript.trim() && !commandSubmitted) {
+        receivedFinal = true; commandSubmitted = true;
         const transcript = normalizeNexoSpeech(finalTranscript);
         setNexoInterimTranscript(''); setNexoInput(transcript); setNexoConfidence(Math.round(finalConfidence * 100)); setNexoVoiceStatus('processing');
+        if (ambient) showNexoAmbient('processing', 'Procesando tu solicitud…', transcript);
+        try { recognition.stop(); } catch { /* La sesión puede haber terminado naturalmente. */ }
         window.setTimeout(() => nexoCommandRef.current?.(transcript), 120);
       }
     };
     recognition.onerror = event => {
       if (event.error === 'aborted') return;
       setNexoVoiceStatus('error');
-      if (event.error !== 'no-speech' || !receivedFinal) respondNexo(voiceErrorCopy(event.error), { kind: 'error' });
+      if (!receivedFinal) {
+        const errorMessage = voiceErrorCopy(event.error);
+        setNexoVoiceError(errorMessage);
+        if (ambient) { showNexoAmbient('error', errorMessage); scheduleNexoAmbientDismiss(8500); }
+      }
     };
     recognition.onend = () => {
       speechRecognitionRef.current = null; setNexoListening(false); setNexoInterimTranscript('');
@@ -2531,7 +2830,12 @@ export default function App() {
       resumeWakeAfterCommand();
     };
     speechRecognitionRef.current = recognition;
-    try { recognition.start(); } catch { setNexoListening(false); setNexoVoiceStatus('error'); resumeWakeAfterCommand(); }
+    try { recognition.start(); } catch {
+      speechRecognitionRef.current = null; setNexoListening(false); setNexoVoiceStatus('error');
+      setNexoVoiceError('No fue posible iniciar el micrófono. Revisa el permiso del sitio e inténtalo nuevamente.');
+      if (ambient) { showNexoAmbient('error', 'No fue posible iniciar el micrófono. Revisa el permiso del sitio.'); scheduleNexoAmbientDismiss(8500); }
+      resumeWakeAfterCommand();
+    }
   };
 
   const toggleNexoVoice = () => {
@@ -2539,35 +2843,62 @@ export default function App() {
     startNexoVoice();
   };
 
+  const closeNexo = () => {
+    nexoSpeechPlaybackRef.current += 1;
+    window.clearTimeout(nexoSpeechResumeTimerRef.current);
+    window.speechSynthesis?.cancel?.();
+    speechRecognitionRef.current?.abort?.();
+    speechRecognitionRef.current = null;
+    setNexoListening(false); setNexoInterimTranscript(''); setNexoVoiceStatus('idle'); setShowAgoraNexo(false);
+    wakeSuspendedRef.current = false;
+    scheduleWakeRestart();
+  };
+
+  const closeNexoAmbient = () => {
+    nexoSpeechPlaybackRef.current += 1;
+    window.clearTimeout(nexoSpeechResumeTimerRef.current); window.clearTimeout(nexoAmbientTimerRef.current);
+    window.speechSynthesis?.cancel?.();
+    speechRecognitionRef.current?.abort?.(); speechRecognitionRef.current = null;
+    setNexoListening(false); setNexoInterimTranscript(''); setNexoVoiceStatus('idle');
+    dismissNexoAmbient();
+    wakeSuspendedRef.current = false;
+    scheduleWakeRestart();
+  };
+
   const startNexoWakeListener = () => {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Recognition || !wakeEnabledRef.current || wakeSuspendedRef.current || document.hidden || wakeRecognitionRef.current) return;
-    const recognition = configureNexoRecognition(new Recognition(), true);
-    recognition.onstart = () => { setNexoWakeListening(true); setNexoVoiceStatus('wake'); };
+    const recognition = configureNexoRecognition(new Recognition(), false);
+    let wakeTriggered = false;
+    recognition.onstart = () => { setNexoWakeListening(true); setNexoVoiceStatus('wake'); setNexoVoiceError(''); };
     recognition.onresult = event => {
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index];
-        if (!result.isFinal) continue;
         const alternative = bestNexoAlternative(result);
         const transcript = normalizeNexoSpeech(alternative?.transcript || '');
-        const normalized = nexoSpeechKey(transcript);
-        if (!/\bagora(?:\s+nexo)?\b/.test(normalized)) continue;
-        const command = normalized.replace(/^.*?\bagora(?:\s+nexo)?\b[,\s]*/, '').trim();
+        const command = nexoWakeCommand(transcript);
+        if (command === null || wakeTriggered) continue;
+        wakeTriggered = true;
         wakeSuspendedRef.current = true;
         setNexoVoiceStatus('triggered'); setNexoConfidence(Math.round(Number(alternative?.confidence || 0) * 100));
         recognition.abort();
-        openNexo();
-        if (command) window.setTimeout(() => { nexoCommandRef.current?.(command); resumeWakeAfterCommand(); }, 220);
-        else window.setTimeout(() => startNexoVoice(), 420);
+        nexoSurfaceRef.current = 'ambient';
+        setShowAgoraNexo(false); setShowNexoAstroPanel(false);
+        showNexoAmbient(command ? 'processing' : 'triggered', command ? 'Procesando tu solicitud…' : 'Hola. Te escucho.', command);
+        fetchAgenda(userData, true);
+        if (command) {
+          window.setTimeout(() => {
+            nexoCommandRef.current?.(command);
+          }, 220);
+        } else window.setTimeout(() => startNexoVoice({ ambient: true }), 320);
         break;
       }
     };
     recognition.onerror = event => {
       if (['aborted', 'no-speech'].includes(event.error)) return;
-      setNexoVoiceStatus('error');
-      if (['not-allowed', 'service-not-allowed', 'audio-capture'].includes(event.error)) {
+      if (['not-allowed', 'service-not-allowed', 'audio-capture', 'language-not-supported'].includes(event.error)) {
+        setNexoVoiceStatus('error'); setNexoVoiceError(voiceErrorCopy(event.error));
         wakeEnabledRef.current = false; setNexoWakeEnabled(false); setNexoWakeListening(false);
-        respondNexo(voiceErrorCopy(event.error), { kind: 'error' });
       }
     };
     recognition.onend = () => {
@@ -2581,9 +2912,17 @@ export default function App() {
 
   const toggleNexoWake = () => {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!Recognition) { openNexo(); window.setTimeout(() => respondNexo('La activación por voz no está disponible en este navegador. Puedes usar el botón del micrófono.'), 0); return; }
+    if (!Recognition) {
+      nexoSurfaceRef.current = 'ambient';
+      setShowAgoraNexo(false); setShowNexoAstroPanel(false); setNexoVoiceStatus('error');
+      const errorMessage = 'La activación por “Oye Ágora” no está disponible en este navegador. Puedes usar el botón del micrófono o el chat escrito.';
+      setNexoVoiceError(errorMessage);
+      showNexoAmbient('error', errorMessage);
+      scheduleNexoAmbientDismiss(8500);
+      return;
+    }
     const next = !wakeEnabledRef.current;
-    wakeEnabledRef.current = next; setNexoWakeEnabled(next); setNexoInterimTranscript('');
+    wakeEnabledRef.current = next; setNexoWakeEnabled(next); setNexoVoiceError(''); setNexoInterimTranscript('');
     window.clearTimeout(wakeRestartTimerRef.current);
     if (next) {
       wakeSuspendedRef.current = false; startNexoWakeListener();
@@ -2594,6 +2933,7 @@ export default function App() {
   };
 
   useEffect(() => { localStorage.setItem('agora_nexo_voice_replies', String(nexoVoiceReplies)); }, [nexoVoiceReplies]);
+  useEffect(() => { if (nexoVoiceName) localStorage.setItem('agora_nexo_voice_name', nexoVoiceName); }, [nexoVoiceName]);
 
   useEffect(() => {
     const handleVisibility = () => {
@@ -4209,32 +4549,60 @@ export default function App() {
     </div>;
   };
 
+  const renderNexoAmbient = () => {
+    if (!nexoAmbient.visible) return null;
+    const phaseLabels = {
+      triggered: 'Ágora está activa', listening: 'Te escucho', hearing: 'Entendiendo', processing: 'Procesando', responding: 'Preparando respuesta', speaking: 'Respondiendo', waiting: 'Espero tu respuesta', error: 'Necesita atención',
+    };
+    const canAnswer = nexoAmbient.phase === 'waiting' && Boolean(nexoClarification) && !nexoPendingAction;
+    return <div className={`nexo-ambient-layer phase-${nexoAmbient.phase}`} role="status" aria-live="polite" aria-atomic="true">
+      <span className="nexo-screen-edge top" /><span className="nexo-screen-edge right" /><span className="nexo-screen-edge bottom" /><span className="nexo-screen-edge left" />
+      <aside className="nexo-ambient-card">
+        <button type="button" className="nexo-ambient-orb" onClick={() => nexoListening ? speechRecognitionRef.current?.stop?.() : startNexoVoice({ ambient: true, followUp: Boolean(nexoPendingAction || nexoClarification) })} disabled={nexoWorking} aria-label={nexoListening ? 'Finalizar escucha' : 'Hablar nuevamente con Ágora'}>
+          <span className="nexo-ambient-core"><IcoSparkles s={23} /></span><i /><i /><i />
+        </button>
+        <div className="nexo-ambient-copy">
+          <header><span>ÁGORA NEXO</span><strong>{phaseLabels[nexoAmbient.phase] || 'Disponible'}</strong></header>
+          <p>{nexoAmbient.text || '¿Qué necesitas?'}</p>
+          {nexoAmbient.transcript && <small>“{nexoAmbient.transcript}”</small>}
+          {['listening', 'hearing', 'processing', 'responding', 'speaking'].includes(nexoAmbient.phase) && <div className="nexo-ambient-wave" aria-hidden="true"><i /><i /><i /><i /><i /></div>}
+          {nexoPendingAction && <div className="nexo-ambient-actions"><button type="button" onClick={cancelNexoAction} disabled={nexoWorking}>Cancelar</button><button type="button" className="primary" onClick={() => { showNexoAmbient('processing', 'Ejecutando la acción autorizada…'); confirmNexoAction(); }} disabled={nexoWorking}>{nexoWorking ? <NexoActionLoader s={12} /> : <IcoCheck s={12} />} Confirmar</button></div>}
+          {canAnswer && <button type="button" className="nexo-ambient-reply" onClick={() => startNexoVoice({ ambient: true, followUp: true })}><IcoMic s={13} /> Responder</button>}
+        </div>
+        <button type="button" className="nexo-ambient-close" onClick={closeNexoAmbient} aria-label="Cerrar Ágora Nexo"><IcoX s={11} /></button>
+      </aside>
+    </div>;
+  };
+
   const renderNexoAstroPanel = () => {
     if (!showNexoAstroPanel) return null;
-    const voiceLabel = nexoListening ? 'Escuchando tu instrucción' : nexoWakeListening ? 'Atento a “Ágora”' : nexoWakeEnabled ? 'Activación en pausa' : 'Listo para ayudarte';
+    const voiceLabel = nexoListening ? 'Escuchando tu instrucción' : nexoWakeListening ? 'Atento a “Oye Ágora”' : nexoWakeEnabled ? 'Activación en pausa' : 'Listo para ayudarte';
     return <><button className="nexo-astro-backdrop" onClick={() => setShowNexoAstroPanel(false)} aria-label="Cerrar controles de Ágora" /><aside className={`nexo-astro-panel ${nexoWakeListening ? 'wake-active' : ''}`}>
-      <header><div className={`nexo-astro-orb ${nexoVoiceStatus}`}><span className="nexo-astro-core"><IcoSparkles s={20} /></span><i /><i /><i /></div><div><span>ÁGORA NEXO</span><h3>{voiceLabel}</h3><small>{nexoWakeEnabled ? 'Di “Ágora” y continúa con tu solicitud' : 'Activa el micrófono o abre el asistente'}</small></div><button onClick={() => setShowNexoAstroPanel(false)}><IcoX s={12} /></button></header>
-      <button className="nexo-astro-primary" onClick={() => { setShowNexoAstroPanel(false); startNexoVoice(); }}><span><IcoMic s={18} /></span><div><strong>Hablar ahora</strong><small>Dictado mejorado con transcripción en vivo</small></div><IcoChevron s={14} /></button>
+      <header><div className={`nexo-astro-orb ${nexoVoiceStatus}`}><span className="nexo-astro-core"><IcoSparkles s={20} /></span><i /><i /><i /></div><div><span>ÁGORA NEXO</span><h3>{voiceLabel}</h3><small>{nexoWakeEnabled ? 'Di “Oye Ágora” y continúa con tu solicitud' : 'Activa el micrófono o abre el asistente'}</small></div><button type="button" onClick={() => setShowNexoAstroPanel(false)}><IcoX s={12} /></button></header>
+      <button type="button" className="nexo-astro-primary" onClick={() => { setShowNexoAstroPanel(false); startNexoVoice({ ambient: true }); }}><span><IcoMic s={18} /></span><div><strong>Hablar con Ágora</strong><small>Experiencia ambiental sin abrir el chat</small></div><IcoChevron s={14} /></button>
+      {nexoVoiceError && <div className="nexo-astro-alert" role="alert"><IcoPulse s={14} /><span>{nexoVoiceError}</span></div>}
       <div className="nexo-astro-settings">
-        <button className={nexoWakeEnabled ? 'active' : ''} aria-pressed={nexoWakeEnabled} onClick={toggleNexoWake}><span><strong>Activar con “Ágora”</strong><small>Disponible mientras esta pestaña esté abierta</small></span><i><b /></i></button>
-        <button className={nexoVoiceReplies ? 'active' : ''} aria-pressed={nexoVoiceReplies} onClick={() => setNexoVoiceReplies(value => !value)}><span><strong>Respuesta hablada</strong><small>Nexo leerá sus respuestas en voz alta</small></span><i><b /></i></button>
+        <button type="button" className={nexoWakeEnabled ? 'active' : ''} aria-pressed={nexoWakeEnabled} onClick={toggleNexoWake}><span><strong>Activar con “Oye Ágora”</strong><small>Disponible mientras esta pestaña esté visible</small></span><i><b /></i></button>
+        <button type="button" className={nexoVoiceReplies ? 'active' : ''} aria-pressed={nexoVoiceReplies} onClick={() => setNexoVoiceReplies(value => !value)}><span><strong>Respuesta hablada</strong><small>Nexo usará la voz profesional seleccionada</small></span><i><b /></i></button>
       </div>
-      <div className="nexo-astro-shortcuts"><span>PRUEBA DICIENDO</span>{['Ágora, dame mi briefing', 'Ágora, abre Boards', 'Ágora, crea una reunión'].map(command => <button key={command} onClick={() => { setShowNexoAstroPanel(false); openNexo(); submitNexoCommand(command); }}>{command}</button>)}</div>
-      <button className="nexo-astro-open" onClick={openNexo}>Abrir experiencia completa <IcoChevron s={13} /></button>
+      <div className="nexo-voice-picker"><label htmlFor="nexo-voice-profile"><span>VOZ DE NEXO</span><select id="nexo-voice-profile" value={nexoVoiceName} onChange={event => setNexoVoiceName(event.target.value)} disabled={!nexoVoices.length}>{nexoVoices.length ? nexoVoices.map(voice => <option key={`${voice.name}-${voice.lang}`} value={voice.name}>{voice.name} · {voice.lang}</option>) : <option value="">Voz predeterminada del dispositivo</option>}</select></label><button type="button" onClick={() => speakNexoResponse('Hola. Soy Ágora Nexo, y estoy listo para ayudarte a organizar tu día.', { force: true })}><IcoPlay s={13} /> Probar</button></div>
+      <div className="nexo-astro-shortcuts"><span>PRUEBA DICIENDO</span>{['Oye Ágora, dame mi briefing', 'Oye Ágora, abre Boards', 'Oye Ágora, crea una reunión'].map(command => <button type="button" key={command} onClick={() => { setShowNexoAstroPanel(false); openNexo(); submitNexoCommand(command); }}>{command}</button>)}</div>
+      <button type="button" className="nexo-astro-open" onClick={openNexo}>Abrir experiencia completa <IcoChevron s={13} /></button>
       <footer><IcoShield s={12} /> El audio no se guarda en Ágora. Siempre verás cuándo el micrófono está activo.</footer>
     </aside></>;
   };
 
   const renderAgoraNexo = () => {
     if (!showAgoraNexo) return null;
-    return <div className="nexo-overlay nexo-live-overlay" onMouseDown={() => setShowAgoraNexo(false)}><section className="nexo-modal nexo-live-modal" role="dialog" aria-modal="true" aria-label="Ágora Nexo" onMouseDown={event => event.stopPropagation()}>
-      <header className="nexo-live-head"><div className="nexo-live-identity"><div className={`nexo-mini-orb ${nexoListening ? 'listening' : ''} ${nexoVoiceStatus}`}><IcoSparkles s={21} /></div><div><span>ÁGORA INTELLIGENCE</span><h2>Ágora <strong>Nexo</strong></h2><small><i /> {nexoListening ? 'Escuchando en tiempo real' : nexoWakeEnabled ? 'Activación por “Ágora” habilitada' : 'Disponible con contexto del ecosistema'}</small></div></div><div className="nexo-live-head-actions"><button className={nexoVoiceReplies ? 'active' : ''} onClick={() => setNexoVoiceReplies(value => !value)} title="Respuesta hablada"><IcoPulse s={14} /> Voz</button><button className="nexo-close" onClick={() => setShowAgoraNexo(false)}><IcoX s={13} /></button></div></header>
+    return <div className="nexo-overlay nexo-live-overlay" onClick={event => { if (event.target === event.currentTarget) closeNexo(); }}><section className="nexo-modal nexo-live-modal" role="dialog" aria-modal="true" aria-label="Ágora Nexo" onClick={event => event.stopPropagation()}>
+      <header className="nexo-live-head"><div className="nexo-live-identity"><div className={`nexo-mini-orb ${nexoListening ? 'listening' : ''} ${nexoVoiceStatus}`}><IcoSparkles s={21} /></div><div><span>ÁGORA INTELLIGENCE</span><h2>Ágora <strong>Nexo</strong></h2><small><i /> {nexoListening ? 'Escuchando en tiempo real' : nexoWakeEnabled ? 'Activación por “Oye Ágora” habilitada' : 'Disponible con contexto del ecosistema'}</small></div></div><div className="nexo-live-head-actions"><button type="button" className={nexoVoiceReplies ? 'active' : ''} onClick={() => setNexoVoiceReplies(value => !value)} title="Respuesta hablada"><IcoPulse s={14} /> Voz</button><button type="button" className="nexo-close" onClick={closeNexo}><IcoX s={13} /></button></div></header>
       <div className="nexo-live-layout">
         <aside className="nexo-brief-panel"><span className="nexo-kicker">BRIEFING EJECUTIVO</span><h3>Tu día, priorizado.</h3><div className="nexo-signal-grid"><article><IcoCheck s={16} /><span><strong>{teamDashboardTasks.length}</strong><small>Tareas abiertas</small></span></article><article><IcoCal s={16} /><span><strong>{nexoUpcomingAgenda.length}</strong><small>Reuniones próximas</small></span></article><article><IcoPulse s={16} /><span><strong>{ecosystemData?.summary?.activeIncidents || 0}</strong><small>Alertas operativas</small></span></article><article><IcoUsers s={16} /><span><strong>{nexoManagedTeams.length}</strong><small>Equipos a cargo</small></span></article></div><div className="nexo-suggestions"><span>Puedes pedirme</span>{['Dame mi briefing', 'Abre Ágora Boards', 'Busca una aplicación', 'Crea una reunión mañana a las 10 am', 'Asigna una tarea a mi equipo', 'Activa el modo oscuro'].map(suggestion => <button key={suggestion} onClick={() => submitNexoCommand(suggestion)}>{suggestion}<IcoChevron s={11} /></button>)}</div><p><IcoShield s={13} /> Nexo solicita confirmación antes de crear o modificar información.</p></aside>
-        <section className="nexo-conversation"><div className="nexo-message-stream">{nexoMessages.map(message => <article key={message.id} className={`${message.role} ${message.kind || ''}`}><span>{message.role === 'assistant' ? <IcoSparkles s={14} /> : initialsOf(welcomeName)}</span><div><small>{message.role === 'assistant' ? 'NEXO' : 'TÚ'}</small><p>{message.text}</p></div></article>)}{nexoWorking && <article className="assistant working"><span><NexoActionLoader s={15} /></span><div><small>NEXO</small><p>Estoy completando la acción…</p></div></article>}</div>
-          {nexoPendingAction && <div className="nexo-confirm-bar"><div><IcoShield s={16} /><span><strong>Acción pendiente de confirmación</strong><small>Nada se ejecutará sin tu autorización.</small></span></div><button onClick={cancelNexoAction} disabled={nexoWorking}>Cancelar</button><button className="confirm" onClick={confirmNexoAction} disabled={nexoWorking}>{nexoWorking ? <NexoActionLoader /> : <IcoCheck s={12} />} Confirmar</button></div>}
+        <section className="nexo-conversation"><div className="nexo-message-stream" ref={nexoMessageStreamRef}>{nexoMessages.map(message => <article key={message.id} className={`${message.role} ${message.kind || ''}`}><span>{message.role === 'assistant' ? <IcoSparkles s={14} /> : initialsOf(welcomeName)}</span><div><small>{message.role === 'assistant' ? 'NEXO' : 'TÚ'}</small><p>{message.text}</p></div></article>)}{nexoWorking && <article className="assistant working"><span><NexoActionLoader s={15} /></span><div><small>NEXO</small><p>Estoy completando la acción…</p></div></article>}</div>
+          {nexoPendingAction && <div className="nexo-confirm-bar"><div><IcoShield s={16} /><span><strong>Acción pendiente de confirmación</strong><small>Nada se ejecutará sin tu autorización.</small></span></div><button type="button" onClick={cancelNexoAction} disabled={nexoWorking}>Cancelar</button><button type="button" className="confirm" onClick={confirmNexoAction} disabled={nexoWorking}>{nexoWorking ? <NexoActionLoader /> : <IcoCheck s={12} />} Confirmar</button></div>}
           {(nexoListening || nexoInterimTranscript || nexoConfidence > 0) && <div className={`nexo-voice-feedback ${nexoVoiceStatus}`} aria-live="polite"><span><i /><i /><i /><i /></span><div><strong>{nexoListening ? (nexoInterimTranscript ? 'Entendiendo tu instrucción' : 'Te escucho…') : 'Instrucción capturada'}</strong><small>{nexoInterimTranscript || (nexoConfidence ? `Confianza de lectura: ${nexoConfidence}%` : 'Habla con naturalidad y menciona la acción primero.')}</small></div></div>}
-          <form className="nexo-command-bar" onSubmit={event => { event.preventDefault(); submitNexoCommand(nexoInput); }}><button type="button" className={nexoListening ? 'listening' : ''} onClick={toggleNexoVoice} aria-label={nexoListening ? 'Detener micrófono' : 'Hablar con Nexo'}><IcoMic s={19} /><i /></button><input value={nexoInput} onChange={event => setNexoInput(event.target.value)} placeholder={nexoListening ? 'Te estoy escuchando…' : 'Escribe o habla con Ágora Nexo'} autoFocus /><button type="submit" className="send" disabled={!nexoInput.trim() || nexoWorking}><IcoSend s={18} /></button></form>
+          {nexoVoiceError && <div className="nexo-voice-alert" role="alert"><IcoPulse s={15} /><span><strong>La voz necesita atención</strong><small>{nexoVoiceError}</small></span><button type="button" onClick={startNexoVoice}>Reintentar</button><button type="button" className="dismiss" onClick={() => setNexoVoiceError('')} aria-label="Cerrar aviso"><IcoX s={10} /></button></div>}
+          <form className="nexo-command-bar" onSubmit={event => { event.preventDefault(); submitNexoCommand(nexoInput); }}><button type="button" className={nexoListening ? 'listening' : ''} onClick={toggleNexoVoice} aria-label={nexoListening ? 'Detener micrófono' : 'Hablar con Nexo'}><IcoMic s={19} /><i /></button><input value={nexoInput} onChange={event => { setNexoInput(event.target.value); if (nexoVoiceError) setNexoVoiceError(''); }} placeholder={nexoListening ? 'Te estoy escuchando…' : 'Escribe o habla con Ágora Nexo'} aria-label="Comando para Ágora Nexo" autoFocus /><button type="submit" className="send" disabled={!nexoInput.trim() || nexoWorking}><IcoSend s={18} /></button></form>
           <footer>La voz se procesa mediante el servicio de reconocimiento disponible en tu navegador. Ágora no almacena el audio.</footer>
         </section>
       </div>
@@ -4357,6 +4725,7 @@ export default function App() {
       data-dock-scale={workspaceAppearance.dockScale}
       data-layout={isCompactLayout ? 'compact' : 'desktop'}
       style={{ '--brand-green': activeAccent.hex }}>
+      {renderNexoAmbient()}
       {renderSpotlight()}
       {renderLaunchpad()}
       {renderCalendarModal()}
