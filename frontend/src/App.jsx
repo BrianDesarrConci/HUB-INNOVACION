@@ -56,12 +56,27 @@ const IcoSend = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="m3 11 
 const IcoTarget = ({ s = 18 }) => <svg width={s} height={s} {...S}><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></svg>;
 const IcoGrip = ({ s = 18 }) => <svg width={s} height={s} {...S}><circle cx="8" cy="6" r="1" /><circle cx="16" cy="6" r="1" /><circle cx="8" cy="12" r="1" /><circle cx="16" cy="12" r="1" /><circle cx="8" cy="18" r="1" /><circle cx="16" cy="18" r="1" /></svg>;
 const IcoDatabase = ({ s = 18 }) => <svg width={s} height={s} {...S}><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" /></svg>;
+const IcoBook = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v18H7.5A3.5 3.5 0 0 0 4 23zM20 5.5A3.5 3.5 0 0 0 16.5 2H13v18h3.5A3.5 3.5 0 0 1 20 23z" /></svg>;
+const IcoStar = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="m12 2.8 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9L6.4 20l1.1-6.2L3 9.4l6.2-.9z" /></svg>;
 
 const NexoActionLoader = ({ s = 15 }) => (
   <span className="nexo-action-loader" style={{ '--nexo-loader-size': `${s}px` }} aria-hidden="true">
     <i />
     <IcoSparkles s={Math.max(9, s - 4)} />
   </span>
+);
+
+const GuidedProgress = ({ steps, current, onSelect }) => (
+  <nav className="guided-progress" aria-label={`Paso ${current + 1} de ${steps.length}`}>
+    {steps.map((step, index) => (
+      <button key={step} type="button" className={`${index === current ? 'active' : ''} ${index < current ? 'complete' : ''}`}
+        onClick={() => index <= current && onSelect?.(index)} disabled={index > current}>
+        <span>{index < current ? <IcoCheck s={10} /> : index + 1}</span>
+        <strong>{step}</strong>
+      </button>
+    ))}
+    <i className="guided-progress-line"><b style={{ width: `${steps.length > 1 ? current / (steps.length - 1) * 100 : 100}%` }} /></i>
+  </nav>
 );
 
 /* ==========================================================================
@@ -478,10 +493,10 @@ const WALLPAPER_OPTIONS = [
 ];
 
 const APPEARANCE_SCENES = [
-  { id: 'executive', label: 'Junta ejecutiva', detail: 'Sobrio, nítido y estratégico', theme: 'light', settings: { wallpaper: 'graphite', accent: 'navy', contrast: 'high', transparency: 'solid', density: 'balanced', shape: 'soft', motion: 'full', dockScale: 'normal' } },
-  { id: 'innovation', label: 'Innovación', detail: 'Color, profundidad y energía', theme: 'light', settings: { wallpaper: 'prism', accent: 'teal', contrast: 'balanced', transparency: 'glass', density: 'comfortable', shape: 'rounded', motion: 'full', dockScale: 'large' } },
-  { id: 'focus', label: 'Enfoque', detail: 'Mínimo ruido, máxima claridad', theme: 'light', settings: { wallpaper: 'minimal', accent: 'green', contrast: 'balanced', transparency: 'solid', density: 'compact', shape: 'soft', motion: 'reduced', dockScale: 'compact' } },
-  { id: 'night', label: 'Dirección nocturna', detail: 'Grafito inmersivo y elegante', theme: 'dark', settings: { wallpaper: 'depth', accent: 'gold', contrast: 'high', transparency: 'glass', density: 'balanced', shape: 'rounded', motion: 'full', dockScale: 'normal' } },
+  { id: 'executive', label: 'Junta ejecutiva', detail: 'Sobrio, nítido y estratégico', theme: 'light', settings: { wallpaper: 'graphite', accent: 'navy', contrast: 'high', transparency: 'solid', density: 'balanced', shape: 'soft', motion: 'full', dockScale: 'normal', elevation: 'balanced', menuStyle: 'solid' } },
+  { id: 'innovation', label: 'Innovación', detail: 'Color, profundidad y energía', theme: 'light', settings: { wallpaper: 'prism', accent: 'teal', contrast: 'balanced', transparency: 'glass', density: 'comfortable', shape: 'rounded', motion: 'full', dockScale: 'large', elevation: 'strong', menuStyle: 'glass' } },
+  { id: 'focus', label: 'Enfoque', detail: 'Mínimo ruido, máxima claridad', theme: 'light', settings: { wallpaper: 'minimal', accent: 'green', contrast: 'balanced', transparency: 'solid', density: 'compact', shape: 'soft', motion: 'reduced', dockScale: 'compact', elevation: 'subtle', menuStyle: 'solid' } },
+  { id: 'night', label: 'Dirección nocturna', detail: 'Grafito inmersivo y elegante', theme: 'dark', settings: { wallpaper: 'depth', accent: 'gold', contrast: 'high', transparency: 'glass', density: 'balanced', shape: 'rounded', motion: 'full', dockScale: 'normal', elevation: 'strong', menuStyle: 'glass' } },
 ];
 
 const DEFAULT_APPEARANCE = {
@@ -495,7 +510,26 @@ const DEFAULT_APPEARANCE = {
   shape: 'soft',
   motion: 'full',
   dockScale: 'normal',
+  elevation: 'balanced',
+  menuStyle: 'glass',
+  textScale: 'standard',
+  touchTargets: 'standard',
+  readability: 'standard',
 };
+
+const DEFAULT_LEARNING_GUIDES = [
+  { id: 'guide-first-steps', type: 'guide', module: 'Primeros pasos', title: 'Domina tu espacio de trabajo', summary: 'Configura el escritorio, encuentra tus aplicaciones y organiza tu jornada.', duration: 4, version: '3.2', steps: ['Abre el Launchpad para consultar todo el catálogo.', 'Usa Mi Jornada para ordenar tareas, reuniones y alertas.', 'Personaliza contraste, tamaño de texto y movimiento desde tu perfil.'] },
+  { id: 'guide-tasks', type: 'guide', module: 'Productividad', title: 'Pendientes que sí avanzan', summary: 'Programa, clasifica y completa compromisos sin perder el contexto.', duration: 3, version: '3.2', steps: ['Crea un pendiente desde el escritorio o calendario.', 'Asigna una fecha para verlo dentro de Mi Jornada.', 'Márcalo como completado para actualizar tu avance diario.'] },
+  { id: 'guide-security', type: 'guide', module: 'Seguridad', title: 'Trabaja de forma segura', summary: 'Reconoce accesos, sesiones y estados reales del ecosistema.', duration: 2, version: '3.2', steps: ['Verifica el estado antes de abrir una herramienta crítica.', 'No compartas credenciales ni dejes sesiones abiertas.', 'Reporta mensajes o comportamientos inesperados al administrador.'] },
+];
+
+const DEFAULT_PRODUCT_NEWS = [
+  { id: 'news-journey', type: 'news', module: 'Mi Jornada', title: 'Tu día ahora tiene una vista priorizada', summary: 'Tareas, reuniones, novedades y alertas aparecen en una sola línea de tiempo.', version: '3.2', publishedAt: Date.now() },
+  { id: 'news-continuity', type: 'news', module: 'Continuidad', title: 'Continúa donde lo dejaste', summary: 'Ágora puede recuperar tu contexto y tus borradores al cambiar de dispositivo.', version: '3.2', publishedAt: Date.now() - 86400000 },
+  { id: 'news-accessibility', type: 'news', module: 'Accesibilidad', title: 'Una interfaz que se adapta a ti', summary: 'Nuevos controles de lectura, movimiento y tamaño táctil para trabajar con mayor comodidad.', version: '3.2', publishedAt: Date.now() - 172800000 },
+];
+
+const EXPERIENCE_MODULES = ['Experiencia general', 'Escritorio', 'Mi Jornada', 'Aplicaciones', 'Equipos', 'Centro de control', 'Formularios', 'Móvil / Tablet', 'Otro'];
 
 const WIDGET_CATALOG = [
   { id: 'pomodoro', label: 'Tiempo de enfoque', detail: 'Temporizador con duración ajustable', icon: IcoClock },
@@ -998,6 +1032,7 @@ export default function App() {
     window.innerWidth <= 860 || (window.innerWidth <= 1180 && window.innerHeight > window.innerWidth && window.matchMedia?.('(pointer: coarse)').matches)
   ));
   const [showAppearancePanel, setShowAppearancePanel] = useState(false);
+  const [appearanceSection, setAppearanceSection] = useState('styles');
   const [showWidgetGallery, setShowWidgetGallery] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
   const [workspaceAppearance, setWorkspaceAppearance] = useState(() => {
@@ -1064,6 +1099,10 @@ export default function App() {
   const [showBoardManager, setShowBoardManager] = useState(false);
   const [newBoardPost, setNewBoardPost] = useState({ type: 'comunicado', title: '', body: '', imageUrl: '', linkUrl: '' });
   const [publicationTypeOpen, setPublicationTypeOpen] = useState(false);
+  const [boardManagerSection, setBoardManagerSection] = useState('compose');
+  const [boardPreviewId, setBoardPreviewId] = useState('');
+  const [boardPendingAction, setBoardPendingAction] = useState('');
+  const [boardManagerNotice, setBoardManagerNotice] = useState(null);
   const [boardSlide, setBoardSlide] = useState(0);
   const [boardCarouselPaused, setBoardCarouselPaused] = useState(false);
   const [enabledWidgets, setEnabledWidgets] = useState([]);
@@ -1144,6 +1183,36 @@ export default function App() {
   const [showExecutiveRoom, setShowExecutiveRoom] = useState(false);
   const [executiveSlide, setExecutiveSlide] = useState(0);
 
+  /* --- Experiencia Ágora OS 3.2 --- */
+  const [journeyFilter, setJourneyFilter] = useState('all');
+  const [workspaceContextReady, setWorkspaceContextReady] = useState(false);
+  const [workspaceSyncState, setWorkspaceSyncState] = useState('local');
+  const [continuityResume, setContinuityResume] = useState(null);
+  const workspaceSyncTimerRef = useRef(null);
+  const workspaceContextHashRef = useRef('');
+  const workspaceContextTimestampRef = useRef(0);
+  const workspaceChannelRef = useRef(null);
+  const workspacePayloadRef = useRef(null);
+  const workspaceLastFetchRef = useRef(0);
+  const [guidedSteps, setGuidedSteps] = useState({ app: 0, notification: 0, incident: 0, maintenance: 0 });
+
+  const [showLearningCenter, setShowLearningCenter] = useState(false);
+  const [learningSection, setLearningSection] = useState('discover');
+  const [learningData, setLearningData] = useState({ guides: DEFAULT_LEARNING_GUIDES, news: DEFAULT_PRODUCT_NEWS, progress: {} });
+  const [selectedGuideId, setSelectedGuideId] = useState(DEFAULT_LEARNING_GUIDES[0].id);
+  const [learningLoading, setLearningLoading] = useState(false);
+  const [learningNotice, setLearningNotice] = useState('');
+  const [learningComposerStep, setLearningComposerStep] = useState(0);
+  const [learningDraft, setLearningDraft] = useState({ type: 'news', title: '', module: 'Ágora OS', summary: '', content: '', version: '3.2', url: '' });
+
+  const [showExperienceCenter, setShowExperienceCenter] = useState(false);
+  const [experienceSection, setExperienceSection] = useState('share');
+  const [feedbackStep, setFeedbackStep] = useState(0);
+  const [feedbackDraft, setFeedbackDraft] = useState({ rating: 0, module: 'Experiencia general', reason: '', comment: '', device: '' });
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackNotice, setFeedbackNotice] = useState('');
+  const [feedbackInsights, setFeedbackInsights] = useState(null);
+
   /* --- CRUD --- */
   const [newApp, setNewApp] = useState({ ...EMPTY_APP_DRAFT });
   const [isAddingApp, setIsAddingApp] = useState(false);
@@ -1166,6 +1235,8 @@ export default function App() {
     window.clearTimeout(wakeRestartTimerRef.current);
     window.clearTimeout(nexoSpeechResumeTimerRef.current);
     window.clearTimeout(nexoAmbientTimerRef.current);
+    window.clearTimeout(workspaceSyncTimerRef.current);
+    workspaceChannelRef.current?.close?.();
     window.speechSynthesis?.cancel?.();
   }, []);
 
@@ -1227,7 +1298,7 @@ export default function App() {
         setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
         setPublicationTypeOpen(false); setShowUtilitiesFolder(false); setShowTeamEditor(false); setShowAppDeployModal(false);
         setShowNotificationCenter(false); setShowNotificationComposer(false); setShowIncidentEditor(false); setShowMaintenanceEditor(false);
-        setSelectedPortfolioAppId(''); setShowAgoraNexo(false); setShowExecutiveRoom(false);
+        setSelectedPortfolioAppId(''); setShowAgoraNexo(false); setShowExecutiveRoom(false); setShowLearningCenter(false); setShowExperienceCenter(false); setContinuityResume(null);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -1393,7 +1464,8 @@ export default function App() {
 
   useEffect(() => {
     setBoardSlide(index => boardPosts.length ? Math.min(index, boardPosts.length - 1) : 0);
-  }, [boardPosts.length]);
+    setBoardPreviewId(current => boardPosts.some(postItem => postItem.id === current) ? current : (boardPosts[0]?.id || ''));
+  }, [boardPosts]);
 
   useEffect(() => {
     if (boardPosts.length < 2 || boardCarouselPaused) return undefined;
@@ -1428,6 +1500,139 @@ export default function App() {
       }
       throw parseError;
     }
+  };
+
+  const normalizeWorkspaceView = (view, session = userData) => {
+    const publicViews = ['dashboard', 'journey', 'teams', 'control'];
+    const adminViews = ['analytics', 'catalog', 'users'];
+    if (publicViews.includes(view)) return view;
+    if (session?.rolGlobal === 'Administrador' && adminViews.includes(view)) return view;
+    return 'dashboard';
+  };
+
+  const applyWorkspaceContext = (payload, { offerResume = true, session = userData } = {}) => {
+    const context = payload?.context || {};
+    const drafts = payload?.drafts || {};
+    if (context.theme) setTheme(context.theme === 'dark' ? 'dark' : 'light');
+    if (context.workspaceMode && !isCompactLayout) setWorkspaceMode(context.workspaceMode === 'desktop' ? 'desktop' : 'focus');
+    if (context.appearance) setWorkspaceAppearance(current => ({ ...current, ...context.appearance }));
+    if (Array.isArray(context.widgets)) setEnabledWidgets(context.widgets.filter(id => WIDGET_CATALOG.some(widget => widget.id === id)));
+    if (context.profile) setProfilePreferences(current => ({ ...current, ...context.profile }));
+    if (Number.isFinite(Number(context.focusMinutes))) setFocusMinutes(Math.min(120, Math.max(5, Number(context.focusMinutes))));
+    if (typeof context.quickNote === 'string') setQuickNote(context.quickNote);
+    if (Array.isArray(context.personalTasks)) setTasks(context.personalTasks.map(task => ({ color: 'navy', dueDate: '', ...task })));
+    if (Array.isArray(context.recents)) setRecents(context.recents.slice(0, 5));
+    if (context.selectedTeamId) setSelectedTeamId(context.selectedTeamId);
+    if (context.selectedDate) setSelectedDate(context.selectedDate);
+    if (drafts.newTask !== undefined) setNewTask(drafts.newTask);
+    if (drafts.newApp) setNewApp(current => ({ ...current, ...drafts.newApp }));
+    if (drafts.notification) setNotificationDraft(current => ({ ...current, ...drafts.notification }));
+    if (drafts.incident) setIncidentDraft(current => ({ ...current, ...drafts.incident }));
+    if (drafts.maintenance) setMaintenanceDraft(current => ({ ...current, ...drafts.maintenance }));
+    if (drafts.boardPost) setNewBoardPost(current => ({ ...current, ...drafts.boardPost }));
+    if (drafts.teamTask) setTeamTaskDraft(current => ({ ...current, ...drafts.teamTask }));
+    if (drafts.teamObjective) setTeamObjectiveDraft(current => ({ ...current, ...drafts.teamObjective }));
+    if (drafts.feedback) setFeedbackDraft(current => ({ ...current, ...drafts.feedback }));
+    if (drafts.learning) setLearningDraft(current => ({ ...current, ...drafts.learning }));
+    const lastView = normalizeWorkspaceView(context.currentView, session);
+    if (offerResume && (lastView !== 'dashboard' || context.activeEntryKey)) {
+      setContinuityResume({ ...payload, context: { ...context, currentView: lastView }, updatedAt: payload.updatedAt || 0, device: payload.device || 'otro dispositivo' });
+    }
+  };
+
+  const fetchWorkspaceContext = async (session = userData, { offerResume = true } = {}) => {
+    if (!session?.usuario || !session?.sessionToken) return;
+    workspaceLastFetchRef.current = Date.now();
+    setWorkspaceSyncState('syncing');
+    try {
+      const response = await post({ action: 'getWorkspaceContext', usuario: session.usuario, authToken: session.sessionToken });
+      if (response.status === 'success' && response.data) {
+        const incomingTimestamp = Number(response.data.updatedAt || 0);
+        if (!workspaceContextTimestampRef.current || incomingTimestamp > workspaceContextTimestampRef.current) {
+          workspaceContextTimestampRef.current = incomingTimestamp;
+          const hasUnsavedLocalChanges = Boolean(workspacePayloadRef.current?.serialized && workspacePayloadRef.current.serialized !== workspaceContextHashRef.current);
+          if (hasUnsavedLocalChanges && workspaceContextHashRef.current) {
+            const remoteContext = response.data.context || {};
+            setContinuityResume({ ...response.data, context: { ...remoteContext, currentView: normalizeWorkspaceView(remoteContext.currentView, session) } });
+          } else {
+            workspaceContextHashRef.current = JSON.stringify({ context: response.data.context || {}, drafts: response.data.drafts || {} });
+            applyWorkspaceContext(response.data, { offerResume, session });
+          }
+        }
+        setWorkspaceSyncState('synced');
+      } else setWorkspaceSyncState('local');
+    } catch {
+      setWorkspaceSyncState('local');
+    } finally {
+      setWorkspaceContextReady(true);
+    }
+  };
+
+  const fetchLearningCenter = async (session = userData, silent = false) => {
+    if (!session?.usuario || !session?.sessionToken) return;
+    if (!silent) setLearningLoading(true);
+    try {
+      const response = await post({ action: 'getLearningCenter', usuario: session.usuario, authToken: session.sessionToken });
+      if (response.status === 'success') {
+        const guides = response.data?.guides?.length ? response.data.guides : DEFAULT_LEARNING_GUIDES;
+        const news = response.data?.news?.length ? response.data.news : DEFAULT_PRODUCT_NEWS;
+        setLearningData({ guides, news, progress: response.data?.progress || {} });
+        setSelectedGuideId(current => guides.some(item => item.id === current) ? current : guides[0]?.id || '');
+      }
+    } catch { /* el centro mantiene contenido esencial sin conexión */ }
+    finally { if (!silent) setLearningLoading(false); }
+  };
+
+  const updateLearningProgress = async (guide, progress = 100) => {
+    if (!guide || learningLoading) return;
+    setLearningLoading(true); setLearningNotice('');
+    setLearningData(current => ({ ...current, progress: { ...current.progress, [guide.id]: progress } }));
+    try {
+      const response = await post({ action: 'saveLearningProgress', usuario: userData.usuario, authToken: userData.sessionToken, guideId: guide.id, progress });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible guardar el progreso.');
+      setLearningNotice(progress >= 100 ? 'Guía completada. Tu progreso quedó sincronizado.' : 'Progreso guardado.');
+    } catch (learningError) { setLearningNotice(learningError.message || 'El avance quedó guardado en este dispositivo.'); }
+    finally { setLearningLoading(false); }
+  };
+
+  const publishLearningContent = async event => {
+    event.preventDefault();
+    if (learningComposerStep < 2) { setLearningComposerStep(step => step + 1); return; }
+    setLearningLoading(true); setLearningNotice('');
+    try {
+      const response = await post({ action: 'saveLearningContent', usuario: userData.usuario, authToken: userData.sessionToken, contentData: learningDraft });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible publicar el contenido.');
+      setLearningDraft({ type: 'news', title: '', module: 'Ágora OS', summary: '', content: '', version: '3.2', url: '' });
+      setLearningComposerStep(0); setLearningNotice('Contenido publicado correctamente.');
+      await fetchLearningCenter(userData, true);
+    } catch (learningError) { setLearningNotice(learningError.message || 'No fue posible publicar el contenido.'); }
+    finally { setLearningLoading(false); }
+  };
+
+  const fetchExperienceInsights = async (session = userData) => {
+    if (session?.rolGlobal !== 'Administrador') return;
+    setFeedbackLoading(true);
+    try {
+      const response = await post({ action: 'getExperienceInsights', usuario: session.usuario, authToken: session.sessionToken, days: analyticsRange });
+      if (response.status === 'success') setFeedbackInsights(response.data);
+    } catch { /* la captura continúa disponible */ }
+    finally { setFeedbackLoading(false); }
+  };
+
+  const submitExperienceFeedback = async event => {
+    event.preventDefault();
+    if (feedbackStep < 2) { setFeedbackStep(step => step + 1); return; }
+    if (!feedbackDraft.rating) return;
+    setFeedbackLoading(true); setFeedbackNotice('');
+    try {
+      const response = await post({ action: 'saveExperienceFeedback', usuario: userData.usuario, authToken: userData.sessionToken, feedbackData: { ...feedbackDraft, contextView: currentView, device: isCompactLayout ? 'Móvil/Tablet' : 'Escritorio' } });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible enviar tu opinión.');
+      setFeedbackNotice('Gracias. Tu opinión ya hace parte de la evolución de Ágora.');
+      setFeedbackStep(0);
+      setFeedbackDraft({ rating: 0, module: 'Experiencia general', reason: '', comment: '', device: '' });
+      if (isAdmin) fetchExperienceInsights(userData);
+    } catch (feedbackError) { setFeedbackNotice(feedbackError.message || 'No fue posible enviar tu opinión.'); }
+    finally { setFeedbackLoading(false); }
   };
 
   const emitAnalytics = (event, details = {}) => {
@@ -1578,6 +1783,115 @@ export default function App() {
   }, [isLoggedIn, userData]);
 
   useEffect(() => {
+    if (!isLoggedIn || !userData || !userPreferencesReady || workspaceContextReady) return;
+    fetchWorkspaceContext(userData);
+    fetchLearningCenter(userData, true);
+  }, [isLoggedIn, userData, userPreferencesReady, workspaceContextReady]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !userData?.usuario || !window.BroadcastChannel) return undefined;
+    const channel = new window.BroadcastChannel(`agora-workspace-${String(userData.usuario).toUpperCase()}`);
+    workspaceChannelRef.current = channel;
+    channel.onmessage = event => {
+      const payload = event.data;
+      if (!payload || Number(payload.updatedAt || 0) <= workspaceContextTimestampRef.current) return;
+      workspaceContextTimestampRef.current = Number(payload.updatedAt || 0);
+      const hasUnsavedLocalChanges = Boolean(workspacePayloadRef.current?.serialized && workspacePayloadRef.current.serialized !== workspaceContextHashRef.current);
+      if (hasUnsavedLocalChanges) {
+        const remoteContext = payload.context || {};
+        setContinuityResume({ ...payload, context: { ...remoteContext, currentView: normalizeWorkspaceView(remoteContext.currentView, userData) } });
+      } else {
+        workspaceContextHashRef.current = JSON.stringify({ context: payload.context || {}, drafts: payload.drafts || {} });
+        applyWorkspaceContext(payload, { offerResume: true, session: userData });
+      }
+      setWorkspaceSyncState('synced');
+    };
+    return () => {
+      channel.close();
+      if (workspaceChannelRef.current === channel) workspaceChannelRef.current = null;
+    };
+  }, [isLoggedIn, userData]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !userData?.usuario || !workspaceContextReady || continuityResume) return undefined;
+    const activeEntry = openApps.find(app => app.id === activeAppId);
+    const updatedAt = Date.now();
+    const payload = {
+      context: {
+        currentView: normalizeWorkspaceView(currentView, userData),
+        workspaceMode,
+        theme,
+        appearance: workspaceAppearance,
+        widgets: enabledWidgets,
+        profile: profilePreferences,
+        focusMinutes,
+        quickNote,
+        personalTasks: tasks,
+        recents,
+        selectedTeamId,
+        selectedDate,
+        activeEntryKey: activeEntry ? (activeEntry.sys ? `sys:${activeEntry.sys}` : `app:${activeEntry.id}`) : '',
+      },
+      drafts: {
+        newTask,
+        newApp,
+        notification: notificationDraft,
+        incident: incidentDraft,
+        maintenance: maintenanceDraft,
+        boardPost: newBoardPost,
+        teamTask: teamTaskDraft,
+        teamObjective: teamObjectiveDraft,
+        feedback: feedbackDraft,
+        learning: learningDraft,
+      },
+      device: isCompactLayout ? 'Móvil / Tablet' : 'Computador',
+      updatedAt,
+    };
+    const serialized = JSON.stringify({ context: payload.context, drafts: payload.drafts });
+    workspacePayloadRef.current = { payload, serialized };
+    if (serialized === workspaceContextHashRef.current) return undefined;
+    window.clearTimeout(workspaceSyncTimerRef.current);
+    setWorkspaceSyncState('pending');
+    workspaceSyncTimerRef.current = window.setTimeout(async () => {
+      try {
+        const response = await post({
+          action: 'saveWorkspaceContext', usuario: userData.usuario, authToken: userData.sessionToken,
+          contextData: payload,
+        });
+        if (response.status !== 'success') throw new Error(response.message || 'No fue posible sincronizar el espacio de trabajo.');
+        workspaceContextHashRef.current = serialized;
+        workspaceContextTimestampRef.current = Number(response.updatedAt || updatedAt);
+        const sharedPayload = { ...payload, updatedAt: workspaceContextTimestampRef.current };
+        workspaceChannelRef.current?.postMessage(sharedPayload);
+        setWorkspaceSyncState('synced');
+      } catch { setWorkspaceSyncState('local'); }
+    }, 1800);
+    return () => window.clearTimeout(workspaceSyncTimerRef.current);
+  }, [isLoggedIn, userData, workspaceContextReady, continuityResume, currentView, workspaceMode, theme, workspaceAppearance, enabledWidgets, profilePreferences, focusMinutes, quickNote, tasks, recents, selectedTeamId, selectedDate, activeAppId, openApps, newTask, newApp, notificationDraft, incidentDraft, maintenanceDraft, newBoardPost, teamTaskDraft, teamObjectiveDraft, feedbackDraft, learningDraft, isCompactLayout]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !userData?.usuario || !workspaceContextReady) return undefined;
+    const refreshFromCloud = () => {
+      if (document.hidden || Date.now() - workspaceLastFetchRef.current < 30000) return;
+      fetchWorkspaceContext(userData, { offerResume: true });
+    };
+    const flushPendingContext = () => {
+      const pending = workspacePayloadRef.current;
+      if (!pending || pending.serialized === workspaceContextHashRef.current) return;
+      fetch(GAS_API_URL, {
+        method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'saveWorkspaceContext', usuario: userData.usuario, authToken: userData.sessionToken, contextData: pending.payload }),
+      }).catch(() => {});
+    };
+    window.addEventListener('focus', refreshFromCloud);
+    window.addEventListener('pagehide', flushPendingContext);
+    return () => {
+      window.removeEventListener('focus', refreshFromCloud);
+      window.removeEventListener('pagehide', flushPendingContext);
+    };
+  }, [isLoggedIn, userData, workspaceContextReady]);
+
+  useEffect(() => {
     if (!isLoggedIn || !userData) return;
     emitAnalytics('view_open', { view: currentView });
   }, [currentView, isLoggedIn, userData]);
@@ -1645,6 +1959,10 @@ export default function App() {
     setEcosystemData(null); setEcosystemError(''); setSelectedPortfolioAppId(''); setPortfolioDraft(null);
     setPeople360(null); setPeople360Error(''); setSelectedPersonId(''); setAgendaEvents([]);
     setShowAgoraNexo(false); setShowNexoAstroPanel(false); setNexoWakeEnabled(false); setNexoWakeListening(false); setNexoListening(false); setNexoVoiceStatus('idle'); setNexoVoiceError(''); setNexoMessages([]); setNexoPendingAction(null); setNexoClarification(null); setNexoAmbient({ visible: false, phase: 'idle', text: '', transcript: '' }); setShowExecutiveRoom(false); setExecutiveSlide(0);
+    setWorkspaceContextReady(false); setWorkspaceSyncState('local'); setContinuityResume(null); workspaceContextHashRef.current = ''; workspaceContextTimestampRef.current = 0; workspacePayloadRef.current = null; workspaceLastFetchRef.current = 0;
+    setShowLearningCenter(false); setLearningSection('discover'); setLearningData({ guides: DEFAULT_LEARNING_GUIDES, news: DEFAULT_PRODUCT_NEWS, progress: {} }); setLearningNotice(''); setLearningComposerStep(0);
+    setShowExperienceCenter(false); setExperienceSection('share'); setFeedbackStep(0); setFeedbackNotice(''); setFeedbackInsights(null);
+    setGuidedSteps({ app: 0, notification: 0, incident: 0, maintenance: 0 });
     sessionIdRef.current = '';
   };
 
@@ -1687,6 +2005,8 @@ export default function App() {
     e.preventDefault();
     const isBanner = newBoardPost.type === 'banner';
     if (isBanner ? !newBoardPost.imageUrl.trim() : (!newBoardPost.title.trim() || !newBoardPost.body.trim())) return;
+    setBoardPendingAction('publish');
+    setBoardManagerNotice(null);
     const postItem = {
       ...newBoardPost,
       id: `board-${Date.now()}`,
@@ -1696,23 +2016,66 @@ export default function App() {
       linkUrl: normalizeExternalUrl(newBoardPost.linkUrl),
       createdAt: Date.now(),
       author: userData?.usuario || 'Administración',
+      order: 0,
     };
     setBoardPosts(posts => [postItem, ...posts]);
+    setBoardPreviewId(postItem.id);
     setNewBoardPost({ type: 'comunicado', title: '', body: '', imageUrl: '', linkUrl: '' });
     setBoardSlide(0);
     setPublicationTypeOpen(false);
     try {
-      const r = await post({ action: 'addBoardPost', postData: postItem });
-      if (r.status === 'success') await fetchBoardPosts();
-    } catch { /* la publicación permanece en el respaldo local */ }
+      const r = await post({ action: 'addBoardPost', usuario: userData?.usuario || '', authToken: userData?.sessionToken || '', postData: postItem });
+      if (r.status !== 'success') throw new Error(r.message || 'No fue posible publicar la comunicación.');
+      await fetchBoardPosts();
+      setBoardManagerSection('active');
+      setBoardManagerNotice({ type: 'success', text: 'Publicación activa y visible en el Tablero Corporativo.' });
+    } catch {
+      setBoardManagerSection('active');
+      setBoardManagerNotice({ type: 'warning', text: 'La publicación quedó disponible en este dispositivo, pero el backend no confirmó la sincronización.' });
+    } finally { setBoardPendingAction(''); }
   };
 
   const deleteBoardPost = async (id) => {
+    const previousPosts = boardPosts;
+    setBoardPendingAction(`delete-${id}`);
+    setBoardManagerNotice(null);
     setBoardPosts(posts => posts.filter(post => post.id !== id));
     try {
-      const r = await post({ action: 'deleteBoardPost', id });
-      if (r.status === 'success') await fetchBoardPosts();
-    } catch { /* conservar eliminación local */ }
+      const r = await post({ action: 'deleteBoardPost', usuario: userData?.usuario || '', authToken: userData?.sessionToken || '', id });
+      if (r.status !== 'success') throw new Error(r.message || 'No fue posible retirar la publicación.');
+      await fetchBoardPosts();
+      setBoardManagerNotice({ type: 'success', text: 'La publicación fue retirada del carrusel.' });
+    } catch {
+      setBoardPosts(previousPosts);
+      setBoardManagerNotice({ type: 'error', text: 'No se pudo retirar la publicación. Verifica el despliegue del backend.' });
+    } finally { setBoardPendingAction(''); }
+  };
+
+  const moveBoardPost = async (id, direction) => {
+    if (boardPendingAction) return;
+    const currentIndex = boardPosts.findIndex(postItem => postItem.id === id);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= boardPosts.length) return;
+    const previousPosts = boardPosts;
+    const orderedPosts = [...boardPosts];
+    [orderedPosts[currentIndex], orderedPosts[targetIndex]] = [orderedPosts[targetIndex], orderedPosts[currentIndex]];
+    const normalizedPosts = orderedPosts.map((postItem, index) => ({ ...postItem, order: index + 1 }));
+    setBoardPosts(normalizedPosts);
+    setBoardSlide(0);
+    setBoardPreviewId(id);
+    setBoardPendingAction(`order-${id}`);
+    setBoardManagerNotice(null);
+    try {
+      const response = await post({
+        action: 'reorderBoardPosts', usuario: userData?.usuario || '', authToken: userData?.sessionToken || '',
+        orderedIds: normalizedPosts.map(postItem => postItem.id),
+      });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible guardar el orden.');
+      setBoardManagerNotice({ type: 'success', text: 'Nuevo orden guardado. El carrusel se actualizará para todos los usuarios.' });
+    } catch {
+      setBoardPosts(previousPosts);
+      setBoardManagerNotice({ type: 'error', text: 'No se pudo guardar el orden. Actualiza y vuelve a intentarlo.' });
+    } finally { setBoardPendingAction(''); }
   };
 
   const openNewTeamEditor = () => {
@@ -1864,6 +2227,7 @@ export default function App() {
       });
       if (response.status !== 'success') throw new Error(response.message || 'No fue posible publicar la notificación.');
       setNotificationDraft({ title: '', message: '', type: 'informativa', priority: 'Media', audienceType: 'Todos', audienceValue: '', linkType: '', link: '', appId: '', expiresAt: '' });
+      setGuidedSteps(current => ({ ...current, notification: 0 }));
       setShowNotificationComposer(false);
       await fetchNotifications();
     } catch (notificationError) {
@@ -1899,6 +2263,7 @@ export default function App() {
       const response = await post({ action: 'saveIncident', usuario: userData.usuario, authToken: userData.sessionToken, incidentData: incidentDraft });
       if (response.status !== 'success') throw new Error(response.message || 'No fue posible registrar el incidente.');
       setShowIncidentEditor(false);
+      setGuidedSteps(current => ({ ...current, incident: 0 }));
       setIncidentDraft({ id: '', appId: '', title: '', description: '', severity: 'Media', status: 'Identificado', owner: '', affectedUsers: 0, resolution: '' });
       await Promise.all([fetchEcosystemControl(), fetchNotifications()]);
     } catch (controlError) { setEcosystemError(controlError.message || 'No fue posible registrar el incidente.'); }
@@ -1907,6 +2272,7 @@ export default function App() {
 
   const resolveIncident = async (incident) => {
     setIncidentDraft({ ...incident, status: 'Resuelto', resolution: incident.resolution || 'Servicio restablecido y monitoreado.' });
+    setGuidedSteps(current => ({ ...current, incident: 0 }));
     setShowIncidentEditor(true);
   };
 
@@ -1920,6 +2286,7 @@ export default function App() {
       });
       if (response.status !== 'success') throw new Error(response.message || 'No fue posible programar el mantenimiento.');
       setShowMaintenanceEditor(false);
+      setGuidedSteps(current => ({ ...current, maintenance: 0 }));
       setMaintenanceDraft({ id: '', appId: '', type: 'Programado', description: '', startsAt: toLocalDateTimeInput(new Date(Date.now() + 3600000)), endsAt: toLocalDateTimeInput(new Date(Date.now() + 7200000)), owner: '', status: 'Programado', audience: 'Todos' });
       await Promise.all([fetchEcosystemControl(), fetchNotifications()]);
     } catch (controlError) { setEcosystemError(controlError.message || 'No fue posible programar el mantenimiento.'); }
@@ -2019,6 +2386,7 @@ export default function App() {
       if (r.status !== 'success') throw new Error(r.message || 'No fue posible desplegar el aplicativo.');
       await fetchApps();
       setNewApp({ ...EMPTY_APP_DRAFT });
+      setGuidedSteps(current => ({ ...current, app: 0 }));
       setShowAppDeployModal(false);
     } catch (appError) { setAppCatalogError(appError.message || 'No fue posible desplegar el aplicativo.'); }
     finally { setIsAddingApp(false); }
@@ -2110,6 +2478,25 @@ export default function App() {
     };
     setOpenApps(prev => [...prev, win]);
     prioritizeWindow(win.id);
+  };
+
+  const resumeLastWorkspace = () => {
+    const context = continuityResume?.context || {};
+    const targetView = normalizeWorkspaceView(context.currentView, userData);
+    applyWorkspaceContext(continuityResume, { offerResume: false, session: userData });
+    setContinuityResume(null);
+    if (context.activeEntryKey?.startsWith('sys:')) {
+      launchSystemApp(context.activeEntryKey.slice(4));
+      return;
+    }
+    if (context.activeEntryKey?.startsWith('app:')) {
+      const targetApp = appsList.find(app => String(app.id) === context.activeEntryKey.slice(4));
+      if (targetApp && isAppEnabled(targetApp)) {
+        launchApp(targetApp);
+        return;
+      }
+    }
+    navigateToView(targetView);
   };
 
   const closeApp = (e, appId) => {
@@ -2655,6 +3042,7 @@ export default function App() {
 
     const moduleTargets = [
       { match: /\bpersonas(?: 360)?\b/, view: 'users', name: 'Ágora Personas 360', admin: true },
+      { match: /\bmi jornada\b|\bjornada\b/, view: 'journey', name: 'Mi Jornada' },
       { match: /\b(?:agora )?boards?\b|\bequipos?\b/, view: 'teams', name: 'Ágora Boards' },
       { match: /\bcentro de control\b|\bmapa de servicios\b/, view: 'control', name: 'Centro de control' },
       { match: /\bcatalogo\b/, view: 'catalog', name: 'Catálogo', admin: true },
@@ -2784,7 +3172,22 @@ export default function App() {
     wakeRecognitionRef.current?.abort?.();
     let receivedFinal = false;
     let commandSubmitted = false;
+    let latestTranscript = '';
+    let latestConfidence = 0;
     const recognition = configureNexoRecognition(new Recognition(), false);
+    const submitCapturedVoice = (rawTranscript, confidence = 0, stopRecognition = true) => {
+      const transcript = normalizeNexoSpeech(rawTranscript || '');
+      if (!transcript || commandSubmitted) return false;
+      commandSubmitted = true;
+      receivedFinal = true;
+      setNexoInterimTranscript(''); setNexoInput(transcript); setNexoConfidence(Math.round(Number(confidence || 0) * 100)); setNexoVoiceStatus('processing');
+      if (ambient) showNexoAmbient('processing', 'Procesando tu solicitud…', transcript);
+      if (stopRecognition) {
+        try { recognition.stop(); } catch { /* La sesión puede haber terminado naturalmente. */ }
+      }
+      window.setTimeout(() => nexoCommandRef.current?.(transcript), 90);
+      return true;
+    };
     recognition.onstart = () => {
       setNexoListening(true); setNexoVoiceStatus('listening'); setNexoVoiceError(''); setNexoInterimTranscript(''); setNexoConfidence(0);
       if (ambient) showNexoAmbient('listening', followUp ? 'Continúa, te estoy escuchando.' : 'Te escucho. ¿Qué necesitas?');
@@ -2800,22 +3203,23 @@ export default function App() {
         if (result.isFinal) { finalTranscript += ` ${alternative.transcript}`; finalConfidence = Math.max(finalConfidence, Number(alternative.confidence || 0)); }
         else interim += ` ${alternative.transcript}`;
       }
+      const completeTranscript = normalizeNexoSpeech(Array.from(event.results).map(result => bestNexoAlternative(result)?.transcript || '').join(' '));
+      if (completeTranscript) latestTranscript = completeTranscript;
       if (interim.trim()) {
-        const interimText = normalizeNexoSpeech(interim);
+        const interimText = completeTranscript || normalizeNexoSpeech(interim);
+        latestConfidence = Math.max(latestConfidence, ...Array.from(event.results).map(result => Number(bestNexoAlternative(result)?.confidence || 0)));
         setNexoVoiceStatus('hearing'); setNexoInterimTranscript(interimText); setNexoInput(interimText);
         if (ambient) showNexoAmbient('hearing', 'Estoy entendiendo tu solicitud…', interimText);
       }
       if (finalTranscript.trim() && !commandSubmitted) {
-        receivedFinal = true; commandSubmitted = true;
-        const transcript = normalizeNexoSpeech(finalTranscript);
-        setNexoInterimTranscript(''); setNexoInput(transcript); setNexoConfidence(Math.round(finalConfidence * 100)); setNexoVoiceStatus('processing');
-        if (ambient) showNexoAmbient('processing', 'Procesando tu solicitud…', transcript);
-        try { recognition.stop(); } catch { /* La sesión puede haber terminado naturalmente. */ }
-        window.setTimeout(() => nexoCommandRef.current?.(transcript), 120);
+        latestTranscript = completeTranscript || normalizeNexoSpeech(finalTranscript);
+        latestConfidence = finalConfidence;
+        submitCapturedVoice(latestTranscript, latestConfidence);
       }
     };
     recognition.onerror = event => {
       if (event.error === 'aborted') return;
+      if (latestTranscript && event.error === 'no-speech') return;
       setNexoVoiceStatus('error');
       if (!receivedFinal) {
         const errorMessage = voiceErrorCopy(event.error);
@@ -2825,9 +3229,12 @@ export default function App() {
     };
     recognition.onend = () => {
       speechRecognitionRef.current = null; setNexoListening(false); setNexoInterimTranscript('');
-      setNexoVoiceStatus(status => status === 'error' ? 'error' : 'idle');
+      const submittedOnEnd = !commandSubmitted && latestTranscript
+        ? submitCapturedVoice(latestTranscript, latestConfidence, false)
+        : false;
+      setNexoVoiceStatus(status => status === 'error' ? 'error' : (submittedOnEnd || commandSubmitted ? 'processing' : 'idle'));
       window.setTimeout(() => setNexoConfidence(0), 4200);
-      resumeWakeAfterCommand();
+      if (!submittedOnEnd && !commandSubmitted) resumeWakeAfterCommand();
     };
     speechRecognitionRef.current = recognition;
     try { recognition.start(); } catch {
@@ -3073,25 +3480,30 @@ export default function App() {
     return (
       <div className="login-root" onPointerMove={handleLoginPointerMove}>
         <div className="login-grid" />
+        <div className="login-aurora-field" aria-hidden="true">
+          <span className="login-aurora-ribbon ribbon-green" />
+          <span className="login-aurora-ribbon ribbon-navy" />
+          <span className="login-aurora-ribbon ribbon-gold" />
+        </div>
         <div className="login-intelligence" aria-hidden="true">
           <svg className="ai-network" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
             <g className="ai-network-lines">
-              <path d="M-30 650 C180 520 210 290 430 330 S730 610 930 430 1190 120 1480 260" />
-              <path d="M40 180 C250 260 330 90 520 190 S770 410 1010 280 1250 510 1490 390" />
-              <path d="M130 820 C360 650 510 760 650 580 S920 610 1110 720 1340 620 1500 690" />
-              <path d="M270 -40 C240 210 480 300 600 470 S690 830 850 950" />
-              <path d="M1110 -50 C980 160 1080 330 930 470 S720 640 760 930" />
+              <path d="M-80 710 C180 520 335 620 492 438 S790 194 1014 340 1248 620 1520 458" />
+              <path d="M-40 248 C214 92 386 172 550 312 S812 584 1048 472 1260 186 1490 248" />
+              <path d="M84 900 C250 704 484 758 646 594 S926 510 1112 674 1320 760 1510 612" />
+              <path d="M210 -70 C174 166 382 286 548 430 S698 722 620 970" />
+              <path d="M1174 -80 C1014 124 1092 306 974 452 S724 648 812 972" />
             </g>
             <g className="ai-network-nodes">
-              {[[130,180],[310,265],[430,330],[520,190],[650,580],[760,410],[930,430],[1010,280],[1110,720],[1225,510],[1340,260],[360,650]].map(([cx, cy], index) => (
+              {[[84,248],[254,154],[492,438],[550,312],[646,594],[790,194],[974,452],[1048,472],[1112,674],[1260,186],[1320,760],[335,620]].map(([cx, cy], index) => (
                 <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={index % 3 === 0 ? 7 : 4} />
               ))}
             </g>
           </svg>
-          <div className="ai-orbit ai-orbit-main"><span>AI</span></div>
-          <span className="ai-signal ai-signal-data">DATOS</span>
-          <span className="ai-signal ai-signal-ideas">IDEAS</span>
-          <span className="ai-signal ai-signal-growth">CRECIMIENTO</span>
+          <div className="login-system-orbit"><i /><i /><i /></div>
+          <div className="login-system-panel panel-apps"><span /><span /><span /><span /></div>
+          <div className="login-system-panel panel-insight"><strong /><span /><span /></div>
+          <div className="login-system-panel panel-flow"><i /><i /><i /></div>
         </div>
         <span className="login-motion login-motion-a" />
         <span className="login-motion login-motion-b" />
@@ -3201,9 +3613,12 @@ export default function App() {
         </p>
         <p className="hero-daily-message">{todayCorporateMessage}</p>
         {profilePreferences.welcomeMessage.trim() && <p className="hero-personal-note">{profilePreferences.welcomeMessage.trim()}</p>}
-        <button className="search-trigger" onClick={openSpotlight}>
-          <IcoSearch s={15} /> Buscar en Ágora <span className="kbd">⌘K</span>
-        </button>
+        <div className="hero-action-row">
+          <button className="search-trigger" onClick={openSpotlight}>
+            <IcoSearch s={15} /> Buscar en Ágora <span className="kbd">⌘K</span>
+          </button>
+          <button className="journey-trigger" onClick={() => navigateToView('journey')}><IcoSparkles s={15} /> Ver Mi Jornada</button>
+        </div>
       </section>
 
       {/* ---- Reloj ---- */}
@@ -3249,7 +3664,7 @@ export default function App() {
             <div className="card-label"><IcoBell s={13} /> Tablero corporativo</div>
             <p className="board-subtitle">Novedades, banners e incidencias internas en un solo lugar.</p>
           </div>
-          {isAdmin && <button className="btn btn-primary board-manage" onClick={() => setShowBoardManager(true)}><IcoPlus s={14} /> Administrar</button>}
+          {isAdmin && <button className="btn btn-primary board-manage" onClick={() => { setBoardManagerNotice(null); setBoardPreviewId(boardPosts[0]?.id || ''); setShowBoardManager(true); }}><IcoSliders s={14} /> Administrar</button>}
         </div>
         <div className="board-carousel" onMouseEnter={() => setBoardCarouselPaused(true)} onMouseLeave={() => setBoardCarouselPaused(false)} onFocusCapture={() => setBoardCarouselPaused(true)} onBlurCapture={() => setBoardCarouselPaused(false)}>
           <div className="board-feed" aria-live="polite">
@@ -3369,6 +3784,71 @@ export default function App() {
     </div>
   );
 
+  const renderJourney = () => {
+    const now = Date.now();
+    const tomorrowKey = dateKey(new Date(now + 86400000));
+    const activeIncidents = (ecosystemData?.incidents || []).filter(item => !['Resuelto', 'Cerrado'].includes(item.status));
+    const assignedTasks = teams.flatMap(team => (team.tasks || [])
+      .filter(task => String(task.assignedTo).toUpperCase() === String(userData?.usuario || '').toUpperCase())
+      .map(task => ({ ...task, teamId: team.id, teamName: team.name })));
+    const journeyItems = [
+      ...tasks.filter(task => !task.done).map(task => ({
+        id: `personal-${task.id}`, kind: 'task', title: task.text, detail: 'Pendiente personal', date: task.dueDate || todayKey,
+        priority: task.dueDate && task.dueDate < todayKey ? 'critical' : 'normal', icon: IcoCheck,
+        actionLabel: 'Completar', action: () => toggleTask(task.id),
+      })),
+      ...assignedTasks.filter(task => task.status !== 'completada').map(task => ({
+        id: `team-${task.id}`, kind: 'task', title: task.title, detail: `${task.teamName} · ${TEAM_STATUS_LABELS[task.status] || task.status}`, date: task.dueDate || todayKey,
+        priority: task.dueDate && task.dueDate < todayKey ? 'critical' : task.priority === 'alta' ? 'high' : 'normal', icon: IcoUsers,
+        actionLabel: 'Abrir equipo', action: () => { setSelectedTeamId(task.teamId); setTeamSection('tasks'); navigateToView('teams'); },
+      })),
+      ...agendaEvents.filter(event => event.startsAt >= now - 3600000).map(event => ({
+        id: `agenda-${event.id}`, kind: 'meeting', title: event.title, detail: event.teamName || event.description || 'Agenda Ágora',
+        date: dateKey(new Date(event.startsAt)), at: event.startsAt, priority: 'normal', icon: IcoCal,
+        actionLabel: 'Ver agenda', action: () => { if (event.teamId) setSelectedTeamId(event.teamId); setTeamSection('calendar'); navigateToView('teams'); },
+      })),
+      ...notifications.filter(item => !item.read).map(item => ({
+        id: `notification-${item.id}`, kind: 'alert', title: item.title, detail: item.message, date: todayKey,
+        at: item.publishedAt, priority: String(item.priority).toLowerCase().includes('cr') ? 'critical' : String(item.priority).toLowerCase() === 'alta' ? 'high' : 'normal', icon: IcoBell,
+        actionLabel: 'Revisar', action: () => openNotification(item),
+      })),
+      ...(isAdmin ? activeIncidents.map(incident => ({
+        id: `incident-${incident.id}`, kind: 'alert', title: incident.title, detail: `${appsList.find(app => String(app.id) === String(incident.appId))?.nombre || 'Ecosistema'} · ${incident.status}`,
+        date: todayKey, at: incident.startedAt, priority: ['Crítica', 'Alta'].includes(incident.severity) ? 'critical' : 'high', icon: IcoShield,
+        actionLabel: 'Gestionar', action: () => navigateToView('control'),
+      })) : []),
+    ].filter(item => journeyFilter === 'all' || item.kind === journeyFilter)
+      .sort((a, b) => {
+        const rank = { critical: 0, high: 1, normal: 2 };
+        if ((rank[a.priority] ?? 2) !== (rank[b.priority] ?? 2)) return (rank[a.priority] ?? 2) - (rank[b.priority] ?? 2);
+        return String(a.date || todayKey).localeCompare(String(b.date || todayKey)) || Number(a.at || 0) - Number(b.at || 0);
+      });
+    const sections = [
+      { id: 'attention', label: 'Ahora y requiere atención', items: journeyItems.filter(item => item.priority === 'critical' || item.date < todayKey) },
+      { id: 'today', label: 'Hoy', items: journeyItems.filter(item => item.priority !== 'critical' && item.date === todayKey) },
+      { id: 'next', label: 'Próximamente', items: journeyItems.filter(item => item.date > todayKey) },
+    ].filter(section => section.items.length);
+    const todayOpen = tasks.filter(task => !task.done && (!task.dueDate || task.dueDate <= todayKey)).length + assignedTasks.filter(task => task.status !== 'completada' && (!task.dueDate || task.dueDate <= todayKey)).length;
+    const completedToday = tasks.filter(task => task.done && (!task.dueDate || task.dueDate === todayKey)).length + assignedTasks.filter(task => task.status === 'completada' && task.dueDate === todayKey).length;
+    const completion = completedToday + todayOpen ? Math.round(completedToday / (completedToday + todayOpen) * 100) : 100;
+    const nextMeeting = agendaEvents.filter(event => event.startsAt >= now).sort((a, b) => a.startsAt - b.startsAt)[0];
+    return <div className="journey-page enter">
+      <section className="journey-hero">
+        <div className="journey-hero-copy"><span className="analytics-eyebrow"><IcoSparkles s={14} /> AG-02 · Centro personal de ejecución</span><h2>Mi Jornada</h2><p>{currentTime.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })} · Todo lo importante, en el orden correcto.</p></div>
+        <div className="journey-score" style={{ '--journey-progress': `${completion * 3.6}deg` }}><span><strong>{completion}%</strong><small>avance de hoy</small></span></div>
+      </section>
+      <section className="journey-pulse-grid">
+        <article><span><IcoCheck s={18} /></span><div><small>Por resolver hoy</small><strong>{todayOpen}</strong><p>{todayOpen ? 'Compromisos personales y de equipo' : 'Tu agenda está bajo control'}</p></div></article>
+        <article><span><IcoCal s={18} /></span><div><small>Próxima reunión</small><strong className="textual">{nextMeeting ? new Date(nextMeeting.startsAt).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' }) : 'Sin agenda'}</strong><p>{nextMeeting?.title || 'No tienes reuniones próximas'}</p></div></article>
+        <article><span><IcoBell s={18} /></span><div><small>Novedades sin leer</small><strong>{notifications.filter(item => !item.read).length}</strong><p>Comunicaciones que requieren revisión</p></div></article>
+      </section>
+      <div className="journey-toolbar"><div>{[['all','Todo'],['task','Tareas'],['meeting','Reuniones'],['alert','Alertas']].map(([id, label]) => <button key={id} className={journeyFilter === id ? 'active' : ''} onClick={() => setJourneyFilter(id)}>{label}</button>)}</div><button onClick={() => openCalendar(currentTime)}><IcoPlus s={13} /> Nuevo pendiente</button></div>
+      <section className="journey-timeline">
+        {!sections.length ? <div className="journey-empty"><span><IcoCheck s={28} /></span><h3>Todo en orden</h3><p>No hay elementos pendientes en esta vista.</p></div> : sections.map(section => <div className="journey-section" key={section.id}><header><span>{section.label}</span><small>{section.items.length}</small></header><div>{section.items.map(item => { const ItemIcon = item.icon; return <article key={item.id} className={`journey-item ${item.priority}`}><span className="journey-item-icon"><ItemIcon s={17} /></span><div className="journey-item-copy"><span>{item.kind === 'meeting' && item.at ? new Date(item.at).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' }) : item.date < todayKey ? 'Vencido' : item.date === todayKey ? 'Hoy' : item.date === tomorrowKey ? 'Mañana' : new Date(`${item.date}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })}</span><strong>{item.title}</strong><p>{item.detail}</p></div><button onClick={item.action}>{item.actionLabel}<IcoChevron s={11} /></button></article>; })}</div></div>)}
+      </section>
+    </div>;
+  };
+
   /* ======================================================================
      LAUNCHPAD
      ====================================================================== */
@@ -3441,15 +3921,18 @@ export default function App() {
     const allTeamTasks = teams.flatMap(team => (team.tasks || []).map(task => ({ ...task, teamName: team.name, teamId: team.id })));
     const commandEntries = [
       { id: 'desktop', label: 'Ir al escritorio', detail: 'Vista principal de Ágora OS', keywords: 'inicio escritorio home', icon: IcoDesktopIco, action: () => navigateToView('dashboard') },
+      { id: 'journey', label: 'Abrir Mi Jornada', detail: 'Prioridades, reuniones y alertas de hoy', keywords: 'jornada hoy prioridades agenda pendientes', icon: IcoSparkles, action: () => navigateToView('journey') },
       { id: 'teams', label: 'Abrir Equipos', detail: 'Seguimiento, tareas y calendario', keywords: 'equipo tareas personas', icon: IcoUsers, action: () => navigateToView('teams') },
       { id: 'control', label: 'Centro de control', detail: 'Salud, incidentes y mantenimientos', keywords: 'estado salud incidentes mantenimiento', icon: IcoPulse, action: () => navigateToView('control') },
       { id: 'launchpad', label: 'Abrir Launchpad', detail: 'Todos los aplicativos', keywords: 'aplicaciones apps launchpad', icon: IcoGrid, action: openLaunchpad },
       { id: 'appearance', label: 'Personalizar escritorio', detail: 'Apariencia, color y movimiento', keywords: 'tema fondo oscuro apariencia', icon: IcoSliders, action: () => setShowAppearancePanel(true) },
+      { id: 'learning', label: 'Aprendizaje y novedades', detail: 'Guías breves y mejoras de Ágora', keywords: 'ayuda aprender novedades tutorial guias', icon: IcoBook, action: () => { setLearningSection('discover'); setShowLearningCenter(true); fetchLearningCenter(userData, true); } },
+      { id: 'feedback', label: 'Compartir mi experiencia', detail: 'Califica y ayuda a mejorar Ágora', keywords: 'opinion encuesta satisfaccion comentario', icon: IcoStar, action: () => { setExperienceSection('share'); setFeedbackStep(0); setShowExperienceCenter(true); } },
       { id: 'nexo', label: 'Abrir Ágora Nexo', detail: 'Briefing y acciones ejecutivas por voz', keywords: 'ia inteligencia asistente nexo voz reuniones tareas', icon: IcoSparkles, action: openNexo },
       ...(isAdmin ? [
         { id: 'analytics', label: 'Abrir Dashboard', detail: 'Adopción y comportamiento del ecosistema', keywords: 'analitica métricas uso', icon: IcoChart, action: () => navigateToView('analytics') },
         { id: 'catalog', label: 'Gestionar Catálogo', detail: 'Gobierno y ciclo de vida', keywords: 'catalogo aplicaciones portafolio', icon: IcoRocket, action: () => navigateToView('catalog') },
-        { id: 'notification', label: 'Crear notificación', detail: 'Publicar una alerta empresarial', keywords: 'notificar alerta comunicado', icon: IcoBell, action: () => setShowNotificationComposer(true) },
+        { id: 'notification', label: 'Crear notificación', detail: 'Publicar una alerta empresarial', keywords: 'notificar alerta comunicado', icon: IcoBell, action: () => { setGuidedSteps(current => ({ ...current, notification: 0 })); setShowNotificationComposer(true); } },
         { id: 'executive', label: 'Iniciar Sala Ejecutiva 2.0', detail: 'Narrativa gerencial del ecosistema', keywords: 'junta presentación sala informe', icon: IcoPresentation, action: openExecutiveRoom },
       ] : []),
     ];
@@ -3611,75 +4094,81 @@ export default function App() {
   const renderBoardManager = () => {
     if (!showBoardManager || !isAdmin) return null;
     const SelectedTypeIcon = selectedBoardType.icon;
+    const boardDraftPreview = {
+      id: 'board-draft-preview', type: newBoardPost.type,
+      title: newBoardPost.title.trim() || 'Título de la publicación',
+      body: newBoardPost.body.trim() || 'Aquí podrás comprobar cómo se verá el mensaje antes de compartirlo con los colaboradores.',
+      imageUrl: newBoardPost.imageUrl.trim(), linkUrl: normalizeExternalUrl(newBoardPost.linkUrl), createdAt: Date.now(), author: userData?.usuario || 'Administración',
+    };
+    const selectedActivePost = boardPosts.find(postItem => postItem.id === boardPreviewId) || boardPosts[0] || null;
+    const closeBoardManager = () => { setPublicationTypeOpen(false); setBoardManagerNotice(null); setShowBoardManager(false); };
     return (
-      <div className="modal-overlay" onMouseDown={() => { setPublicationTypeOpen(false); setShowBoardManager(false); }}>
+      <div className="modal-overlay board-manager-overlay" onMouseDown={closeBoardManager}>
         <section className="board-modal" onMouseDown={e => e.stopPropagation()}>
-          <div className="modal-head">
+          <div className="modal-head board-manager-head">
             <div>
-              <span className="login-kicker">Administración</span>
+              <span className="login-kicker">Estudio editorial</span>
               <h2>Tablero corporativo</h2>
+              <p>Crea, revisa y organiza la comunicación del ecosistema.</p>
             </div>
-            <button className="modal-close" onClick={() => { setPublicationTypeOpen(false); setShowBoardManager(false); }}><IcoX s={14} /></button>
+            <span className="board-live-status"><i /> {boardPosts.length} activa{boardPosts.length === 1 ? '' : 's'}</span>
+            <button className="modal-close" onClick={closeBoardManager}><IcoX s={14} /></button>
           </div>
-          <div className="board-admin-layout">
-            <form className="board-form" onSubmit={addBoardPost} onMouseDown={e => { if (!e.target.closest('.publication-select')) setPublicationTypeOpen(false); }}>
+          <div className="board-manager-tabs" role="tablist" aria-label="Administrar Tablero Corporativo">
+            <button role="tab" aria-selected={boardManagerSection === 'compose'} className={boardManagerSection === 'compose' ? 'active' : ''} onClick={() => { setBoardManagerSection('compose'); setBoardManagerNotice(null); }}><IcoPlus s={14} /><span><strong>Nueva publicación</strong><small>Crear y previsualizar</small></span></button>
+            <button role="tab" aria-selected={boardManagerSection === 'active'} className={boardManagerSection === 'active' ? 'active' : ''} onClick={() => { setBoardManagerSection('active'); setBoardPreviewId(boardPreviewId || boardPosts[0]?.id || ''); setBoardManagerNotice(null); }}><IcoGrid s={14} /><span><strong>Publicaciones activas</strong><small>Vista previa y orden</small></span><em>{boardPosts.length}</em></button>
+          </div>
+          {boardManagerNotice && <div className={`board-manager-notice ${boardManagerNotice.type}`}><span>{boardManagerNotice.type === 'success' ? <IcoCheck s={12} /> : <IcoShield s={12} />}</span>{boardManagerNotice.text}</div>}
+
+          {boardManagerSection === 'compose' ? <div className="board-compose-layout">
+            <form className="board-form board-editor-form" onSubmit={addBoardPost} onMouseDown={e => { if (!e.target.closest('.publication-select')) setPublicationTypeOpen(false); }}>
+              <div className="board-form-intro"><span>01</span><div><strong>Contenido</strong><small>Completa la información que recibirá el usuario.</small></div></div>
               <label className="form-label">Tipo de publicación</label>
               <div className={`publication-select ${publicationTypeOpen ? 'open' : ''}`}>
                 <button className="publication-select-trigger" type="button" onClick={() => setPublicationTypeOpen(open => !open)} aria-haspopup="listbox" aria-expanded={publicationTypeOpen}>
-                  <span className={`publication-type-icon ${selectedBoardType.id}`}><SelectedTypeIcon s={17} /></span>
-                  <span><strong>{selectedBoardType.label}</strong><small>{selectedBoardType.detail}</small></span>
-                  <IcoChevron s={14} />
+                  <span className={`publication-type-icon ${selectedBoardType.id}`}><SelectedTypeIcon s={17} /></span><span><strong>{selectedBoardType.label}</strong><small>{selectedBoardType.detail}</small></span><IcoChevron s={14} />
                 </button>
-                {publicationTypeOpen && (
-                  <div className="publication-options" role="listbox" aria-label="Tipo de publicación">
-                    {BOARD_TYPES.map(type => {
-                      const TypeIcon = type.icon;
-                      const selected = newBoardPost.type === type.id;
-                      return (
-                        <button key={type.id} type="button" role="option" aria-selected={selected} className={selected ? 'selected' : ''}
-                          onClick={() => { setNewBoardPost(post => ({ ...post, type: type.id })); setPublicationTypeOpen(false); }}>
-                          <span className={`publication-type-icon ${type.id}`}><TypeIcon s={17} /></span>
-                          <span><strong>{type.label}</strong><small>{type.detail}</small></span>
-                          {selected && <IcoCheck s={13} />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                {publicationTypeOpen && <div className="publication-options" role="listbox" aria-label="Tipo de publicación">{BOARD_TYPES.map(type => {
+                  const TypeIcon = type.icon; const selected = newBoardPost.type === type.id;
+                  return <button key={type.id} type="button" role="option" aria-selected={selected} className={selected ? 'selected' : ''} onClick={() => { setNewBoardPost(postItem => ({ ...postItem, type: type.id })); setPublicationTypeOpen(false); }}><span className={`publication-type-icon ${type.id}`}><TypeIcon s={17} /></span><span><strong>{type.label}</strong><small>{type.detail}</small></span>{selected && <IcoCheck s={13} />}</button>;
+                })}</div>}
               </div>
-              {newBoardPost.type === 'banner' ? (
-                <div className="banner-form-note"><IcoGrid s={16} /><span><strong>Banner gráfico</strong>Se mostrará completo, sin título, texto ni filtros de color.</span></div>
-              ) : (
-                <>
-                  <label className="form-label">Título</label>
-                  <input className="field" value={newBoardPost.title} onChange={e => setNewBoardPost({ ...newBoardPost, title: e.target.value })} placeholder="Título de la publicación" required />
-                  <label className="form-label">Mensaje</label>
-                  <textarea className="field" value={newBoardPost.body} onChange={e => setNewBoardPost({ ...newBoardPost, body: e.target.value })} placeholder="Información para los colaboradores" required />
-                </>
-              )}
+              {newBoardPost.type === 'banner' ? <div className="banner-form-note"><IcoGrid s={16} /><span><strong>Banner gráfico</strong>Se mostrará completo, sin título, texto ni filtros de color.</span></div> : <>
+                <label className="form-label">Título</label><input className="field" value={newBoardPost.title} maxLength={90} onChange={e => setNewBoardPost({ ...newBoardPost, title: e.target.value })} placeholder="Título de la publicación" required />
+                <label className="form-label">Mensaje</label><textarea className="field" value={newBoardPost.body} maxLength={360} onChange={e => setNewBoardPost({ ...newBoardPost, body: e.target.value })} placeholder="Información para los colaboradores" required />
+              </>}
               <label className="form-label">{newBoardPost.type === 'banner' ? 'Imagen del banner (URL obligatoria)' : 'Imagen (URL opcional)'}</label>
               <input className="field" type="url" value={newBoardPost.imageUrl} onChange={e => setNewBoardPost({ ...newBoardPost, imageUrl: e.target.value })} placeholder="https://…" required={newBoardPost.type === 'banner'} />
               <label className="form-label">LINK URL <span className="optional-label">Opcional</span></label>
-              <div className="link-url-field">
-                <IcoChevron s={14} />
-                <input className="field mono" type="url" value={newBoardPost.linkUrl} onChange={e => setNewBoardPost({ ...newBoardPost, linkUrl: e.target.value })} placeholder="https://portal.multival.com/comunicado" />
-              </div>
-              <p className="field-help">Si agregas un enlace, toda la publicación será interactiva y abrirá la comunicación en una pestaña nueva.</p>
-              <button className="btn btn-primary" type="submit"><IcoPlus s={14} /> Publicar</button>
+              <div className="link-url-field"><IcoChevron s={14} /><input className="field mono" type="url" value={newBoardPost.linkUrl} onChange={e => setNewBoardPost({ ...newBoardPost, linkUrl: e.target.value })} placeholder="https://portal.multival.com/comunicado" /></div>
+              <p className="field-help">Toda la publicación será interactiva cuando tenga un enlace.</p>
+              <button className="btn btn-primary board-publish-button" type="submit" disabled={boardPendingAction === 'publish'}>{boardPendingAction === 'publish' ? <NexoActionLoader /> : <IcoPlus s={14} />} {boardPendingAction === 'publish' ? 'Publicando…' : 'Publicar ahora'}</button>
             </form>
-            <div className="board-admin-list">
-              <h3>Publicaciones activas</h3>
-              {boardPosts.map(post => (
-                <article key={post.id}>
-                  <span className={`board-type ${post.type}`}>{post.type}</span>
-                  <strong>{post.type === 'banner' ? 'Banner gráfico' : post.title}</strong>
-                  <p>{post.type === 'banner' ? 'La imagen se presenta completa en el escritorio.' : post.body}</p>
-                  {normalizeExternalUrl(post.linkUrl) && <a className="board-admin-link" href={normalizeExternalUrl(post.linkUrl)} target="_blank" rel="noopener noreferrer">Enlace configurado <IcoChevron s={10} /></a>}
-                  <button className="icon-btn danger" onClick={() => deleteBoardPost(post.id)} title="Retirar publicación"><IcoTrash s={15} /></button>
-                </article>
-              ))}
-            </div>
-          </div>
+            <section className="board-preview-workbench">
+              <div className="board-preview-heading"><div><span>02</span><div><strong>Vista previa</strong><small>Así se mostrará en el escritorio.</small></div></div><em><i /> En tiempo real</em></div>
+              <div className={`board-preview-canvas preview-${newBoardPost.type}`}>{renderBoardSlide(boardDraftPreview)}</div>
+              <div className="board-preview-foot"><IcoCheck s={12} /><span>Revisa imagen, jerarquía y legibilidad antes de publicar.</span></div>
+            </section>
+          </div> : <div className="board-active-layout">
+            <section className="board-order-panel">
+              <header><div><span>Orden del carrusel</span><h3>Publicaciones activas</h3></div><small>{boardPosts.length} en circulación</small></header>
+              <p className="board-order-help">Usa las flechas para definir la secuencia que verán los colaboradores.</p>
+              <div className="board-order-list">
+                {boardPosts.length === 0 ? <div className="board-manager-empty"><IcoGrid s={24} /><strong>No hay publicaciones activas</strong><span>Crea una nueva publicación para iniciar el carrusel.</span><button onClick={() => setBoardManagerSection('compose')}>Crear publicación</button></div> : boardPosts.map((postItem, index) => <article key={postItem.id} className={selectedActivePost?.id === postItem.id ? 'selected' : ''} onClick={() => setBoardPreviewId(postItem.id)}>
+                  <button className="board-order-main" onClick={() => setBoardPreviewId(postItem.id)}><span className="board-order-number">{String(index + 1).padStart(2,'0')}</span><div><span className={`board-type ${postItem.type}`}>{postItem.type}</span><strong>{postItem.type === 'banner' ? 'Banner gráfico' : postItem.title}</strong><small>{postItem.author} · {new Date(postItem.createdAt).toLocaleDateString('es-CO',{ day:'2-digit',month:'short' })}</small></div></button>
+                  <div className="board-order-actions">
+                    <button disabled={index === 0 || Boolean(boardPendingAction)} onClick={event => { event.stopPropagation(); moveBoardPost(postItem.id,-1); }} title="Subir en el carrusel"><IcoChevron s={12} /></button>
+                    <button disabled={index === boardPosts.length - 1 || Boolean(boardPendingAction)} onClick={event => { event.stopPropagation(); moveBoardPost(postItem.id,1); }} title="Bajar en el carrusel"><IcoChevron s={12} /></button>
+                    <button className="danger" disabled={Boolean(boardPendingAction)} onClick={event => { event.stopPropagation(); deleteBoardPost(postItem.id); }} title="Retirar publicación">{boardPendingAction === `delete-${postItem.id}` ? <NexoActionLoader s={13} /> : <IcoTrash s={13} />}</button>
+                  </div>
+                </article>)}
+              </div>
+            </section>
+            <section className="board-active-preview">
+              <div className="board-preview-heading"><div><span><IcoGrid s={14} /></span><div><strong>Publicación seleccionada</strong><small>Vista real del carrusel.</small></div></div>{selectedActivePost && <em><i /> Activa</em>}</div>
+              {selectedActivePost ? <><div className={`board-preview-canvas preview-${selectedActivePost.type}`}>{renderBoardSlide(selectedActivePost)}</div><div className="board-active-meta"><div><span>Posición</span><strong>{boardPosts.findIndex(postItem => postItem.id === selectedActivePost.id) + 1} de {boardPosts.length}</strong></div><div><span>Tipo</span><strong>{BOARD_TYPES.find(type => type.id === selectedActivePost.type)?.label || selectedActivePost.type}</strong></div><div><span>Enlace</span><strong>{normalizeExternalUrl(selectedActivePost.linkUrl) ? 'Configurado' : 'Sin enlace'}</strong></div></div>{normalizeExternalUrl(selectedActivePost.linkUrl) && <a className="board-preview-link" href={normalizeExternalUrl(selectedActivePost.linkUrl)} target="_blank" rel="noopener noreferrer">Probar enlace <IcoChevron s={11} /></a>}</> : <div className="board-manager-empty preview"><IcoGrid s={28} /><strong>Selecciona una publicación</strong><span>La vista previa aparecerá en este espacio.</span></div>}
+            </section>
+          </div>}
         </section>
       </div>
     );
@@ -3690,154 +4179,119 @@ export default function App() {
      ====================================================================== */
   const renderAppearancePanel = () => {
     if (!showAppearancePanel) return null;
+    const appearanceSections = [
+      { id: 'styles', label: 'Estilos', detail: 'Escenas completas', icon: IcoSparkles },
+      { id: 'color', label: 'Fondo y color', detail: 'Tema y atmósfera', icon: theme === 'dark' ? IcoMoon : IcoSun },
+      { id: 'interface', label: 'Interfaz', detail: 'Espacio y superficies', icon: IcoSliders },
+      { id: 'accessibility', label: 'Accesibilidad', detail: 'Lectura y movimiento', icon: IcoShield },
+    ];
+    const selectedWallpaper = WALLPAPER_OPTIONS.find(option => option.id === workspaceAppearance.wallpaper) || WALLPAPER_OPTIONS[0];
     return (
       <div className="modal-overlay appearance-overlay" onMouseDown={() => setShowAppearancePanel(false)}>
         <section className="appearance-modal" onMouseDown={e => e.stopPropagation()}>
-          <div className="modal-head">
+          <div className="modal-head appearance-modal-head">
             <div>
               <span className="login-kicker">Tu espacio de trabajo</span>
-              <h2>Personalizar escritorio</h2>
+              <h2>Centro de personalización</h2>
             </div>
+            <span className="appearance-save-state"><i /> Guardado en tu perfil</span>
             <button className="modal-close" onClick={() => setShowAppearancePanel(false)}><IcoX s={14} /></button>
           </div>
 
-          <div className="appearance-content">
-            <div className={`appearance-live-preview wallpaper-${workspaceAppearance.wallpaper}`}>
-              <div className="appearance-preview-bar" />
-              <div className="appearance-preview-grid"><i /><i /><i /></div>
-              <span>Vista previa en tiempo real</span>
+          <div className="appearance-shell">
+            <nav className="appearance-sidebar" aria-label="Secciones de personalización">
+              {appearanceSections.map(section => {
+                const SectionIcon = section.icon;
+                return <button key={section.id} className={appearanceSection === section.id ? 'active' : ''} onClick={() => setAppearanceSection(section.id)}>
+                  <span><SectionIcon s={16} /></span><div><strong>{section.label}</strong><small>{section.detail}</small></div><IcoChevron s={11} />
+                </button>;
+              })}
+            </nav>
+
+            <div className="appearance-editor">
+              {appearanceSection === 'styles' && <div className="appearance-pane">
+                <div className="appearance-pane-title"><span><IcoSparkles s={17} /></span><div><h3>Escenas inteligentes</h3><p>Configura todo el escritorio con una sola elección.</p></div></div>
+                <div className="appearance-scenes">
+                  {APPEARANCE_SCENES.map(scene => {
+                    const selected = theme === scene.theme && workspaceAppearance.wallpaper === scene.settings.wallpaper && workspaceAppearance.accent === scene.settings.accent;
+                    return <button key={scene.id} className={`appearance-scene scene-${scene.id} ${selected ? 'selected' : ''}`} onClick={() => { setTheme(scene.theme); setWorkspaceAppearance(current => ({ ...current, ...scene.settings })); }}>
+                      <span className="scene-visual"><i /><i /><i /></span>
+                      <span><strong>{scene.label}</strong><small>{scene.detail}</small></span>
+                      {selected ? <IcoCheck s={12} /> : <IcoChevron s={12} />}
+                    </button>;
+                  })}
+                </div>
+                <div className="appearance-tip"><IcoSparkles s={15} /><span><strong>Una base, infinitas combinaciones</strong>Puedes aplicar una escena y después ajustar cada detalle en las demás categorías.</span></div>
+              </div>}
+
+              {appearanceSection === 'color' && <div className="appearance-pane">
+                <div className="appearance-pane-title"><span><IcoSun s={17} /></span><div><h3>Fondo y color</h3><p>Define la atmósfera visual de tu Ágora.</p></div></div>
+                <section className="appearance-control-card">
+                  <div className="appearance-section-head"><strong>Tema del sistema</strong><span>La elección solo aplica después del login</span></div>
+                  <div className="appearance-theme-options">
+                    <button className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}><span className="theme-sample light"><i /><i /></span><strong>Claro</strong><small>Luz y limpieza</small><IcoCheck s={12} /></button>
+                    <button className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}><span className="theme-sample dark"><i /><i /></span><strong>Oscuro</strong><small>Grafito inmersivo</small><IcoCheck s={12} /></button>
+                  </div>
+                </section>
+                <section className="appearance-control-card">
+                  <div className="appearance-section-head"><strong>Fondo</strong><span>{selectedWallpaper.detail}</span></div>
+                  <div className="wallpaper-options">
+                    {WALLPAPER_OPTIONS.map(option => <button key={option.id} className={`wallpaper-option ${workspaceAppearance.wallpaper === option.id ? 'selected' : ''}`} onClick={() => setWorkspaceAppearance(current => ({ ...current, wallpaper: option.id }))}>
+                      <span className={`wallpaper-thumb wallpaper-${option.id}`} /><strong>{option.label}</strong><small>{option.detail}</small>
+                    </button>)}
+                  </div>
+                </section>
+                <section className="appearance-control-card">
+                  <div className="appearance-section-head"><strong>Color de acento</strong><span>Acciones y elementos activos</span></div>
+                  <div className="accent-options labeled">
+                    {ACCENT_COLORS.map(color => <button key={color.id} title={color.label} aria-label={color.label} className={workspaceAppearance.accent === color.id ? 'selected' : ''} style={{ '--accent-choice': color.hex }} onClick={() => setWorkspaceAppearance(current => ({ ...current, accent: color.id }))}><i /><span>{color.label}</span></button>)}
+                  </div>
+                </section>
+              </div>}
+
+              {appearanceSection === 'interface' && <div className="appearance-pane">
+                <div className="appearance-pane-title"><span><IcoSliders s={17} /></span><div><h3>Interfaz</h3><p>Ajusta el espacio, la profundidad y los controles.</p></div></div>
+                <div className="appearance-control-grid">
+                  <section className="appearance-control-card"><div className="appearance-section-head"><strong>Densidad</strong><span>Contenido visible</span></div><div className="segmented-control three">{[['compact','Compacta'],['balanced','Equilibrada'],['comfortable','Amplia']].map(([id,label]) => <button key={id} className={workspaceAppearance.density === id ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, density: id }))}>{label}</button>)}</div></section>
+                  <section className="appearance-control-card"><div className="appearance-section-head"><strong>Forma</strong><span>Tarjetas y ventanas</span></div><div className="segmented-control three">{[['precise','Precisa'],['soft','Suave'],['rounded','Redonda']].map(([id,label]) => <button key={id} className={workspaceAppearance.shape === id ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, shape: id }))}>{label}</button>)}</div></section>
+                  <section className="appearance-control-card"><div className="appearance-section-head"><strong>Profundidad</strong><span>Elevación de superficies</span></div><div className="segmented-control three">{[['subtle','Sutil'],['balanced','Media'],['strong','Alta']].map(([id,label]) => <button key={id} className={workspaceAppearance.elevation === id ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, elevation: id }))}>{label}</button>)}</div></section>
+                  <section className="appearance-control-card"><div className="appearance-section-head"><strong>Transparencia</strong><span>Efecto de cristal</span></div><div className="segmented-control"><button className={workspaceAppearance.transparency === 'glass' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, transparency: 'glass' }))}>Cristal</button><button className={workspaceAppearance.transparency === 'solid' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, transparency: 'solid' }))}>Sólido</button></div></section>
+                  <section className="appearance-control-card"><div className="appearance-section-head"><strong>Barra superior</strong><span>Estilo del menú</span></div><div className="segmented-control"><button className={workspaceAppearance.menuStyle === 'glass' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, menuStyle: 'glass' }))}>Cristal</button><button className={workspaceAppearance.menuStyle === 'solid' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, menuStyle: 'solid' }))}>Sólida</button></div></section>
+                  <section className="appearance-control-card"><div className="appearance-section-head"><strong>Tamaño del dock</strong><span>Presencia de accesos</span></div><div className="segmented-control three">{[['compact','Pequeño'],['normal','Medio'],['large','Grande']].map(([id,label]) => <button key={id} className={workspaceAppearance.dockScale === id ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, dockScale: id }))}>{label}</button>)}</div></section>
+                </div>
+              </div>}
+
+              {appearanceSection === 'accessibility' && <div className="appearance-pane">
+                <div className="appearance-pane-title"><span><IcoShield s={17} /></span><div><h3>Accesibilidad y tiempo</h3><p>Prioriza legibilidad, calma visual y lectura rápida.</p></div></div>
+                <div className="appearance-control-grid">
+                  <section className="appearance-control-card"><div className="appearance-section-head"><strong>Contraste</strong><span>Separación visual</span></div><div className="segmented-control three">{[['soft','Suave'],['balanced','Medio'],['high','Alto']].map(([id,label]) => <button key={id} className={workspaceAppearance.contrast === id ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, contrast: id }))}>{label}</button>)}</div></section>
+                  <section className="appearance-control-card"><div className="appearance-section-head"><strong>Movimiento</strong><span>Animaciones del sistema</span></div><div className="segmented-control"><button className={workspaceAppearance.motion !== 'reduced' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, motion: 'full' }))}>Dinámico</button><button className={workspaceAppearance.motion === 'reduced' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, motion: 'reduced' }))}>Sereno</button></div></section>
+                  <section className="appearance-control-card"><div className="appearance-section-head"><strong>Tamaño de texto</strong><span>Escala de lectura</span></div><div className="segmented-control three">{[['standard','Normal'],['large','Grande'],['extra','Extra']].map(([id,label]) => <button key={id} className={workspaceAppearance.textScale === id ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, textScale: id }))}>{label}</button>)}</div></section>
+                  <section className="appearance-control-card"><div className="appearance-section-head"><strong>Controles táctiles</strong><span>Área cómoda de interacción</span></div><div className="segmented-control"><button className={workspaceAppearance.touchTargets !== 'large' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, touchTargets: 'standard' }))}>Estándar</button><button className={workspaceAppearance.touchTargets === 'large' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, touchTargets: 'large' }))}>Amplios</button></div></section>
+                  <section className="appearance-control-card"><div className="appearance-section-head"><strong>Lectura cómoda</strong><span>Espaciado y longitud de línea</span></div><div className="segmented-control"><button className={workspaceAppearance.readability !== 'comfortable' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, readability: 'standard' }))}>Estándar</button><button className={workspaceAppearance.readability === 'comfortable' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, readability: 'comfortable' }))}>Cómoda</button></div></section>
+                </div>
+                <section className="appearance-control-card clock-style-section">
+                  <div className="appearance-section-head"><strong>Estilo del reloj</strong><span>Elige una lectura propia</span></div>
+                  <div className="clock-style-options">{[['minimal','Minimal','09:41'],['rounded','Redondo','09:41'],['mono','Digital','09:41'],['outline','Contorno','09:41']].map(([id,label,sample]) => <button key={id} className={`${id} ${workspaceAppearance.clockStyle === id ? 'selected' : ''}`} onClick={() => setWorkspaceAppearance(current => ({ ...current, clockStyle: id }))}><strong>{sample}</strong><span>{label}</span></button>)}</div>
+                  <div className="clock-format-row"><div><strong>Formato horario</strong><span>Reloj de 12 o 24 horas</span></div><div className="segmented-control"><button className={workspaceAppearance.clockFormat === '12' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, clockFormat: '12' }))}>12 horas</button><button className={workspaceAppearance.clockFormat !== '12' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, clockFormat: '24' }))}>24 horas</button></div></div>
+                </section>
+              </div>}
             </div>
 
-            <div className="appearance-section appearance-scenes-section">
-              <div className="appearance-section-head"><strong>Escenas inteligentes</strong><span>Transforma todo el espacio con una sola decisión</span></div>
-              <div className="appearance-scenes">
-                {APPEARANCE_SCENES.map(scene => (
-                  <button key={scene.id} className={`appearance-scene scene-${scene.id}`} onClick={() => { setTheme(scene.theme); setWorkspaceAppearance(current => ({ ...current, ...scene.settings })); }}>
-                    <span className="scene-visual"><i /><i /><i /></span>
-                    <span><strong>{scene.label}</strong><small>{scene.detail}</small></span>
-                    <IcoChevron s={13} />
-                  </button>
-                ))}
+            <aside className="appearance-preview-panel">
+              <div className="appearance-preview-label"><span>Vista previa</span><i>En vivo</i></div>
+              <div className={`appearance-device-preview wallpaper-${workspaceAppearance.wallpaper} ${theme === 'dark' ? 'dark' : ''}`} style={{ '--preview-accent': (ACCENT_COLORS.find(color => color.id === workspaceAppearance.accent) || ACCENT_COLORS[0]).hex }}>
+                <div className="appearance-device-bar"><i /><span /><span /></div>
+                <div className="appearance-device-body"><article className="wide"><span /><strong /></article><article><span /><strong /></article><article><span /><strong /></article></div>
+                <div className="appearance-device-dock"><i /><i /><i /><i /></div>
               </div>
-            </div>
-
-            <div className="appearance-section">
-              <div className="appearance-section-head"><strong>Fondo</strong><span>Elige la atmósfera del escritorio</span></div>
-              <div className="wallpaper-options">
-                {WALLPAPER_OPTIONS.map(option => (
-                  <button key={option.id} className={`wallpaper-option ${workspaceAppearance.wallpaper === option.id ? 'selected' : ''}`}
-                    onClick={() => setWorkspaceAppearance(current => ({ ...current, wallpaper: option.id }))}>
-                    <span className={`wallpaper-thumb wallpaper-${option.id}`} />
-                    <strong>{option.label}</strong><small>{option.detail}</small>
-                  </button>
-                ))}
+              <div className="appearance-preview-summary">
+                <div><span>Tema</span><strong>{theme === 'dark' ? 'Oscuro' : 'Claro'}</strong></div>
+                <div><span>Fondo</span><strong>{selectedWallpaper.label}</strong></div>
+                <div><span>Interfaz</span><strong>{workspaceAppearance.transparency === 'glass' ? 'Cristal' : 'Sólida'}</strong></div>
               </div>
-            </div>
-
-            <div className="appearance-columns">
-              <div className="appearance-section compact">
-                <div className="appearance-section-head"><strong>Color de acento</strong><span>Botones y elementos activos</span></div>
-                <div className="accent-options">
-                  {ACCENT_COLORS.map(color => (
-                    <button key={color.id} title={color.label} aria-label={color.label}
-                      className={workspaceAppearance.accent === color.id ? 'selected' : ''}
-                      style={{ '--accent-choice': color.hex }}
-                      onClick={() => setWorkspaceAppearance(current => ({ ...current, accent: color.id }))} />
-                  ))}
-                </div>
-              </div>
-              <div className="appearance-section compact">
-                <div className="appearance-section-head"><strong>Tema</strong><span>Claridad general</span></div>
-                <div className="segmented-control">
-                  <button className={theme === 'light' ? 'active' : ''} onClick={() => setTheme('light')}><IcoSun s={14} /> Claro</button>
-                  <button className={theme === 'dark' ? 'active' : ''} onClick={() => setTheme('dark')}><IcoMoon s={14} /> Oscuro</button>
-                </div>
-              </div>
-            </div>
-
-            <div className="appearance-columns">
-              <div className="appearance-section compact">
-                <div className="appearance-section-head"><strong>Densidad del espacio</strong><span>Controla cuánto contenido ves</span></div>
-                <div className="segmented-control three">
-                  {[['compact', 'Compacta'], ['balanced', 'Equilibrada'], ['comfortable', 'Amplia']].map(([id, label]) => (
-                    <button key={id} className={workspaceAppearance.density === id ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, density: id }))}>{label}</button>
-                  ))}
-                </div>
-              </div>
-              <div className="appearance-section compact">
-                <div className="appearance-section-head"><strong>Forma de superficies</strong><span>Personalidad de tarjetas y ventanas</span></div>
-                <div className="segmented-control three">
-                  {[['precise', 'Precisa'], ['soft', 'Suave'], ['rounded', 'Redonda']].map(([id, label]) => (
-                    <button key={id} className={workspaceAppearance.shape === id ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, shape: id }))}>{label}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="appearance-columns">
-              <div className="appearance-section compact">
-                <div className="appearance-section-head"><strong>Movimiento</strong><span>Animaciones del sistema</span></div>
-                <div className="segmented-control">
-                  <button className={workspaceAppearance.motion !== 'reduced' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, motion: 'full' }))}>Dinámico</button>
-                  <button className={workspaceAppearance.motion === 'reduced' ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, motion: 'reduced' }))}>Sereno</button>
-                </div>
-              </div>
-              <div className="appearance-section compact">
-                <div className="appearance-section-head"><strong>Escala del dock</strong><span>Presencia de los accesos</span></div>
-                <div className="segmented-control three">
-                  {[['compact', 'Pequeño'], ['normal', 'Medio'], ['large', 'Grande']].map(([id, label]) => (
-                    <button key={id} className={workspaceAppearance.dockScale === id ? 'active' : ''} onClick={() => setWorkspaceAppearance(current => ({ ...current, dockScale: id }))}>{label}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="appearance-columns">
-              <div className="appearance-section compact">
-                <div className="appearance-section-head"><strong>Contraste</strong><span>Legibilidad de superficies</span></div>
-                <div className="segmented-control three">
-                  {[['soft', 'Suave'], ['balanced', 'Medio'], ['high', 'Alto']].map(([id, label]) => (
-                    <button key={id} className={workspaceAppearance.contrast === id ? 'active' : ''}
-                      onClick={() => setWorkspaceAppearance(current => ({ ...current, contrast: id }))}>{label}</button>
-                  ))}
-                </div>
-              </div>
-              <div className="appearance-section compact">
-                <div className="appearance-section-head"><strong>Transparencia</strong><span>Profundidad del cristal</span></div>
-                <div className="segmented-control">
-                  <button className={workspaceAppearance.transparency === 'glass' ? 'active' : ''}
-                    onClick={() => setWorkspaceAppearance(current => ({ ...current, transparency: 'glass' }))}>Cristal</button>
-                  <button className={workspaceAppearance.transparency === 'solid' ? 'active' : ''}
-                    onClick={() => setWorkspaceAppearance(current => ({ ...current, transparency: 'solid' }))}>Sólido</button>
-                </div>
-              </div>
-            </div>
-
-            <div className="appearance-section clock-style-section">
-              <div className="appearance-section-head"><strong>Estilo del reloj</strong><span>Personalízalo como en la pantalla del iPhone</span></div>
-              <div className="clock-style-options">
-                {[
-                  ['minimal', 'Minimal', '09:41'],
-                  ['rounded', 'Redondo', '09:41'],
-                  ['mono', 'Digital', '09:41'],
-                  ['outline', 'Contorno', '09:41'],
-                ].map(([id, label, sample]) => (
-                  <button key={id} className={`${id} ${workspaceAppearance.clockStyle === id ? 'selected' : ''}`}
-                    onClick={() => setWorkspaceAppearance(current => ({ ...current, clockStyle: id }))}>
-                    <strong>{sample}</strong><span>{label}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="clock-format-row">
-                <div><strong>Formato horario</strong><span>Elige entre reloj de 12 o 24 horas</span></div>
-                <div className="segmented-control">
-                  <button className={workspaceAppearance.clockFormat === '12' ? 'active' : ''}
-                    onClick={() => setWorkspaceAppearance(current => ({ ...current, clockFormat: '12' }))}>12 horas</button>
-                  <button className={workspaceAppearance.clockFormat !== '12' ? 'active' : ''}
-                    onClick={() => setWorkspaceAppearance(current => ({ ...current, clockFormat: '24' }))}>24 horas</button>
-                </div>
-              </div>
-            </div>
+              <p><IcoCheck s={12} /> Los cambios se aplican y guardan automáticamente.</p>
+            </aside>
           </div>
 
           <div className="appearance-footer">
@@ -4273,7 +4727,7 @@ export default function App() {
           <h2 className="panel-title">Catálogo de aplicativos</h2>
           <p className="panel-sub">{appsList.length} sistemas registrados · {activeAppsList.length} habilitados</p>
         </div>
-        <button className="btn btn-primary catalog-deploy-button" onClick={() => { setAppCatalogError(''); setShowAppDeployModal(true); }}><IcoRocket s={16} /> Desplegar aplicativo</button>
+        <button className="btn btn-primary catalog-deploy-button" onClick={() => { setAppCatalogError(''); setGuidedSteps(current => ({ ...current, app: 0 })); setShowAppDeployModal(true); }}><IcoRocket s={16} /> Desplegar aplicativo</button>
       </div>
       {appCatalogError && <div className="catalog-alert"><IcoShield s={16} /><span>{appCatalogError}</span><button onClick={() => setAppCatalogError('')}><IcoX s={11} /></button></div>}
       <div style={{ overflowX: 'auto' }}>
@@ -4337,16 +4791,20 @@ export default function App() {
 
   const renderAppDeployModal = () => {
     if (!showAppDeployModal) return null;
+    const step = guidedSteps.app;
+    const close = () => { if (!isAddingApp) { setShowAppDeployModal(false); setGuidedSteps(current => ({ ...current, app: 0 })); } };
+    const canContinue = step !== 0 || Boolean(newApp.nombre.trim() && newApp.grupo.trim() && newApp.url.trim() && newApp.desc.trim());
     return (
-      <div className="modal-overlay app-deploy-overlay" onMouseDown={() => !isAddingApp && setShowAppDeployModal(false)}>
+      <div className="modal-overlay app-deploy-overlay" onMouseDown={close}>
         <section className="app-deploy-modal" onMouseDown={e => e.stopPropagation()}>
           <div className="modal-head app-deploy-head">
-            <div><span className="login-kicker">Catálogo unificado</span><h2>Desplegar aplicativo</h2><p>Completa la ficha para publicarlo en el ecosistema.</p></div>
-            <button className="modal-close" onClick={() => setShowAppDeployModal(false)} disabled={isAddingApp}><IcoX s={14} /></button>
+            <div><span className="login-kicker">Formulario guiado · Paso {step + 1} de 3</span><h2>Desplegar aplicativo</h2><p>{step === 0 ? 'Identifica el producto y su propósito.' : step === 1 ? 'Define su gobierno y ciclo de vida.' : 'Revisa la ficha antes de publicarla.'}</p></div>
+            <button className="modal-close" onClick={close} disabled={isAddingApp}><IcoX s={14} /></button>
           </div>
-          <form onSubmit={handleAddApp} className="app-deploy-form">
+          <GuidedProgress steps={['Identidad', 'Gobierno', 'Confirmación']} current={step} onSelect={index => index < step && setGuidedSteps(current => ({ ...current, app: index }))} />
+          <form onSubmit={event => { if (step < 2) { event.preventDefault(); setGuidedSteps(current => ({ ...current, app: Math.min(2, current.app + 1) })); } else handleAddApp(event); }} className="app-deploy-form guided-form">
             {appCatalogError && <div className="catalog-alert form-alert"><IcoShield s={16} /><span>{appCatalogError}</span></div>}
-            <div>
+            {step === 0 && <div className="guided-form-stage app-identity-stage"><div>
               <label className="form-label">Nombre oficial</label>
               <input className="field" required value={newApp.nombre} onChange={e => setNewApp({ ...newApp, nombre: e.target.value })} placeholder="Ej. Gestión de viáticos" />
             </div>
@@ -4365,8 +4823,8 @@ export default function App() {
             <div className="app-deploy-description">
               <label className="form-label">Descripción</label>
               <textarea className="field" required value={newApp.desc} onChange={e => setNewApp({ ...newApp, desc: e.target.value })} placeholder="Explica su propósito en una frase clara." />
-            </div>
-            <div className="app-deploy-governance-title"><span><IcoShield s={14} /> Gobierno y ciclo de vida</span><small>Información para administrar el aplicativo como un producto empresarial.</small></div>
+            </div></div>}
+            {step === 1 && <div className="guided-form-stage app-governance-stage"><div className="app-deploy-governance-title"><span><IcoShield s={14} /> Gobierno y ciclo de vida</span><small>Información para administrar el aplicativo como un producto empresarial.</small></div>
             <div><label className="form-label">Propietario funcional</label><input className="field" value={newApp.propietario} onChange={e => setNewApp({ ...newApp, propietario: e.target.value })} placeholder="Ej. Gestión Humana" /></div>
             <div><label className="form-label">Responsable técnico</label><input className="field" value={newApp.responsableTecnico} onChange={e => setNewApp({ ...newApp, responsableTecnico: e.target.value })} placeholder="Ej. Tecnología / proveedor" /></div>
             <div><label className="form-label">Empresa</label><input className="field" value={newApp.empresa} onChange={e => setNewApp({ ...newApp, empresa: e.target.value })} placeholder="Multival" /></div>
@@ -4375,14 +4833,17 @@ export default function App() {
             <div><label className="form-label">Etapa</label><select className="field" value={newApp.etapa} onChange={e => setNewApp({ ...newApp, etapa: e.target.value })}><option>Idea</option><option>Desarrollo</option><option>Piloto</option><option>Producción</option><option>Mantenimiento</option></select></div>
             <div><label className="form-label">SLA objetivo</label><input className="field" type="number" min="0" value={newApp.slaHoras} onChange={e => setNewApp({ ...newApp, slaHoras: e.target.value })} placeholder="Horas" /></div>
             <div><label className="form-label">Fecha de lanzamiento</label><input className="field" type="date" value={newApp.fechaLanzamiento} onChange={e => setNewApp({ ...newApp, fechaLanzamiento: e.target.value })} /></div>
-            <div className="app-deploy-description"><label className="form-label">Dependencias</label><input className="field" value={newApp.dependencias} onChange={e => setNewApp({ ...newApp, dependencias: e.target.value })} placeholder="Directorio, autenticación, otros aplicativos…" /></div>
+            <div className="app-deploy-description"><label className="form-label">Dependencias</label><input className="field" value={newApp.dependencias} onChange={e => setNewApp({ ...newApp, dependencias: e.target.value })} placeholder="Directorio, autenticación, otros aplicativos…" /></div></div>}
+            {step === 2 && <div className="guided-form-stage guided-review-stage">
+              <div className="guided-review-hero"><AppIcon app={newApp} size={54} /><div><span>{newApp.grupo}</span><h3>{newApp.nombre}</h3><p>{newApp.desc}</p></div></div>
+              <div className="guided-review-grid"><article><small>Propietario</small><strong>{newApp.propietario || 'Por definir'}</strong></article><article><small>Responsable técnico</small><strong>{newApp.responsableTecnico || 'Por definir'}</strong></article><article><small>Ciclo de vida</small><strong>{newApp.etapa} · v{newApp.version}</strong></article><article><small>Criticidad / SLA</small><strong>{newApp.criticidad} · {newApp.slaHoras || 0} h</strong></article><article><small>Lanzamiento</small><strong>{newApp.fechaLanzamiento || 'Sin fecha'}</strong></article><article><small>Empresa</small><strong>{newApp.empresa || 'Multival'}</strong></article></div>
             <label className="app-initial-status">
               <span><strong>Publicar inmediatamente</strong><small>Si la desactivas, quedará guardada en el catálogo sin aparecer a los usuarios.</small></span>
               <input type="checkbox" checked={newApp.estado !== 'Inactivo'} onChange={e => setNewApp({ ...newApp, estado: e.target.checked ? 'Activo' : 'Inactivo' })} />
-            </label>
+            </label></div>}
             <div className="app-deploy-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowAppDeployModal(false)} disabled={isAddingApp}>Cancelar</button>
-              <button type="submit" className="btn btn-primary" disabled={isAddingApp || !newApp.grupo.trim()}>{isAddingApp ? <NexoActionLoader /> : <IcoRocket s={15} />} {isAddingApp ? 'Desplegando…' : 'Guardar y desplegar'}</button>
+              <button type="button" className="btn btn-secondary" onClick={() => step ? setGuidedSteps(current => ({ ...current, app: current.app - 1 })) : close()} disabled={isAddingApp}>{step ? 'Atrás' : 'Cancelar'}</button>
+              <button type="submit" className="btn btn-primary" disabled={isAddingApp || !canContinue}>{isAddingApp ? <NexoActionLoader /> : step === 2 ? <IcoRocket s={15} /> : <IcoChevron s={15} />} {isAddingApp ? 'Desplegando…' : step === 2 ? 'Guardar y desplegar' : 'Continuar'}</button>
             </div>
           </form>
         </section>
@@ -4401,7 +4862,7 @@ export default function App() {
             <button className="modal-close" onClick={() => setShowNotificationCenter(false)}><IcoX s={13} /></button>
           </header>
           <div className="notification-toolbar">
-            {isAdmin && <button className="notification-compose-trigger" onClick={() => { setShowNotificationCenter(false); setShowNotificationComposer(true); }}><IcoPlus s={13} /> Nueva notificación</button>}
+            {isAdmin && <button className="notification-compose-trigger" onClick={() => { setShowNotificationCenter(false); setGuidedSteps(current => ({ ...current, notification: 0 })); setShowNotificationComposer(true); }}><IcoPlus s={13} /> Nueva notificación</button>}
             {unread > 0 && <button onClick={() => {
               const pending = notifications.filter(item => !item.read);
               setNotifications(items => items.map(item => ({ ...item, read: true, readAt: Date.now() })));
@@ -4426,21 +4887,31 @@ export default function App() {
 
   const renderNotificationComposer = () => {
     if (!showNotificationComposer) return null;
-    return <div className="modal-overlay notification-compose-overlay" onMouseDown={() => setShowNotificationComposer(false)}>
+    const step = guidedSteps.notification;
+    const close = () => { setShowNotificationComposer(false); setGuidedSteps(current => ({ ...current, notification: 0 })); };
+    const canContinue = step === 0
+      ? Boolean(notificationDraft.title.trim() && notificationDraft.message.trim())
+      : step === 1
+        ? Boolean((notificationDraft.audienceType === 'Todos' || notificationDraft.audienceValue.trim()) && (notificationDraft.linkType !== 'external' || notificationDraft.link.trim()))
+        : true;
+    return <div className="modal-overlay notification-compose-overlay" onMouseDown={close}>
       <section className="notification-compose-modal" onMouseDown={e => e.stopPropagation()}>
-        <div className="modal-head"><div><span className="login-kicker">Comunicación dirigida</span><h2>Nueva notificación</h2><p>Publica una novedad accionable en el escritorio de tus usuarios.</p></div><button className="modal-close" onClick={() => setShowNotificationComposer(false)}><IcoX s={13} /></button></div>
-        <form onSubmit={saveNotificationDraft} className="notification-compose-form">
-          <label className="wide"><span>Título</span><input className="field" required maxLength={90} value={notificationDraft.title} onChange={e => setNotificationDraft(current => ({ ...current, title: e.target.value }))} placeholder="Ej. Mantenimiento programado" /></label>
+        <div className="modal-head"><div><span className="login-kicker">Formulario guiado · Paso {step + 1} de 3</span><h2>Nueva notificación</h2><p>{step === 0 ? 'Construye un mensaje claro y accionable.' : step === 1 ? 'Define quién debe recibirlo y qué puede hacer.' : 'Confirma la comunicación antes de publicarla.'}</p></div><button className="modal-close" onClick={close}><IcoX s={13} /></button></div>
+        <GuidedProgress steps={['Mensaje', 'Audiencia', 'Confirmación']} current={step} onSelect={index => index < step && setGuidedSteps(current => ({ ...current, notification: index }))} />
+        <form onSubmit={event => { if (step < 2) { event.preventDefault(); setGuidedSteps(current => ({ ...current, notification: Math.min(2, current.notification + 1) })); } else saveNotificationDraft(event); }} className="notification-compose-form guided-form">
+          {step === 0 && <div className="guided-form-stage notification-message-stage"><label className="wide"><span>Título</span><input className="field" required maxLength={90} value={notificationDraft.title} onChange={e => setNotificationDraft(current => ({ ...current, title: e.target.value }))} placeholder="Ej. Mantenimiento programado" /></label>
           <label className="wide"><span>Mensaje</span><textarea className="field" required maxLength={280} value={notificationDraft.message} onChange={e => setNotificationDraft(current => ({ ...current, message: e.target.value }))} placeholder="Explica qué debe saber o hacer el usuario." /></label>
           <label><span>Tipo</span><select className="field" value={notificationDraft.type} onChange={e => setNotificationDraft(current => ({ ...current, type: e.target.value }))}><option value="informativa">Informativa</option><option value="tarea">Tarea</option><option value="mantenimiento">Mantenimiento</option><option value="incidente">Incidente</option><option value="actualizacion">Actualización</option></select></label>
-          <label><span>Prioridad</span><select className="field" value={notificationDraft.priority} onChange={e => setNotificationDraft(current => ({ ...current, priority: e.target.value }))}><option>Media</option><option>Alta</option><option>Crítica</option><option>Baja</option></select></label>
+          <label><span>Prioridad</span><select className="field" value={notificationDraft.priority} onChange={e => setNotificationDraft(current => ({ ...current, priority: e.target.value }))}><option>Media</option><option>Alta</option><option>Crítica</option><option>Baja</option></select></label></div>}
+          {step === 1 && <div className="guided-form-stage notification-audience-stage">
           <label><span>Audiencia</span><select className="field" value={notificationDraft.audienceType} onChange={e => setNotificationDraft(current => ({ ...current, audienceType: e.target.value, audienceValue: '' }))}><option>Todos</option><option>Rol</option><option>Equipo</option><option>Usuario</option></select></label>
-          {notificationDraft.audienceType !== 'Todos' && <label><span>{notificationDraft.audienceType === 'Usuario' ? 'ID de red' : notificationDraft.audienceType === 'Rol' ? 'Nombre del rol' : 'ID del equipo'}</span><input className="field" required value={notificationDraft.audienceValue} onChange={e => setNotificationDraft(current => ({ ...current, audienceValue: e.target.value }))} placeholder="Puedes separar varios con coma" /></label>}
+          {notificationDraft.audienceType === 'Rol' ? <label><span>Rol</span><select className="field" value={notificationDraft.audienceValue} onChange={e => setNotificationDraft(current => ({ ...current, audienceValue: e.target.value }))}><option value="">Selecciona un rol</option><option>Administrador</option><option>Colaborador</option></select></label> : notificationDraft.audienceType !== 'Todos' && <label><span>{notificationDraft.audienceType === 'Usuario' ? 'ID de red' : 'ID del equipo'}</span><input className="field" required value={notificationDraft.audienceValue} onChange={e => setNotificationDraft(current => ({ ...current, audienceValue: e.target.value }))} placeholder="Puedes separar varios con coma" /></label>}
           <label><span>Destino</span><select className="field" value={notificationDraft.linkType} onChange={e => setNotificationDraft(current => ({ ...current, linkType: e.target.value, link: e.target.value === 'external' ? '' : e.target.value }))}><option value="">Sin acción</option><option value="agora://teams">Equipos</option><option value="agora://control">Centro de control</option><option value="agora://catalog">Catálogo</option><option value="external">URL externa</option></select></label>
           {notificationDraft.linkType === 'external' && <label><span>URL externa</span><input className="field" type="url" required value={notificationDraft.link} onChange={e => setNotificationDraft(current => ({ ...current, link: e.target.value }))} placeholder="https://..." /></label>}
           <label><span>Aplicativo relacionado</span><select className="field" value={notificationDraft.appId} onChange={e => setNotificationDraft(current => ({ ...current, appId: e.target.value }))}><option value="">Ninguno</option>{appsList.map(app => <option key={app.id} value={app.id}>{app.nombre}</option>)}</select></label>
-          <label><span>Expira <small>Opcional</small></span><input className="field" type="datetime-local" value={notificationDraft.expiresAt} onChange={e => setNotificationDraft(current => ({ ...current, expiresAt: e.target.value }))} /></label>
-          <div className="notification-compose-actions"><button type="button" className="btn btn-secondary" disabled={notificationsLoading} onClick={() => setShowNotificationComposer(false)}>Cancelar</button><button className="btn btn-primary" disabled={notificationsLoading}>{notificationsLoading ? <NexoActionLoader /> : <IcoBell s={15} />} {notificationsLoading ? 'Publicando…' : 'Publicar notificación'}</button></div>
+          <label><span>Expira <small>Opcional</small></span><input className="field" type="datetime-local" value={notificationDraft.expiresAt} onChange={e => setNotificationDraft(current => ({ ...current, expiresAt: e.target.value }))} /></label></div>}
+          {step === 2 && <div className="guided-form-stage guided-review-stage"><div className="guided-review-callout"><span><IcoBell s={20} /></span><div><small>{notificationDraft.type} · Prioridad {notificationDraft.priority}</small><h3>{notificationDraft.title}</h3><p>{notificationDraft.message}</p></div></div><div className="guided-review-grid"><article><small>Audiencia</small><strong>{notificationDraft.audienceType}{notificationDraft.audienceValue ? ` · ${notificationDraft.audienceValue}` : ''}</strong></article><article><small>Destino</small><strong>{notificationDraft.linkType || 'Sin acción'}</strong></article><article><small>Aplicativo</small><strong>{appsList.find(app => String(app.id) === String(notificationDraft.appId))?.nombre || 'Ninguno'}</strong></article><article><small>Vigencia</small><strong>{notificationDraft.expiresAt ? new Date(notificationDraft.expiresAt).toLocaleString('es-CO') : 'Sin expiración'}</strong></article></div></div>}
+          <div className="notification-compose-actions"><button type="button" className="btn btn-secondary" disabled={notificationsLoading} onClick={() => step ? setGuidedSteps(current => ({ ...current, notification: current.notification - 1 })) : close()}>{step ? 'Atrás' : 'Cancelar'}</button><button className="btn btn-primary" disabled={notificationsLoading || !canContinue}>{notificationsLoading ? <NexoActionLoader /> : step === 2 ? <IcoBell s={15} /> : <IcoChevron s={15} />} {notificationsLoading ? 'Publicando…' : step === 2 ? 'Publicar notificación' : 'Continuar'}</button></div>
         </form>
       </section>
     </div>;
@@ -4462,7 +4933,7 @@ export default function App() {
           <p>Disponibilidad, incidentes, mantenimientos y responsables del ecosistema.</p>
           <div className="control-hero-meta"><span><IcoCheck s={13} /> Monitoreo centralizado</span><span><IcoClock s={13} /> Actualizado {currentTime.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })}</span></div>
         </div>
-        <div className="control-hero-actions"><button className="btn btn-secondary" onClick={() => fetchEcosystemControl()} disabled={ecosystemLoading}>{ecosystemLoading ? <NexoActionLoader /> : <IcoRefresh s={15} />} {ecosystemLoading ? 'Sincronizando…' : 'Actualizar'}</button>{isAdmin && <><button className="btn btn-secondary control-check-button" onClick={runServiceChecks} disabled={ecosystemLoading}><IcoPulse s={15} /> Verificar servicios</button><button className="btn btn-secondary" onClick={() => { setIncidentDraft(current => ({ ...current, appId: current.appId || appsList[0]?.id || '' })); setShowIncidentEditor(true); }}><IcoShield s={15} /> Registrar incidente</button><button className="btn btn-primary" onClick={() => { setMaintenanceDraft(current => ({ ...current, appId: current.appId || appsList[0]?.id || '' })); setShowMaintenanceEditor(true); }}><IcoCal s={15} /> Programar mantenimiento</button></>}</div>
+        <div className="control-hero-actions"><button className="btn btn-secondary" onClick={() => fetchEcosystemControl()} disabled={ecosystemLoading}>{ecosystemLoading ? <NexoActionLoader /> : <IcoRefresh s={15} />} {ecosystemLoading ? 'Sincronizando…' : 'Actualizar'}</button>{isAdmin && <><button className="btn btn-secondary control-check-button" onClick={runServiceChecks} disabled={ecosystemLoading}><IcoPulse s={15} /> Verificar servicios</button><button className="btn btn-secondary" onClick={() => { setIncidentDraft(current => ({ ...current, appId: current.appId || appsList[0]?.id || '' })); setGuidedSteps(current => ({ ...current, incident: 0 })); setShowIncidentEditor(true); }}><IcoShield s={15} /> Registrar incidente</button><button className="btn btn-primary" onClick={() => { setMaintenanceDraft(current => ({ ...current, appId: current.appId || appsList[0]?.id || '' })); setGuidedSteps(current => ({ ...current, maintenance: 0 })); setShowMaintenanceEditor(true); }}><IcoCal s={15} /> Programar mantenimiento</button></>}</div>
       </section>
       {ecosystemError && <div className="teams-alert"><IcoShield s={17} /><span><strong>No fue posible completar la operación.</strong>{ecosystemError}</span><button onClick={() => setEcosystemError('')}><IcoX s={11} /></button></div>}
       <section className="control-summary-grid">
@@ -4490,17 +4961,28 @@ export default function App() {
     </div>;
   };
 
-  const renderControlEditors = () => <>
-    {showIncidentEditor && <div className="modal-overlay control-editor-overlay" onMouseDown={() => !ecosystemLoading && setShowIncidentEditor(false)}><section className="control-editor-modal" onMouseDown={e => e.stopPropagation()}><div className="modal-head control-editor-head"><div className="control-editor-title"><span className="control-editor-symbol"><IcoShield s={19} /></span><div><span className="login-kicker">Continuidad del servicio</span><h2>{incidentDraft.id ? 'Gestionar incidente' : 'Registrar incidente'}</h2><p>Documenta la afectación, su alcance y el responsable de recuperación.</p></div></div><button className="modal-close" disabled={ecosystemLoading} onClick={() => setShowIncidentEditor(false)}><IcoX s={13} /></button></div><form onSubmit={saveIncidentDraft} className="control-editor-form">
-      <label><span>Aplicativo</span><select className="field control-select" required value={incidentDraft.appId} onChange={e => setIncidentDraft(current => ({ ...current, appId: e.target.value }))}><option value="">Selecciona un aplicativo</option>{appsList.map(app => <option key={app.id} value={app.id}>{app.nombre}</option>)}</select></label><label><span>Severidad</span><select className="field control-select" value={incidentDraft.severity} onChange={e => setIncidentDraft(current => ({ ...current, severity: e.target.value }))}><option>Baja</option><option>Media</option><option>Alta</option><option>Crítica</option></select></label>
-      <label className="wide"><span>Título</span><input className="field" required value={incidentDraft.title} onChange={e => setIncidentDraft(current => ({ ...current, title: e.target.value }))} placeholder="Describe brevemente la afectación" /></label><label className="wide"><span>Detalle</span><textarea className="field" value={incidentDraft.description} onChange={e => setIncidentDraft(current => ({ ...current, description: e.target.value }))} placeholder="Impacto observado y acciones iniciales." /></label>
-      <label><span>Estado</span><select className="field control-select" value={incidentDraft.status} onChange={e => setIncidentDraft(current => ({ ...current, status: e.target.value }))}><option>Identificado</option><option>Investigando</option><option>Monitoreando</option><option>Resuelto</option><option>Cerrado</option></select></label><label><span>Responsable</span><input className="field" value={incidentDraft.owner} onChange={e => setIncidentDraft(current => ({ ...current, owner: e.target.value }))} placeholder="Área o persona" /></label><label><span>Usuarios afectados</span><input className="field" type="number" min="0" value={incidentDraft.affectedUsers} onChange={e => setIncidentDraft(current => ({ ...current, affectedUsers: e.target.value }))} /></label>{['Resuelto', 'Cerrado'].includes(incidentDraft.status) && <label className="wide"><span>Resolución</span><textarea className="field" required value={incidentDraft.resolution} onChange={e => setIncidentDraft(current => ({ ...current, resolution: e.target.value }))} placeholder="Explica la solución aplicada." /></label>}
-      <div className="control-editor-actions"><button type="button" className="btn btn-secondary" disabled={ecosystemLoading} onClick={() => setShowIncidentEditor(false)}>Cancelar</button><button className="btn btn-primary" disabled={ecosystemLoading}>{ecosystemLoading ? <><NexoActionLoader /> Guardando incidente…</> : 'Guardar incidente'}</button></div>
-    </form></section></div>}
-    {showMaintenanceEditor && <div className="modal-overlay control-editor-overlay" onMouseDown={() => !ecosystemLoading && setShowMaintenanceEditor(false)}><section className="control-editor-modal" onMouseDown={e => e.stopPropagation()}><div className="modal-head control-editor-head"><div className="control-editor-title"><span className="control-editor-symbol"><IcoCal s={19} /></span><div><span className="login-kicker">Agenda técnica</span><h2>Programar mantenimiento</h2><p>Define una ventana clara para anticipar impactos y mantener informados a los usuarios.</p></div></div><button className="modal-close" disabled={ecosystemLoading} onClick={() => setShowMaintenanceEditor(false)}><IcoX s={13} /></button></div><form onSubmit={saveMaintenanceDraft} className="control-editor-form">
-      <label><span>Aplicativo</span><select className="field control-select" required value={maintenanceDraft.appId} onChange={e => setMaintenanceDraft(current => ({ ...current, appId: e.target.value }))}><option value="">Selecciona un aplicativo</option>{appsList.map(app => <option key={app.id} value={app.id}>{app.nombre}</option>)}</select></label><label><span>Tipo</span><select className="field control-select" value={maintenanceDraft.type} onChange={e => setMaintenanceDraft(current => ({ ...current, type: e.target.value }))}><option>Programado</option><option>Preventivo</option><option>Correctivo</option><option>Actualización</option></select></label><label className="wide"><span>Descripción</span><textarea className="field" required value={maintenanceDraft.description} onChange={e => setMaintenanceDraft(current => ({ ...current, description: e.target.value }))} placeholder="Explica el propósito y posible impacto." /></label><label><span>Inicio</span><input className="field control-date-field" type="datetime-local" required value={maintenanceDraft.startsAt} onChange={e => setMaintenanceDraft(current => ({ ...current, startsAt: e.target.value }))} /></label><label><span>Finalización</span><input className="field control-date-field" type="datetime-local" required value={maintenanceDraft.endsAt} onChange={e => setMaintenanceDraft(current => ({ ...current, endsAt: e.target.value }))} /></label><label><span>Responsable</span><input className="field" value={maintenanceDraft.owner} onChange={e => setMaintenanceDraft(current => ({ ...current, owner: e.target.value }))} placeholder="Tecnología / Proveedor" /></label><div className="control-editor-actions"><button type="button" className="btn btn-secondary" disabled={ecosystemLoading} onClick={() => setShowMaintenanceEditor(false)}>Cancelar</button><button className="btn btn-primary" disabled={ecosystemLoading}>{ecosystemLoading ? <><NexoActionLoader /> Programando…</> : 'Programar y notificar'}</button></div>
-    </form></section></div>}
-  </>;
+  const renderControlEditors = () => {
+    const closeIncident = () => { if (!ecosystemLoading) { setShowIncidentEditor(false); setGuidedSteps(current => ({ ...current, incident: 0 })); } };
+    const closeMaintenance = () => { if (!ecosystemLoading) { setShowMaintenanceEditor(false); setGuidedSteps(current => ({ ...current, maintenance: 0 })); } };
+    return <>
+      {showIncidentEditor && <div className="modal-overlay control-editor-overlay" onMouseDown={closeIncident}><section className="control-editor-modal" onMouseDown={e => e.stopPropagation()}><div className="modal-head control-editor-head"><div className="control-editor-title"><span className="control-editor-symbol"><IcoShield s={19} /></span><div><span className="login-kicker">Formulario guiado · Paso {guidedSteps.incident + 1} de 3</span><h2>{incidentDraft.id ? 'Gestionar incidente' : 'Registrar incidente'}</h2><p>{guidedSteps.incident === 0 ? 'Identifica el servicio y el impacto.' : guidedSteps.incident === 1 ? 'Asigna la recuperación y su estado.' : 'Valida el registro de continuidad.'}</p></div></div><button className="modal-close" disabled={ecosystemLoading} onClick={closeIncident}><IcoX s={13} /></button></div>
+        <GuidedProgress steps={['Afectación', 'Respuesta', 'Confirmación']} current={guidedSteps.incident} onSelect={index => index < guidedSteps.incident && setGuidedSteps(current => ({ ...current, incident: index }))} />
+        <form onSubmit={event => { if (guidedSteps.incident < 2) { event.preventDefault(); setGuidedSteps(current => ({ ...current, incident: current.incident + 1 })); } else saveIncidentDraft(event); }} className="control-editor-form guided-form">
+          {guidedSteps.incident === 0 && <div className="guided-form-stage control-guided-stage"><label><span>Aplicativo</span><select className="field control-select" required value={incidentDraft.appId} onChange={e => setIncidentDraft(current => ({ ...current, appId: e.target.value }))}><option value="">Selecciona un aplicativo</option>{appsList.map(app => <option key={app.id} value={app.id}>{app.nombre}</option>)}</select></label><label><span>Severidad</span><select className="field control-select" value={incidentDraft.severity} onChange={e => setIncidentDraft(current => ({ ...current, severity: e.target.value }))}><option>Baja</option><option>Media</option><option>Alta</option><option>Crítica</option></select></label><label className="wide"><span>Título</span><input className="field" required value={incidentDraft.title} onChange={e => setIncidentDraft(current => ({ ...current, title: e.target.value }))} placeholder="Describe brevemente la afectación" /></label><label className="wide"><span>Detalle</span><textarea className="field" value={incidentDraft.description} onChange={e => setIncidentDraft(current => ({ ...current, description: e.target.value }))} placeholder="Impacto observado y acciones iniciales." /></label></div>}
+          {guidedSteps.incident === 1 && <div className="guided-form-stage control-guided-stage"><label><span>Estado</span><select className="field control-select" value={incidentDraft.status} onChange={e => setIncidentDraft(current => ({ ...current, status: e.target.value }))}><option>Identificado</option><option>Investigando</option><option>Monitoreando</option><option>Resuelto</option><option>Cerrado</option></select></label><label><span>Responsable</span><input className="field" value={incidentDraft.owner} onChange={e => setIncidentDraft(current => ({ ...current, owner: e.target.value }))} placeholder="Área o persona" /></label><label><span>Usuarios afectados</span><input className="field" type="number" min="0" value={incidentDraft.affectedUsers} onChange={e => setIncidentDraft(current => ({ ...current, affectedUsers: e.target.value }))} /></label>{['Resuelto', 'Cerrado'].includes(incidentDraft.status) && <label className="wide"><span>Resolución</span><textarea className="field" required value={incidentDraft.resolution} onChange={e => setIncidentDraft(current => ({ ...current, resolution: e.target.value }))} placeholder="Explica la solución aplicada." /></label>}</div>}
+          {guidedSteps.incident === 2 && <div className="guided-form-stage guided-review-stage"><div className="guided-review-callout critical"><span><IcoShield s={20} /></span><div><small>{appsList.find(app => String(app.id) === String(incidentDraft.appId))?.nombre || 'Aplicativo'} · {incidentDraft.severity}</small><h3>{incidentDraft.title}</h3><p>{incidentDraft.description || 'Sin detalle adicional.'}</p></div></div><div className="guided-review-grid"><article><small>Estado</small><strong>{incidentDraft.status}</strong></article><article><small>Responsable</small><strong>{incidentDraft.owner || 'Por definir'}</strong></article><article><small>Usuarios afectados</small><strong>{incidentDraft.affectedUsers || 0}</strong></article><article><small>Resolución</small><strong>{incidentDraft.resolution || 'En seguimiento'}</strong></article></div></div>}
+          <div className="control-editor-actions"><button type="button" className="btn btn-secondary" disabled={ecosystemLoading} onClick={() => guidedSteps.incident ? setGuidedSteps(current => ({ ...current, incident: current.incident - 1 })) : closeIncident()}>{guidedSteps.incident ? 'Atrás' : 'Cancelar'}</button><button className="btn btn-primary" disabled={ecosystemLoading || (guidedSteps.incident === 0 && (!incidentDraft.appId || !incidentDraft.title.trim())) || (guidedSteps.incident === 1 && ['Resuelto', 'Cerrado'].includes(incidentDraft.status) && !incidentDraft.resolution.trim())}>{ecosystemLoading ? <><NexoActionLoader /> Guardando incidente…</> : guidedSteps.incident === 2 ? 'Guardar incidente' : 'Continuar'}</button></div>
+        </form></section></div>}
+      {showMaintenanceEditor && <div className="modal-overlay control-editor-overlay" onMouseDown={closeMaintenance}><section className="control-editor-modal" onMouseDown={e => e.stopPropagation()}><div className="modal-head control-editor-head"><div className="control-editor-title"><span className="control-editor-symbol"><IcoCal s={19} /></span><div><span className="login-kicker">Formulario guiado · Paso {guidedSteps.maintenance + 1} de 3</span><h2>Programar mantenimiento</h2><p>{guidedSteps.maintenance === 0 ? 'Define el alcance de la intervención.' : guidedSteps.maintenance === 1 ? 'Programa una ventana precisa.' : 'Confirma la comunicación operativa.'}</p></div></div><button className="modal-close" disabled={ecosystemLoading} onClick={closeMaintenance}><IcoX s={13} /></button></div>
+        <GuidedProgress steps={['Alcance', 'Ventana', 'Confirmación']} current={guidedSteps.maintenance} onSelect={index => index < guidedSteps.maintenance && setGuidedSteps(current => ({ ...current, maintenance: index }))} />
+        <form onSubmit={event => { if (guidedSteps.maintenance < 2) { event.preventDefault(); setGuidedSteps(current => ({ ...current, maintenance: current.maintenance + 1 })); } else saveMaintenanceDraft(event); }} className="control-editor-form guided-form">
+          {guidedSteps.maintenance === 0 && <div className="guided-form-stage control-guided-stage"><label><span>Aplicativo</span><select className="field control-select" required value={maintenanceDraft.appId} onChange={e => setMaintenanceDraft(current => ({ ...current, appId: e.target.value }))}><option value="">Selecciona un aplicativo</option>{appsList.map(app => <option key={app.id} value={app.id}>{app.nombre}</option>)}</select></label><label><span>Tipo</span><select className="field control-select" value={maintenanceDraft.type} onChange={e => setMaintenanceDraft(current => ({ ...current, type: e.target.value }))}><option>Programado</option><option>Preventivo</option><option>Correctivo</option><option>Actualización</option></select></label><label className="wide"><span>Descripción</span><textarea className="field" required value={maintenanceDraft.description} onChange={e => setMaintenanceDraft(current => ({ ...current, description: e.target.value }))} placeholder="Explica el propósito y posible impacto." /></label></div>}
+          {guidedSteps.maintenance === 1 && <div className="guided-form-stage control-guided-stage"><label><span>Inicio</span><input className="field control-date-field" type="datetime-local" required value={maintenanceDraft.startsAt} onChange={e => setMaintenanceDraft(current => ({ ...current, startsAt: e.target.value }))} /></label><label><span>Finalización</span><input className="field control-date-field" type="datetime-local" required value={maintenanceDraft.endsAt} onChange={e => setMaintenanceDraft(current => ({ ...current, endsAt: e.target.value }))} /></label><label><span>Responsable</span><input className="field" value={maintenanceDraft.owner} onChange={e => setMaintenanceDraft(current => ({ ...current, owner: e.target.value }))} placeholder="Tecnología / Proveedor" /></label></div>}
+          {guidedSteps.maintenance === 2 && <div className="guided-form-stage guided-review-stage"><div className="guided-review-callout"><span><IcoCal s={20} /></span><div><small>{maintenanceDraft.type} · {appsList.find(app => String(app.id) === String(maintenanceDraft.appId))?.nombre || 'Aplicativo'}</small><h3>{maintenanceDraft.description}</h3><p>Se notificará la ventana a la audiencia configurada.</p></div></div><div className="guided-review-grid"><article><small>Inicio</small><strong>{new Date(maintenanceDraft.startsAt).toLocaleString('es-CO')}</strong></article><article><small>Finalización</small><strong>{new Date(maintenanceDraft.endsAt).toLocaleString('es-CO')}</strong></article><article><small>Responsable</small><strong>{maintenanceDraft.owner || 'Tecnología'}</strong></article><article><small>Audiencia</small><strong>{maintenanceDraft.audience || 'Todos'}</strong></article></div></div>}
+          <div className="control-editor-actions"><button type="button" className="btn btn-secondary" disabled={ecosystemLoading} onClick={() => guidedSteps.maintenance ? setGuidedSteps(current => ({ ...current, maintenance: current.maintenance - 1 })) : closeMaintenance()}>{guidedSteps.maintenance ? 'Atrás' : 'Cancelar'}</button><button className="btn btn-primary" disabled={ecosystemLoading || (guidedSteps.maintenance === 0 && (!maintenanceDraft.appId || !maintenanceDraft.description.trim())) || (guidedSteps.maintenance === 1 && (!maintenanceDraft.startsAt || !maintenanceDraft.endsAt || new Date(maintenanceDraft.endsAt) <= new Date(maintenanceDraft.startsAt)))}>{ecosystemLoading ? <><NexoActionLoader /> Programando…</> : guidedSteps.maintenance === 2 ? 'Programar y notificar' : 'Continuar'}</button></div>
+        </form></section></div>}
+    </>;
+  };
 
   const renderLifecycleModal = () => {
     const app = appsList.find(item => String(item.id) === String(selectedPortfolioAppId));
@@ -4668,11 +5150,50 @@ export default function App() {
     </div>;
   };
 
+  const renderLearningCenter = () => {
+    if (!showLearningCenter) return null;
+    const guides = learningData.guides || [];
+    const news = learningData.news || [];
+    const selectedGuide = guides.find(item => item.id === selectedGuideId) || guides[0];
+    const completedCount = guides.filter(guide => Number(learningData.progress?.[guide.id] || 0) >= 100).length;
+    const close = () => { setShowLearningCenter(false); setLearningNotice(''); };
+    return <div className="modal-overlay learning-overlay" onMouseDown={close}>
+      <section className="learning-center" onMouseDown={event => event.stopPropagation()}>
+        <header className="learning-header"><div><span className="learning-mark"><IcoBook s={20} /></span><div><span className="login-kicker">AG-15 · Conocimiento en contexto</span><h2>Centro de aprendizaje y novedades</h2><p>Aprende Ágora a tu ritmo y conoce cada mejora del ecosistema.</p></div></div><button className="modal-close" onClick={close}><IcoX s={14} /></button></header>
+        <nav className="learning-tabs">{[['discover','Aprender'],['news','Novedades'],['progress','Mi progreso'],...(isAdmin ? [['publish','Publicar']] : [])].map(([id,label]) => <button key={id} className={learningSection === id ? 'active' : ''} onClick={() => { setLearningSection(id); setLearningNotice(''); }}>{label}</button>)}</nav>
+        <div className="learning-scroll">
+          {learningLoading && !guides.length ? <div className="learning-empty"><NexoActionLoader /><strong>Preparando tu centro…</strong></div> : learningSection === 'discover' ? <div className="learning-discover">
+            <aside><div className="learning-progress-card"><span>{completedCount}/{guides.length}</span><div><strong>Ruta esencial</strong><p>{completedCount === guides.length ? 'Completaste todas las guías.' : 'Continúa construyendo dominio de Ágora OS.'}</p><i><b style={{ width: `${guides.length ? completedCount / guides.length * 100 : 0}%` }} /></i></div></div>{guides.map(guide => <button key={guide.id} className={selectedGuide?.id === guide.id ? 'active' : ''} onClick={() => setSelectedGuideId(guide.id)}><span><IcoBook s={16} /></span><div><small>{guide.module || 'Ágora OS'} · {guide.duration || 3} min</small><strong>{guide.title}</strong><i><b style={{ width: `${Math.min(100, Number(learningData.progress?.[guide.id] || 0))}%` }} /></i></div><em>{Number(learningData.progress?.[guide.id] || 0) >= 100 ? <IcoCheck s={12} /> : <IcoChevron s={12} />}</em></button>)}</aside>
+            {selectedGuide ? <article className="learning-guide-detail"><header><span>{selectedGuide.module || 'Ágora OS'} · v{selectedGuide.version || '3.2'}</span><h3>{selectedGuide.title}</h3><p>{selectedGuide.summary}</p></header><div className="learning-guide-steps">{(selectedGuide.steps?.length ? selectedGuide.steps : String(selectedGuide.content || '').split(/\n+/).filter(Boolean)).map((item,index) => <div key={`${selectedGuide.id}-${index}`}><span>{String(index + 1).padStart(2,'0')}</span><p>{item}</p></div>)}</div>{selectedGuide.url && <a href={normalizeExternalUrl(selectedGuide.url)} target="_blank" rel="noreferrer">Abrir recurso complementario <IcoChevron s={11} /></a>}<footer><div><small>Tu avance</small><strong>{Number(learningData.progress?.[selectedGuide.id] || 0)}%</strong></div><button className="btn btn-primary" disabled={learningLoading || Number(learningData.progress?.[selectedGuide.id] || 0) >= 100} onClick={() => updateLearningProgress(selectedGuide, 100)}>{learningLoading ? <NexoActionLoader /> : <IcoCheck s={14} />} {Number(learningData.progress?.[selectedGuide.id] || 0) >= 100 ? 'Guía completada' : 'Marcar como completada'}</button></footer></article> : <div className="learning-empty"><IcoBook s={28} /><strong>No hay guías disponibles</strong></div>}
+          </div> : learningSection === 'news' ? <div className="learning-news"><header><span>BITÁCORA DE PRODUCTO</span><h3>Lo nuevo en Ágora OS</h3><p>Cambios explicados en lenguaje claro para que todos puedan aprovecharlos.</p></header><div>{news.map((item,index) => <article key={item.id}><time><strong>{new Date(item.publishedAt || Date.now()).getDate()}</strong><span>{new Date(item.publishedAt || Date.now()).toLocaleDateString('es-CO',{month:'short'})}</span></time><div><span>{item.module || 'Ágora OS'} · v{item.version || '3.2'}</span><h4>{item.title}</h4><p>{item.summary}</p>{item.content && <small>{item.content}</small>}{item.url && <a href={normalizeExternalUrl(item.url)} target="_blank" rel="noreferrer">Conocer más <IcoChevron s={10} /></a>}</div>{index === 0 && <em>NUEVO</em>}</article>)}</div></div> : learningSection === 'progress' ? <div className="learning-progress-view"><header><span className="learning-achievement"><IcoTarget s={24} /></span><div><span>DESARROLLO CONTINUO</span><h3>{completedCount} guías completadas</h3><p>Tu avance se sincroniza con tu perfil y continúa en cualquier dispositivo.</p></div></header><div>{guides.map(guide => { const progress = Number(learningData.progress?.[guide.id] || 0); return <article key={guide.id}><span className={progress >= 100 ? 'done' : ''}>{progress >= 100 ? <IcoCheck s={15} /> : <IcoBook s={15} />}</span><div><strong>{guide.title}</strong><small>{guide.module || 'Ágora OS'} · {progress >= 100 ? 'Completada' : 'Pendiente'}</small><i><b style={{ width: `${progress}%` }} /></i></div><em>{progress}%</em></article>; })}</div></div> : <form className="learning-publisher guided-form" onSubmit={publishLearningContent}><GuidedProgress steps={['Contenido','Detalle','Confirmación']} current={learningComposerStep} onSelect={index => index < learningComposerStep && setLearningComposerStep(index)} />{learningComposerStep === 0 && <div className="guided-form-stage learning-publish-stage"><label><span>Tipo de contenido</span><select className="field" value={learningDraft.type} onChange={event => setLearningDraft(current => ({...current,type:event.target.value}))}><option value="news">Novedad</option><option value="guide">Guía</option></select></label><label><span>Módulo</span><input className="field" value={learningDraft.module} onChange={event => setLearningDraft(current => ({...current,module:event.target.value}))} placeholder="Ej. Mi Jornada" /></label><label className="wide"><span>Título</span><input className="field" required value={learningDraft.title} onChange={event => setLearningDraft(current => ({...current,title:event.target.value}))} /></label><label className="wide"><span>Resumen</span><textarea className="field" required value={learningDraft.summary} onChange={event => setLearningDraft(current => ({...current,summary:event.target.value}))} /></label></div>}{learningComposerStep === 1 && <div className="guided-form-stage learning-publish-stage"><label className="wide"><span>Contenido o pasos <small>Una línea por paso</small></span><textarea className="field" value={learningDraft.content} onChange={event => setLearningDraft(current => ({...current,content:event.target.value}))} placeholder="Describe la mejora o escribe cada paso en una línea." /></label><label><span>Versión</span><input className="field" value={learningDraft.version} onChange={event => setLearningDraft(current => ({...current,version:event.target.value}))} /></label><label><span>Recurso externo <small>Opcional</small></span><input className="field" type="url" value={learningDraft.url} onChange={event => setLearningDraft(current => ({...current,url:event.target.value}))} /></label></div>}{learningComposerStep === 2 && <div className="guided-form-stage guided-review-stage"><div className="guided-review-callout"><span><IcoBook s={20} /></span><div><small>{learningDraft.type === 'guide' ? 'Guía' : 'Novedad'} · {learningDraft.module} · v{learningDraft.version}</small><h3>{learningDraft.title}</h3><p>{learningDraft.summary}</p></div></div><div className="learning-content-preview">{learningDraft.content || 'Sin contenido complementario.'}</div></div>}<div className="guided-form-actions"><button type="button" className="btn btn-secondary" onClick={() => learningComposerStep ? setLearningComposerStep(step => step - 1) : close()}>{learningComposerStep ? 'Atrás' : 'Cancelar'}</button><button className="btn btn-primary" disabled={learningLoading || !learningDraft.title.trim() || !learningDraft.summary.trim()}>{learningLoading ? <NexoActionLoader /> : learningComposerStep === 2 ? <IcoRocket s={14} /> : <IcoChevron s={14} />} {learningComposerStep === 2 ? 'Publicar contenido' : 'Continuar'}</button></div></form>}
+          {learningNotice && <div className="center-notice"><IcoCheck s={14} /> {learningNotice}</div>}
+        </div>
+      </section>
+    </div>;
+  };
+
+  const renderExperienceCenter = () => {
+    if (!showExperienceCenter) return null;
+    const close = () => { setShowExperienceCenter(false); setFeedbackNotice(''); };
+    const insights = feedbackInsights || { summary: {}, distribution: [], modules: [], recent: [] };
+    return <div className="modal-overlay experience-overlay" onMouseDown={close}><section className="experience-center" onMouseDown={event => event.stopPropagation()}>
+      <header className="experience-header"><div><span className="experience-mark"><IcoStar s={20} /></span><div><span className="login-kicker">AG-16 · Voz del usuario</span><h2>Tu experiencia mueve Ágora</h2><p>Una señal breve, concreta y útil para mejorar cada jornada.</p></div></div><button className="modal-close" onClick={close}><IcoX s={14} /></button></header>
+      {isAdmin && <nav className="experience-tabs"><button className={experienceSection === 'share' ? 'active' : ''} onClick={() => setExperienceSection('share')}>Compartir opinión</button><button className={experienceSection === 'insights' ? 'active' : ''} onClick={() => { setExperienceSection('insights'); fetchExperienceInsights(userData); }}>Panel de experiencia</button></nav>}
+      <div className="experience-scroll">{experienceSection === 'insights' && isAdmin ? <div className="experience-insights"><section className="experience-score-card"><div style={{ '--score-progress': `${Math.max(0, Math.min(5, Number(insights.summary?.average || 0))) / 5 * 360}deg` }}><span><strong>{Number(insights.summary?.average || 0).toFixed(1)}</strong><small>de 5</small></span></div><div><span>SATISFACCIÓN GLOBAL</span><h3>{insights.summary?.responses || 0} respuestas en {analyticsRange} días</h3><p>{Number(insights.summary?.average || 0) >= 4 ? 'La experiencia presenta una percepción sólida.' : 'Hay oportunidades claras para elevar la experiencia.'}</p></div></section><section className="experience-distribution"><header><span>Distribución</span><strong>Calificaciones</strong></header>{[5,4,3,2,1].map(score => { const count = Number(insights.distribution?.find(item => Number(item.rating) === score)?.count || 0); const total = Number(insights.summary?.responses || 0); return <div key={score}><span>{score} <IcoStar s={10} /></span><i><b style={{ width: `${total ? count / total * 100 : 0}%` }} /></i><strong>{count}</strong></div>; })}</section><section className="experience-module-list"><header><span>Lectura por módulo</span><strong>Prioridades de mejora</strong></header>{(insights.modules || []).map(module => <article key={module.module}><div><strong>{module.module}</strong><small>{module.responses} respuestas</small></div><span>{Number(module.average || 0).toFixed(1)} <IcoStar s={11} /></span></article>)}</section><section className="experience-comments"><header><span>Señales recientes</span><strong>Comentarios accionables</strong></header>{(insights.recent || []).length ? insights.recent.map(item => <article key={item.id}><span>{item.rating} <IcoStar s={10} /></span><div><strong>{item.module}</strong><p>{item.comment || item.reason || 'Sin comentario adicional.'}</p><small>{item.user || 'Colaborador'} · {relativeTime(item.createdAt)}</small></div></article>) : <div className="learning-empty"><IcoStar s={24} /><strong>Aún no hay respuestas</strong></div>}</section></div> : <form className="feedback-form guided-form" onSubmit={submitExperienceFeedback}><GuidedProgress steps={['Calificación','Contexto','Enviar']} current={feedbackStep} onSelect={index => index < feedbackStep && setFeedbackStep(index)} />{feedbackStep === 0 && <div className="feedback-stage rating"><span>¿Cómo fue tu experiencia hoy?</span><h3>Califica tu jornada en Ágora</h3><div className="feedback-stars" role="radiogroup" aria-label="Calificación de satisfacción">{[1,2,3,4,5].map(score => <button type="button" key={score} className={feedbackDraft.rating >= score ? 'active' : ''} onClick={() => setFeedbackDraft(current => ({...current,rating:score}))} aria-label={`${score} de 5`} aria-checked={feedbackDraft.rating === score} role="radio"><IcoStar s={30} /></button>)}</div><p>{['','Muy difícil','Difícil','Aceptable','Muy buena','Excelente'][feedbackDraft.rating]}</p></div>}{feedbackStep === 1 && <div className="feedback-stage context"><label><span>¿Sobre qué parte?</span><select className="field" value={feedbackDraft.module} onChange={event => setFeedbackDraft(current => ({...current,module:event.target.value}))}>{EXPERIENCE_MODULES.map(module => <option key={module}>{module}</option>)}</select></label><label><span>Principal motivo</span><select className="field" value={feedbackDraft.reason} onChange={event => setFeedbackDraft(current => ({...current,reason:event.target.value}))}><option value="">Selecciona una opción</option><option>Facilidad de uso</option><option>Velocidad</option><option>Diseño y claridad</option><option>Funcionalidad</option><option>Accesibilidad</option><option>Error o bloqueo</option><option>Otro</option></select></label><label className="wide"><span>Cuéntanos un poco más <small>Opcional</small></span><textarea className="field" maxLength={600} value={feedbackDraft.comment} onChange={event => setFeedbackDraft(current => ({...current,comment:event.target.value}))} placeholder="¿Qué funcionó bien o qué deberíamos mejorar?" /></label></div>}{feedbackStep === 2 && <div className="feedback-stage confirm"><span className="feedback-confirm-icon"><IcoStar s={28} /></span><h3>Gracias por ayudarnos a construir Ágora</h3><p>Registrarás una calificación de <strong>{feedbackDraft.rating}/5</strong> para <strong>{feedbackDraft.module}</strong>. Tu comentario se usará únicamente para mejorar la experiencia.</p><small><IcoShield s={12} /> No se captura contenido de tus aplicativos ni información sensible.</small></div>}<div className="guided-form-actions"><button type="button" className="btn btn-secondary" onClick={() => feedbackStep ? setFeedbackStep(step => step - 1) : close()}>{feedbackStep ? 'Atrás' : 'Ahora no'}</button><button className="btn btn-primary" disabled={feedbackLoading || !feedbackDraft.rating}>{feedbackLoading ? <NexoActionLoader /> : feedbackStep === 2 ? <IcoSend s={14} /> : <IcoChevron s={14} />} {feedbackStep === 2 ? 'Enviar opinión' : 'Continuar'}</button></div></form>}{feedbackNotice && <div className="center-notice"><IcoCheck s={14} /> {feedbackNotice}</div>}</div>
+    </section></div>;
+  };
+
+  const renderContinuityResume = () => {
+    if (!continuityResume) return null;
+    return <aside className="continuity-resume" role="status"><span className="continuity-icon"><IcoRefresh s={17} /></span><div><small>CONTINUIDAD ENTRE DISPOSITIVOS</small><strong>Continúa donde lo dejaste</strong><p>{continuityResume.device}{continuityResume.updatedAt ? ` · ${relativeTime(continuityResume.updatedAt)}` : ''}</p></div><div><button onClick={() => setContinuityResume(null)}>Ahora no</button><button className="primary" onClick={resumeLastWorkspace}>Continuar <IcoChevron s={11} /></button></div></aside>;
+  };
+
   /* ======================================================================
      SHELL DEL SISTEMA
      ====================================================================== */
   const menuItems = [
     { id: 'dashboard', label: 'Escritorio', admin: false, icon: IcoDesktopIco, detail: 'Inicio y widgets personales' },
+    { id: 'journey', label: 'Mi Jornada', admin: false, icon: IcoSparkles, detail: 'Prioridades, reuniones y alertas' },
     { id: 'teams', label: 'Equipos', admin: false, icon: IcoUsers, detail: 'Tareas, personas y seguimiento' },
     { id: 'control', label: 'Control', admin: false, icon: IcoPulse, detail: 'Salud del ecosistema' },
     { id: 'analytics', label: 'Dashboard', admin: true, icon: IcoChart, detail: 'Analítica administrativa' },
@@ -4723,6 +5244,11 @@ export default function App() {
       data-shape={workspaceAppearance.shape}
       data-motion={workspaceAppearance.motion}
       data-dock-scale={workspaceAppearance.dockScale}
+      data-elevation={workspaceAppearance.elevation}
+      data-menu-style={workspaceAppearance.menuStyle}
+      data-text-scale={workspaceAppearance.textScale}
+      data-touch-targets={workspaceAppearance.touchTargets}
+      data-readability={workspaceAppearance.readability}
       data-layout={isCompactLayout ? 'compact' : 'desktop'}
       style={{ '--brand-green': activeAccent.hex }}>
       {renderNexoAmbient()}
@@ -4739,6 +5265,9 @@ export default function App() {
       {renderNotificationComposer()}
       {renderControlEditors()}
       {renderLifecycleModal()}
+      {renderLearningCenter()}
+      {renderExperienceCenter()}
+      {renderContinuityResume()}
       {renderAgoraNexo()}
       {renderNexoAstroPanel()}
       {renderExecutiveRoom()}
@@ -4761,6 +5290,9 @@ export default function App() {
         </div>
 
         <div className="menubar-right">
+          <span className={`workspace-sync-state ${workspaceSyncState}`} title="Continuidad entre dispositivos"><i />{workspaceSyncState === 'syncing' || workspaceSyncState === 'pending' ? 'Sincronizando' : workspaceSyncState === 'synced' ? 'Al día' : 'Solo local'}</span>
+          <button className="menu-icon-btn learning-menu-button" title="Aprendizaje y novedades" onClick={() => { setShowUserMenu(false); setShowMobileMenu(false); setLearningSection('discover'); setShowLearningCenter(true); fetchLearningCenter(userData, true); }}><IcoBook s={16} /></button>
+          <button className="menu-icon-btn experience-menu-button" title="Compartir mi experiencia" onClick={() => { setShowUserMenu(false); setShowMobileMenu(false); setExperienceSection('share'); setFeedbackStep(0); setShowExperienceCenter(true); }}><IcoStar s={16} /></button>
           <button className={`nexo-menu-button nexo-astro-trigger ${nexoWakeListening ? 'wake-active' : ''}`} title="Activar Ágora Nexo" aria-expanded={showNexoAstroPanel} onClick={() => { setShowUserMenu(false); setShowMobileMenu(false); setShowNexoAstroPanel(value => !value); }}><span className="nexo-menu-orb"><IcoSparkles s={12} /><i /><i /></span><span className="hide-on-compact">Nexo</span>{nexoWakeEnabled && <em className="nexo-wake-dot" />}</button>
           <button className="menu-icon-btn" title="Buscar (⌘K)" onClick={openSpotlight}><IcoSearch s={16} /></button>
           <button className={`menu-icon-btn notification-menu-button ${notifications.some(item => !item.read) ? 'has-unread' : ''}`} title="Notificaciones" onClick={() => { setShowUserMenu(false); setShowMobileMenu(false); setShowNotificationCenter(value => !value); }}><IcoBell s={16} />{notifications.some(item => !item.read) && <span>{Math.min(99, notifications.filter(item => !item.read).length)}</span>}</button>
@@ -4807,6 +5339,12 @@ export default function App() {
             <button className="popover-item" onClick={() => { setShowUserMenu(false); openLaunchpad(); }}>
               <IcoGrid s={15} /> Abrir Launchpad
             </button>
+            <button className="popover-item" onClick={() => { setShowUserMenu(false); setLearningSection('discover'); setShowLearningCenter(true); fetchLearningCenter(userData, true); }}>
+              <IcoBook s={15} /> Aprendizaje y novedades
+            </button>
+            <button className="popover-item" onClick={() => { setShowUserMenu(false); setExperienceSection('share'); setFeedbackStep(0); setShowExperienceCenter(true); }}>
+              <IcoStar s={15} /> Compartir mi experiencia
+            </button>
             <button className="popover-item danger" onClick={handleLogout}>
               <IcoLogout s={15} /> Cerrar sesión
             </button>
@@ -4845,6 +5383,8 @@ export default function App() {
             <div className="mobile-quick-actions">
               <button onClick={() => { setShowMobileMenu(false); setShowAppearancePanel(true); }}><IcoSliders s={17} /><span>Personalizar</span></button>
               <button onClick={() => { setShowMobileMenu(false); setShowWidgetGallery(true); }}><IcoWidgets s={17} /><span>Widgets</span></button>
+              <button onClick={() => { setShowMobileMenu(false); setLearningSection('discover'); setShowLearningCenter(true); fetchLearningCenter(userData, true); }}><IcoBook s={17} /><span>Aprendizaje</span></button>
+              <button onClick={() => { setShowMobileMenu(false); setExperienceSection('share'); setFeedbackStep(0); setShowExperienceCenter(true); }}><IcoStar s={17} /><span>Tu opinión</span></button>
               <button onClick={openNexo}><IcoSparkles s={17} /><span>Ágora Nexo</span></button>
               {isAdmin && <button onClick={() => { setShowMobileMenu(false); openExecutiveRoom(); }}><IcoPresentation s={17} /><span>Sala Ejecutiva 2.0</span></button>}
             </div>
@@ -4860,6 +5400,7 @@ export default function App() {
         }}>
           <div className="workspace-inner">
             {currentView === 'dashboard' && renderDashboard()}
+            {currentView === 'journey' && renderJourney()}
             {currentView === 'teams' && renderTeams()}
             {currentView === 'control' && renderEcosystemControl()}
             {currentView === 'analytics' && renderAnalytics()}
@@ -4946,9 +5487,9 @@ export default function App() {
 
       <nav className="mobile-tabbar" aria-label="Navegación principal móvil">
         <button className={currentView === 'dashboard' && activeAppId === null ? 'active' : ''} onClick={() => navigateToView('dashboard')} aria-current={currentView === 'dashboard' && activeAppId === null ? 'page' : undefined}><IcoDesktopIco s={20} /><span>Inicio</span></button>
-        <button className={currentView === 'teams' && activeAppId === null ? 'active' : ''} onClick={() => navigateToView('teams')} aria-current={currentView === 'teams' && activeAppId === null ? 'page' : undefined}><IcoUsers s={20} /><span>Equipos</span></button>
+        <button className={currentView === 'journey' && activeAppId === null ? 'active' : ''} onClick={() => navigateToView('journey')} aria-current={currentView === 'journey' && activeAppId === null ? 'page' : undefined}><IcoSparkles s={20} /><span>Jornada</span></button>
         <button className="mobile-launchpad-button" onClick={openLaunchpad} aria-label="Abrir Launchpad"><span><IcoGrid s={22} /></span><small>Apps</small></button>
-        <button className={currentView === 'control' && activeAppId === null ? 'active' : ''} onClick={() => navigateToView('control')} aria-current={currentView === 'control' && activeAppId === null ? 'page' : undefined}><IcoPulse s={20} /><span>Control</span></button>
+        <button className={currentView === 'teams' && activeAppId === null ? 'active' : ''} onClick={() => navigateToView('teams')} aria-current={currentView === 'teams' && activeAppId === null ? 'page' : undefined}><IcoUsers s={20} /><span>Equipos</span></button>
         <button className={showMobileMenu ? 'active' : ''} onClick={() => { setShowUserMenu(false); setShowNotificationCenter(false); setShowMobileMenu(value => !value); }} aria-expanded={showMobileMenu}><IcoMore s={21} /><span>Más</span></button>
       </nav>
 
