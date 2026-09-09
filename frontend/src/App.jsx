@@ -58,6 +58,9 @@ const IcoGrip = ({ s = 18 }) => <svg width={s} height={s} {...S}><circle cx="8" 
 const IcoDatabase = ({ s = 18 }) => <svg width={s} height={s} {...S}><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" /></svg>;
 const IcoBook = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H11v18H7.5A3.5 3.5 0 0 0 4 23zM20 5.5A3.5 3.5 0 0 0 16.5 2H13v18h3.5A3.5 3.5 0 0 1 20 23z" /></svg>;
 const IcoStar = ({ s = 18 }) => <svg width={s} height={s} {...S}><path d="m12 2.8 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-2.9L6.4 20l1.1-6.2L3 9.4l6.2-.9z" /></svg>;
+const IcoLaptop = ({ s = 18 }) => <svg width={s} height={s} {...S}><rect x="4" y="4" width="16" height="11" rx="2" /><path d="M2.5 19h19M8 19l.8-2h6.4l.8 2" /></svg>;
+const IcoPhone = ({ s = 18 }) => <svg width={s} height={s} {...S}><rect x="7" y="2" width="10" height="20" rx="2.5" /><path d="M10 5h4M11.5 18.5h1" /></svg>;
+const IcoTablet = ({ s = 18 }) => <svg width={s} height={s} {...S}><rect x="4" y="2.5" width="16" height="19" rx="2.5" /><path d="M11.5 18.5h1" /></svg>;
 
 const NexoActionLoader = ({ s = 15 }) => (
   <span className="nexo-action-loader" style={{ '--nexo-loader-size': `${s}px` }} aria-hidden="true">
@@ -1009,6 +1012,54 @@ const scoreNexoVoice = voice => {
   return score;
 };
 
+const getAgoraDeviceInfo = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return { deviceId: 'server', label: 'Dispositivo', browser: 'Navegador', operatingSystem: 'Sistema', deviceType: 'Escritorio' };
+  }
+  let deviceId = localStorage.getItem('agora_device_id');
+  if (!deviceId) {
+    deviceId = window.crypto?.randomUUID?.() || `device-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+    localStorage.setItem('agora_device_id', deviceId);
+  }
+
+  const userAgent = navigator.userAgent || '';
+  const platform = navigator.userAgentData?.platform || navigator.platform || '';
+  const browser = /Edg\//.test(userAgent) ? 'Microsoft Edge'
+    : /OPR\//.test(userAgent) ? 'Opera'
+      : /Firefox\//.test(userAgent) ? 'Firefox'
+        : /CriOS\//.test(userAgent) ? 'Chrome'
+          : /Chrome\//.test(userAgent) ? 'Chrome'
+            : /Safari\//.test(userAgent) ? 'Safari'
+              : 'Navegador web';
+  const operatingSystem = /Android/i.test(userAgent) ? 'Android'
+    : /iPhone|iPad|iPod/i.test(userAgent) ? 'iOS / iPadOS'
+      : /Win/i.test(platform) ? 'Windows'
+        : /Mac/i.test(platform) ? 'macOS'
+          : /Linux/i.test(platform) ? 'Linux'
+            : 'Sistema no identificado';
+  const deviceType = /iPad|Tablet/i.test(userAgent) || (/Android/i.test(userAgent) && !/Mobile/i.test(userAgent)) ? 'Tablet'
+    : /Mobi|iPhone|Android/i.test(userAgent) ? 'Móvil'
+      : 'Escritorio';
+  const label = deviceType === 'Escritorio' ? `${operatingSystem} · ${browser}` : `${deviceType} · ${operatingSystem}`;
+  return { deviceId, label, browser, operatingSystem, deviceType };
+};
+
+const formatSecurityDate = value => {
+  const date = new Date(Number(value) || value);
+  if (Number.isNaN(date.getTime())) return 'Sin registro';
+  return date.toLocaleString('es-CO', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+};
+
+const relativeSecurityTime = value => {
+  const timestamp = Number(value) || new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return 'Sin actividad';
+  const elapsed = Math.max(0, Date.now() - timestamp);
+  if (elapsed < 60000) return 'Activa ahora';
+  if (elapsed < 3600000) return `Hace ${Math.max(1, Math.floor(elapsed / 60000))} min`;
+  if (elapsed < 86400000) return `Hace ${Math.floor(elapsed / 3600000)} h`;
+  return `Hace ${Math.floor(elapsed / 86400000)} d`;
+};
+
 /* ========================================================================== 
    APP
    ========================================================================== */
@@ -1021,6 +1072,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [captchaVerified, setCaptchaVerified] = useState(false);
+  const [loginWebsite, setLoginWebsite] = useState('');
 
   /* --- Sistema --- */
   const [theme, setTheme] = useState('light');
@@ -1035,6 +1087,17 @@ export default function App() {
   const [appearanceSection, setAppearanceSection] = useState('styles');
   const [showWidgetGallery, setShowWidgetGallery] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [showSecuritySessions, setShowSecuritySessions] = useState(false);
+  const [securitySessions, setSecuritySessions] = useState([]);
+  const [securityPolicy, setSecurityPolicy] = useState({ idleMinutes: 30, absoluteHours: 8 });
+  const [securitySessionsLoading, setSecuritySessionsLoading] = useState(false);
+  const [securitySessionAction, setSecuritySessionAction] = useState('');
+  const [securitySessionNotice, setSecuritySessionNotice] = useState('');
+  const [securitySessionConfirm, setSecuritySessionConfirm] = useState(null);
+  const [idleWarningSeconds, setIdleWarningSeconds] = useState(0);
+  const sessionInvalidationRef = useRef(false);
+  const lastUserActivityRef = useRef(Date.now());
+  const lastSecurityHeartbeatRef = useRef(0);
   const [workspaceAppearance, setWorkspaceAppearance] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('agora_workspace_appearance') || 'null');
@@ -1490,6 +1553,9 @@ export default function App() {
     try {
       const parsed = JSON.parse(responseText);
       if (!res.ok) throw new Error(parsed.message || `El backend respondió con estado ${res.status}.`);
+      if (parsed?.code === 'SESSION_EXPIRED' && payload?.action !== 'login' && payload?.action !== 'logout') {
+        window.setTimeout(() => handleSessionInvalidated(parsed.message), 0);
+      }
       return parsed;
     } catch (parseError) {
       if (parseError instanceof SyntaxError) {
@@ -1662,6 +1728,26 @@ export default function App() {
       if (r.status === 'success') setAppsList((r.data || []).map(app => ({ ...app, grupo: app.grupo?.trim() || 'Sin grupo', estado: isAppEnabled(app) ? 'Activo' : 'Inactivo' })));
     }
     catch { /* offline */ }
+  };
+  const fetchSecuritySessions = async (session = userData, silent = false) => {
+    if (!session?.usuario || !session?.sessionToken) return;
+    if (!silent) setSecuritySessionsLoading(true);
+    if (!silent) setSecuritySessionNotice('');
+    try {
+      const response = await post({ action: 'getMySessions', usuario: session.usuario, authToken: session.sessionToken });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible consultar tus sesiones.');
+      setSecuritySessions(response.data || []);
+      if (response.policy) setSecurityPolicy(current => ({ ...current, ...response.policy }));
+    } catch (sessionError) {
+      setSecuritySessionNotice(sessionError.message || 'No fue posible consultar tus sesiones.');
+    } finally {
+      if (!silent) setSecuritySessionsLoading(false);
+    }
+  };
+  const openSecuritySessionCenter = () => {
+    setShowUserMenu(false); setShowMobileMenu(false); setSecuritySessionConfirm(null); setSecuritySessionNotice('');
+    setShowSecuritySessions(true);
+    fetchSecuritySessions(userData);
   };
   const fetchUsers = async () => {
     try { const r = await post({ action: 'getUsers' }); if (r.status === 'success') setUsersList(r.data || []); }
@@ -1930,20 +2016,29 @@ export default function App() {
     if (!captchaVerified) { setError('Resuelve la verificación de seguridad para continuar.'); return; }
     setLoading(true); setError('');
     try {
-      const r = await post({ action: 'login', usuario, password });
+      const r = await post({ action: 'login', usuario, password, website: loginWebsite, deviceInfo: getAgoraDeviceInfo() });
       if (r.status === 'success') {
-        const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const sessionId = r.securitySessionId || `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         sessionIdRef.current = sessionId;
+        sessionInvalidationRef.current = false;
+        lastUserActivityRef.current = Date.now();
+        lastSecurityHeartbeatRef.current = Date.now();
+        setIdleWarningSeconds(0);
+        setSecurityPolicy(current => ({ ...current, idleMinutes: r.sessionIdleMinutes || current.idleMinutes, absoluteHours: r.sessionAbsoluteHours || current.absoluteHours }));
         setIsLoggedIn(true); setUserData(r); fetchApps(r); fetchUsers(); fetchBoardPosts(); fetchTeams(r); fetchNotifications(r); fetchAgenda(r, true);
         if (r.rolGlobal === 'Administrador') fetchPeople360(r);
         emitAnalytics('session_start', { usuario: r.usuario, authToken: r.sessionToken, sessionId });
+        setPassword(''); setLoginWebsite('');
       }
-      else setError(r.message || 'Credenciales no válidas.');
+      else if (r.code === 'AUTH_TEMP_LOCKED') {
+        const minutes = Math.max(1, Math.ceil(Number(r.retryAfterSeconds || 60) / 60));
+        setError(`Acceso temporalmente pausado por seguridad. Intenta nuevamente en ${minutes} min.`);
+      } else setError(r.message || 'No fue posible validar las credenciales o la cuenta no se encuentra disponible.');
     } catch { setError('Servidor no disponible en este momento.'); }
     finally { setLoading(false); }
   };
 
-  const handleLogout = () => {
+  const clearAuthenticatedWorkspace = (loginMessage = '') => {
     wakeEnabledRef.current = false; wakeSuspendedRef.current = false;
     wakeRecognitionRef.current?.abort?.(); speechRecognitionRef.current?.abort?.();
     nexoSpeechPlaybackRef.current += 1;
@@ -1951,6 +2046,7 @@ export default function App() {
     document.body.setAttribute('data-theme', 'light');
     setIsLoggedIn(false); setUserData(null); setOpenApps([]); setActiveAppId(null);
     setShowUserMenu(false); setShowMobileMenu(false); setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
+    setShowSecuritySessions(false); setSecuritySessions([]); setSecuritySessionAction(''); setSecuritySessionNotice(''); setSecuritySessionConfirm(null); setIdleWarningSeconds(0);
     setShowBoardManager(false); setPublicationTypeOpen(false); setBoardCarouselPaused(false);
     setShowUtilitiesFolder(false); setTeams([]); setTeamsError(''); setSelectedTeamId(''); setShowTeamEditor(false);
     setCurrentView('dashboard'); setPassword(''); setCaptchaVerified(false); setPomodoroRunning(false);
@@ -1964,7 +2060,109 @@ export default function App() {
     setShowExperienceCenter(false); setExperienceSection('share'); setFeedbackStep(0); setFeedbackNotice(''); setFeedbackInsights(null);
     setGuidedSteps({ app: 0, notification: 0, incident: 0, maintenance: 0 });
     sessionIdRef.current = '';
+    setError(loginMessage);
   };
+
+  const handleLogout = () => {
+    const session = userData;
+    if (session?.usuario && session?.sessionToken) {
+      fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'logout', usuario: session.usuario, authToken: session.sessionToken }),
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        keepalive: true,
+      }).catch(() => {});
+    }
+    sessionInvalidationRef.current = true;
+    clearAuthenticatedWorkspace('');
+  };
+
+  const handleSessionInvalidated = (message) => {
+    if (sessionInvalidationRef.current) return;
+    sessionInvalidationRef.current = true;
+    clearAuthenticatedWorkspace(message || 'Tu sesión terminó por seguridad. Ingresa nuevamente.');
+  };
+
+  const confirmSecuritySessionAction = async () => {
+    if (!securitySessionConfirm || !userData) return;
+    const confirmation = securitySessionConfirm;
+    const actionKey = confirmation.type === 'others' ? 'others' : confirmation.session.id;
+    setSecuritySessionAction(actionKey); setSecuritySessionNotice('');
+    try {
+      const response = confirmation.type === 'others'
+        ? await post({ action: 'revokeOtherSessions', usuario: userData.usuario, authToken: userData.sessionToken })
+        : await post({ action: 'revokeSession', usuario: userData.usuario, authToken: userData.sessionToken, sessionId: confirmation.session.id });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible cerrar la sesión.');
+      setSecuritySessionConfirm(null);
+      if (response.currentRevoked) {
+        sessionInvalidationRef.current = true;
+        clearAuthenticatedWorkspace('Cerraste esta sesión correctamente.');
+        return;
+      }
+      setSecuritySessionNotice(confirmation.type === 'others'
+        ? `${response.revoked || 0} sesión${Number(response.revoked) === 1 ? '' : 'es'} cerrada${Number(response.revoked) === 1 ? '' : 's'} correctamente.`
+        : 'La sesión seleccionada fue cerrada correctamente.');
+      await fetchSecuritySessions(userData, true);
+    } catch (sessionError) {
+      setSecuritySessionNotice(sessionError.message || 'No fue posible cerrar la sesión.');
+    } finally {
+      setSecuritySessionAction('');
+    }
+  };
+
+  const keepSecuritySessionActive = async () => {
+    if (!userData?.usuario || !userData?.sessionToken) return;
+    lastUserActivityRef.current = Date.now(); setIdleWarningSeconds(0);
+    try {
+      const response = await post({ action: 'checkAccess', usuario: userData.usuario, authToken: userData.sessionToken });
+      if (!response.authorized) handleSessionInvalidated('Tu sesión terminó por seguridad. Ingresa nuevamente.');
+    } catch { /* el siguiente llamado autenticado volverá a validar la sesión */ }
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn || !userData?.usuario || !userData?.sessionToken) return undefined;
+    const idleLimit = Math.max(5, Number(securityPolicy.idleMinutes) || 30) * 60000;
+    lastUserActivityRef.current = Date.now();
+    const registerActivity = () => {
+      const now = Date.now();
+      lastUserActivityRef.current = now;
+      if (now - lastSecurityHeartbeatRef.current >= 4 * 60000) {
+        lastSecurityHeartbeatRef.current = now;
+        post({ action: 'checkAccess', usuario: userData.usuario, authToken: userData.sessionToken })
+          .then(response => { if (!response.authorized) handleSessionInvalidated('Tu sesión terminó por seguridad. Ingresa nuevamente.'); })
+          .catch(() => {});
+      }
+    };
+    const inspectIdleTime = () => {
+      const remaining = idleLimit - (Date.now() - lastUserActivityRef.current);
+      if (remaining <= 0) {
+        fetch(GAS_API_URL, {
+          method: 'POST', body: JSON.stringify({ action: 'logout', usuario: userData.usuario, authToken: userData.sessionToken }),
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, keepalive: true,
+        }).catch(() => {});
+        handleSessionInvalidated('Tu sesión se cerró después de un periodo de inactividad.');
+      } else {
+        setIdleWarningSeconds(remaining <= 120000 ? Math.ceil(remaining / 1000) : 0);
+      }
+    };
+    const heartbeat = () => {
+      if (document.hidden || Date.now() - lastUserActivityRef.current > 5 * 60000) return;
+      lastSecurityHeartbeatRef.current = Date.now();
+      post({ action: 'checkAccess', usuario: userData.usuario, authToken: userData.sessionToken })
+        .then(response => { if (!response.authorized) handleSessionInvalidated('Tu sesión terminó por seguridad. Ingresa nuevamente.'); })
+        .catch(() => {});
+    };
+    const activityEvents = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
+    activityEvents.forEach(eventName => window.addEventListener(eventName, registerActivity, { passive: true }));
+    document.addEventListener('visibilitychange', inspectIdleTime);
+    const idleTimer = window.setInterval(inspectIdleTime, 1000);
+    const heartbeatTimer = window.setInterval(heartbeat, 4 * 60000);
+    return () => {
+      activityEvents.forEach(eventName => window.removeEventListener(eventName, registerActivity));
+      document.removeEventListener('visibilitychange', inspectIdleTime);
+      window.clearInterval(idleTimer); window.clearInterval(heartbeatTimer);
+    };
+  }, [isLoggedIn, userData?.usuario, userData?.sessionToken, securityPolicy.idleMinutes]);
 
   /* ---------------- Tareas ---------------- */
   const addTask = (e) => {
@@ -3537,15 +3735,19 @@ export default function App() {
               <p className="login-helper">Ingresa con tus credenciales de red.</p>
 
               <form onSubmit={handleLogin}>
+                <div className="login-honeypot" aria-hidden="true">
+                  <label htmlFor="company-website">Sitio web</label>
+                  <input id="company-website" name="company-website" type="text" tabIndex="-1" autoComplete="off" value={loginWebsite} onChange={e => setLoginWebsite(e.target.value)} />
+                </div>
                 <div className="input-wrap">
                   <span className="input-icon"><IcoUser s={17} /></span>
                   <input className="login-input" type="text" placeholder="Usuario de red"
-                    value={usuario} onChange={e => setUsuario(e.target.value.toUpperCase())} required />
+                    value={usuario} onChange={e => setUsuario(e.target.value.toUpperCase())} autoComplete="username" maxLength={80} spellCheck="false" required />
                 </div>
                 <div className="input-wrap">
                   <span className="input-icon"><IcoLock s={17} /></span>
                   <input className="login-input" type="password" placeholder="Contraseña"
-                    value={password} onChange={e => setPassword(e.target.value)} required />
+                    value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" maxLength={256} required />
                 </div>
 
                 {error && <div className="error-badge"><IcoShield s={14} /> {error}</div>}
@@ -4355,6 +4557,85 @@ export default function App() {
             <button className="btn btn-secondary" onClick={() => setProfilePreferences({ displayName: '', roleLabel: '', welcomeMessage: '' })}>Restaurar</button>
             <button className="btn btn-primary" onClick={() => setShowProfileEditor(false)}>Guardar perfil</button>
           </div>
+        </section>
+      </div>
+    );
+  };
+
+  const renderSecuritySessions = () => {
+    if (!showSecuritySessions) return null;
+    const activeSessions = securitySessions.filter(session => session.status === 'Activa');
+    const otherActiveSessions = activeSessions.filter(session => !session.current);
+    const currentSession = securitySessions.find(session => session.current);
+    const DeviceIcon = ({ type, size = 20 }) => /móvil/i.test(type || '') ? <IcoPhone s={size} /> : /tablet/i.test(type || '') ? <IcoTablet s={size} /> : <IcoLaptop s={size} />;
+    return (
+      <div className="modal-overlay security-sessions-overlay" onMouseDown={() => { if (!securitySessionAction) { setShowSecuritySessions(false); setSecuritySessionConfirm(null); } }}>
+        <section className="security-sessions-modal" role="dialog" aria-modal="true" aria-labelledby="security-sessions-title" onMouseDown={event => event.stopPropagation()}>
+          <header className="security-sessions-head">
+            <div className="security-sessions-title">
+              <span><IcoShield s={22} /></span>
+              <div><small>Protección de tu cuenta</small><h2 id="security-sessions-title">Seguridad y sesiones</h2><p>Consulta dónde está abierta tu cuenta y cierra cualquier acceso que no reconozcas.</p></div>
+            </div>
+            <button className="modal-close" onClick={() => { setShowSecuritySessions(false); setSecuritySessionConfirm(null); }} disabled={Boolean(securitySessionAction)} aria-label="Cerrar"><IcoX s={14} /></button>
+          </header>
+
+          <div className="security-overview">
+            <article><span className="security-overview-icon green"><IcoPulse s={18} /></span><div><small>Sesiones activas</small><strong>{activeSessions.length}</strong><p>{otherActiveSessions.length ? `${otherActiveSessions.length} en otros dispositivos` : 'Solo este dispositivo'}</p></div></article>
+            <article><span className="security-overview-icon navy"><DeviceIcon type={currentSession?.deviceType} size={19} /></span><div><small>Sesión actual</small><strong className="textual">{currentSession?.deviceType || getAgoraDeviceInfo().deviceType}</strong><p>{currentSession?.browser || getAgoraDeviceInfo().browser}</p></div></article>
+            <article><span className="security-overview-icon amber"><IcoClock s={18} /></span><div><small>Protección automática</small><strong>{securityPolicy.idleMinutes || 30} min</strong><p>Cierre por inactividad</p></div></article>
+          </div>
+
+          <div className="security-sessions-toolbar">
+            <div><span>DISPOSITIVOS RECIENTES</span><strong>Actividad de los últimos 30 días</strong></div>
+            <div>
+              <button className="security-refresh" onClick={() => fetchSecuritySessions(userData)} disabled={securitySessionsLoading || Boolean(securitySessionAction)}><IcoRefresh s={14} /> Actualizar</button>
+              <button className="security-close-others" onClick={() => setSecuritySessionConfirm({ type: 'others' })} disabled={!otherActiveSessions.length || Boolean(securitySessionAction)}><IcoLogout s={14} /> Cerrar las demás</button>
+            </div>
+          </div>
+
+          <div className="security-sessions-scroll">
+            {securitySessionsLoading && !securitySessions.length ? <div className="security-sessions-empty"><NexoActionLoader s={22} /><strong>Verificando tus sesiones…</strong><p>Estamos consultando los accesos asociados a tu cuenta.</p></div>
+              : !securitySessions.length ? <div className="security-sessions-empty"><IcoShield s={24} /><strong>No encontramos sesiones registradas</strong><p>La sesión actual aparecerá después de publicar y activar el backend actualizado.</p></div>
+                : securitySessions.map(session => {
+                  const active = session.status === 'Activa';
+                  const actionInProgress = securitySessionAction === session.id;
+                  return (
+                    <article key={session.id} className={`security-session-row ${session.current ? 'current' : ''} ${active ? 'active' : 'closed'}`}>
+                      <span className="security-device-icon"><DeviceIcon type={session.deviceType} /></span>
+                      <div className="security-session-device">
+                        <div><strong>{session.device}</strong>{session.current && <em>Este dispositivo</em>}</div>
+                        <p>{session.browser} · {session.operatingSystem}</p>
+                      </div>
+                      <div className="security-session-activity"><small>Última actividad</small><strong>{relativeSecurityTime(session.lastActivityAt)}</strong><span>{formatSecurityDate(session.lastActivityAt)}</span></div>
+                      <div className="security-session-state"><span className={active ? 'active' : 'closed'}><i /> {session.status}</span><small>{active ? `Inició ${formatSecurityDate(session.createdAt)}` : session.reason || 'Sesión finalizada'}</small></div>
+                      {active ? <button className={`security-session-revoke ${session.current ? 'current' : ''}`} onClick={() => setSecuritySessionConfirm({ type: 'single', session })} disabled={Boolean(securitySessionAction)}>{actionInProgress ? <NexoActionLoader s={14} /> : <IcoLogout s={14} />}<span>{session.current ? 'Cerrar esta sesión' : 'Cerrar'}</span></button> : <span className="security-session-ended"><IcoCheck s={11} /> Finalizada</span>}
+                    </article>
+                  );
+                })}
+          </div>
+
+          <footer className="security-sessions-footer">
+            <span><IcoShield s={14} /></span>
+            <p><strong>Tu contraseña nunca aparece en esta vista.</strong> Solo guardamos el identificador del dispositivo y un hash irreversible de la sesión.</p>
+          </footer>
+
+          {securitySessionNotice && <div className="security-session-notice"><IcoShield s={14} /> {securitySessionNotice}</div>}
+
+          {securitySessionConfirm && (
+            <div className="security-session-confirm-backdrop" onMouseDown={() => !securitySessionAction && setSecuritySessionConfirm(null)}>
+              <section className="security-session-confirm" onMouseDown={event => event.stopPropagation()}>
+                <span><IcoShield s={23} /></span>
+                <small>Confirmación de seguridad</small>
+                <h3>{securitySessionConfirm.type === 'others' ? '¿Cerrar las demás sesiones?' : securitySessionConfirm.session.current ? '¿Cerrar esta sesión?' : '¿Cerrar este dispositivo?'}</h3>
+                <p>{securitySessionConfirm.type === 'others'
+                  ? `Se cerrarán ${otherActiveSessions.length} acceso${otherActiveSessions.length === 1 ? '' : 's'} y conservarás este dispositivo.`
+                  : securitySessionConfirm.session.current
+                    ? 'Volverás inmediatamente al login de Ágora OS.'
+                    : `La cuenta dejará de estar disponible en ${securitySessionConfirm.session.device}.`}</p>
+                <div><button className="btn btn-secondary" onClick={() => setSecuritySessionConfirm(null)} disabled={Boolean(securitySessionAction)}>Cancelar</button><button className="btn btn-primary security-confirm-button" onClick={confirmSecuritySessionAction} disabled={Boolean(securitySessionAction)}>{securitySessionAction ? <><NexoActionLoader s={14} /> Cerrando…</> : 'Confirmar cierre'}</button></div>
+              </section>
+            </div>
+          )}
         </section>
       </div>
     );
@@ -5259,6 +5540,7 @@ export default function App() {
       {renderAppearancePanel()}
       {renderWidgetGallery()}
       {renderProfileEditor()}
+      {renderSecuritySessions()}
       {renderTeamEditor()}
       {renderAppDeployModal()}
       {renderNotificationCenter()}
@@ -5271,6 +5553,13 @@ export default function App() {
       {renderAgoraNexo()}
       {renderNexoAstroPanel()}
       {renderExecutiveRoom()}
+      {idleWarningSeconds > 0 && (
+        <aside className="session-timeout-warning" role="alert">
+          <span><IcoClock s={18} /></span>
+          <div><small>Protección de sesión</small><strong>Tu sesión se cerrará en {Math.floor(idleWarningSeconds / 60)}:{String(idleWarningSeconds % 60).padStart(2, '0')}</strong><p>Detectamos un periodo prolongado sin actividad.</p></div>
+          <button onClick={keepSecuritySessionActive}>Mantener sesión</button>
+        </aside>
+      )}
 
       {/* ================= MENU BAR ================= */}
       <header className="menubar">
@@ -5330,6 +5619,9 @@ export default function App() {
             <button className="popover-item" onClick={() => { setShowUserMenu(false); setShowProfileEditor(true); }}>
               <IcoUser s={15} /> Editar mi perfil
             </button>
+            <button className="popover-item" onClick={openSecuritySessionCenter}>
+              <IcoShield s={15} /> Seguridad y sesiones
+            </button>
             <button className="popover-item" onClick={() => { setShowUserMenu(false); setShowAppearancePanel(true); }}>
               <IcoSliders s={15} /> Personalizar escritorio
             </button>
@@ -5381,6 +5673,7 @@ export default function App() {
             </section>}
 
             <div className="mobile-quick-actions">
+              <button onClick={openSecuritySessionCenter}><IcoShield s={17} /><span>Seguridad</span></button>
               <button onClick={() => { setShowMobileMenu(false); setShowAppearancePanel(true); }}><IcoSliders s={17} /><span>Personalizar</span></button>
               <button onClick={() => { setShowMobileMenu(false); setShowWidgetGallery(true); }}><IcoWidgets s={17} /><span>Widgets</span></button>
               <button onClick={() => { setShowMobileMenu(false); setLearningSection('discover'); setShowLearningCenter(true); fetchLearningCenter(userData, true); }}><IcoBook s={17} /><span>Aprendizaje</span></button>
