@@ -99,6 +99,37 @@ const normalizeExternalUrl = (value) => {
   } catch { return ''; }
 };
 
+const DEFAULT_BANNER_FRAME = Object.freeze({ mode: 'auto', fit: 'contain', positionX: 50, positionY: 50, zoom: 100 });
+const clampBannerValue = (value, min, max, fallback) => {
+  if (value === '' || value === null || value === undefined) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback;
+};
+const normalizeBannerFrame = (frame = {}) => {
+  const source = frame && typeof frame === 'object' ? frame : {};
+  return {
+    mode: source.mode === 'manual' ? 'manual' : 'auto',
+    fit: source.fit === 'cover' ? 'cover' : 'contain',
+    positionX: clampBannerValue(source.positionX, 0, 100, 50),
+    positionY: clampBannerValue(source.positionY, 0, 100, 50),
+    zoom: clampBannerValue(source.zoom, 100, 200, 100),
+  };
+};
+const getAutomaticBannerFrame = (width, height) => {
+  const sourceRatio = Number(width) > 0 && Number(height) > 0 ? Number(width) / Number(height) : 0;
+  const targetRatio = 4;
+  const cropLoss = sourceRatio
+    ? (sourceRatio > targetRatio ? 1 - targetRatio / sourceRatio : 1 - sourceRatio / targetRatio)
+    : 1;
+  return {
+    ...DEFAULT_BANNER_FRAME,
+    fit: cropLoss <= .24 ? 'cover' : 'contain',
+  };
+};
+const createEmptyBoardPost = () => ({
+  type: 'comunicado', title: '', body: '', imageUrl: '', linkUrl: '', imageFrame: { ...DEFAULT_BANNER_FRAME },
+});
+
 const canonicalGroupName = (value, groups = []) => {
   const cleaned = String(value || '').trim();
   return groups.find(group => group.toLowerCase() === cleaned.toLowerCase()) || cleaned;
@@ -1160,12 +1191,16 @@ export default function App() {
     } catch { return DEFAULT_BOARD_POSTS; }
   });
   const [showBoardManager, setShowBoardManager] = useState(false);
-  const [newBoardPost, setNewBoardPost] = useState({ type: 'comunicado', title: '', body: '', imageUrl: '', linkUrl: '' });
+  const [newBoardPost, setNewBoardPost] = useState(createEmptyBoardPost);
   const [publicationTypeOpen, setPublicationTypeOpen] = useState(false);
   const [boardManagerSection, setBoardManagerSection] = useState('compose');
   const [boardPreviewId, setBoardPreviewId] = useState('');
   const [boardPendingAction, setBoardPendingAction] = useState('');
   const [boardManagerNotice, setBoardManagerNotice] = useState(null);
+  const [draftBannerMeta, setDraftBannerMeta] = useState(null);
+  const [activeBannerMeta, setActiveBannerMeta] = useState(null);
+  const [activeBannerFrameDraft, setActiveBannerFrameDraft] = useState(null);
+  const bannerDragRef = useRef(null);
   const [boardSlide, setBoardSlide] = useState(0);
   const [boardCarouselPaused, setBoardCarouselPaused] = useState(false);
   const [enabledWidgets, setEnabledWidgets] = useState([]);
@@ -1531,6 +1566,13 @@ export default function App() {
   }, [boardPosts]);
 
   useEffect(() => {
+    const selectedPost = boardPosts.find(postItem => postItem.id === boardPreviewId);
+    setActiveBannerFrameDraft(selectedPost?.type === 'banner' ? normalizeBannerFrame(selectedPost.imageFrame) : null);
+    setActiveBannerMeta(null);
+    bannerDragRef.current = null;
+  }, [boardPreviewId, boardPosts]);
+
+  useEffect(() => {
     if (boardPosts.length < 2 || boardCarouselPaused) return undefined;
     const timer = setInterval(() => {
       setBoardSlide(index => (index + 1) % boardPosts.length);
@@ -1595,7 +1637,7 @@ export default function App() {
     if (drafts.notification) setNotificationDraft(current => ({ ...current, ...drafts.notification }));
     if (drafts.incident) setIncidentDraft(current => ({ ...current, ...drafts.incident }));
     if (drafts.maintenance) setMaintenanceDraft(current => ({ ...current, ...drafts.maintenance }));
-    if (drafts.boardPost) setNewBoardPost(current => ({ ...current, ...drafts.boardPost }));
+    if (drafts.boardPost) setNewBoardPost(current => ({ ...current, ...drafts.boardPost, imageFrame: normalizeBannerFrame(drafts.boardPost.imageFrame) }));
     if (drafts.teamTask) setTeamTaskDraft(current => ({ ...current, ...drafts.teamTask }));
     if (drafts.teamObjective) setTeamObjectiveDraft(current => ({ ...current, ...drafts.teamObjective }));
     if (drafts.feedback) setFeedbackDraft(current => ({ ...current, ...drafts.feedback }));
@@ -1775,7 +1817,7 @@ export default function App() {
   const fetchBoardPosts = async () => {
     try {
       const r = await post({ action: 'getBoardPosts' });
-      if (r.status === 'success' && Array.isArray(r.data)) setBoardPosts(r.data.map(item => ({ linkUrl: '', ...item })));
+      if (r.status === 'success' && Array.isArray(r.data)) setBoardPosts(r.data.map(item => ({ linkUrl: '', ...item, imageFrame: normalizeBannerFrame(item.imageFrame) })));
     } catch { /* respaldo local */ }
   };
 
@@ -2199,6 +2241,88 @@ export default function App() {
     setCalendarTaskText('');
   };
 
+  const updateDraftBannerFrame = (update) => {
+    setNewBoardPost(current => {
+      const currentFrame = normalizeBannerFrame(current.imageFrame);
+      const nextFrame = typeof update === 'function' ? update(currentFrame) : update;
+      return { ...current, imageFrame: normalizeBannerFrame(nextFrame) };
+    });
+  };
+
+  const updateActiveBannerFrame = (update) => {
+    setActiveBannerFrameDraft(current => {
+      const currentFrame = normalizeBannerFrame(current);
+      const nextFrame = typeof update === 'function' ? update(currentFrame) : update;
+      return normalizeBannerFrame(nextFrame);
+    });
+  };
+
+  const updateBannerFrameForTarget = (target, update) => {
+    if (target === 'active') updateActiveBannerFrame(update);
+    else updateDraftBannerFrame(update);
+  };
+
+  const applyAutomaticBannerFrame = (target) => {
+    const meta = target === 'active' ? activeBannerMeta : draftBannerMeta;
+    updateBannerFrameForTarget(target, { ...getAutomaticBannerFrame(meta?.width, meta?.height), mode: 'auto' });
+  };
+
+  const handleBannerImageLoad = (target, event) => {
+    const meta = { width: event.currentTarget.naturalWidth || 0, height: event.currentTarget.naturalHeight || 0 };
+    if (target === 'active') setActiveBannerMeta(meta);
+    else setDraftBannerMeta(meta);
+    updateBannerFrameForTarget(target, currentFrame => (
+      currentFrame.mode === 'auto' ? { ...getAutomaticBannerFrame(meta.width, meta.height), mode: 'auto' } : currentFrame
+    ));
+  };
+
+  const startBannerDrag = (target, event) => {
+    const frame = normalizeBannerFrame(target === 'active' ? activeBannerFrameDraft : newBoardPost.imageFrame);
+    if (frame.mode !== 'manual') return;
+    bannerDragRef.current = {
+      target, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY,
+      width: Math.max(1, event.currentTarget.clientWidth), height: Math.max(1, event.currentTarget.clientHeight), frame,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const moveBannerDrag = (event) => {
+    const drag = bannerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const horizontalDirection = drag.frame.fit === 'cover' ? -1 : 1;
+    const verticalDirection = drag.frame.fit === 'cover' ? -1 : 1;
+    updateBannerFrameForTarget(drag.target, {
+      ...drag.frame,
+      positionX: drag.frame.positionX + horizontalDirection * ((event.clientX - drag.startX) / drag.width) * 100,
+      positionY: drag.frame.positionY + verticalDirection * ((event.clientY - drag.startY) / drag.height) * 100,
+    });
+  };
+
+  const endBannerDrag = (event) => {
+    if (bannerDragRef.current?.pointerId !== event.pointerId) return;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    bannerDragRef.current = null;
+  };
+
+  const saveActiveBannerFrame = async (postItem) => {
+    if (!postItem?.id || postItem.type !== 'banner' || !activeBannerFrameDraft) return;
+    const imageFrame = normalizeBannerFrame(activeBannerFrameDraft);
+    setBoardPendingAction(`frame-${postItem.id}`);
+    setBoardManagerNotice(null);
+    try {
+      const response = await post({
+        action: 'updateBoardPostFrame', usuario: userData?.usuario || '', authToken: userData?.sessionToken || '',
+        id: postItem.id, imageFrame,
+      });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible guardar el encuadre.');
+      setBoardPosts(posts => posts.map(item => item.id === postItem.id ? { ...item, imageFrame } : item));
+      await fetchBoardPosts();
+      setBoardManagerNotice({ type: 'success', text: 'Encuadre actualizado. El banner ya se mostrará igual para todos los usuarios.' });
+    } catch {
+      setBoardManagerNotice({ type: 'error', text: 'No se pudo guardar el ajuste del banner. Verifica el despliegue del backend.' });
+    } finally { setBoardPendingAction(''); }
+  };
+
   const addBoardPost = async (e) => {
     e.preventDefault();
     const isBanner = newBoardPost.type === 'banner';
@@ -2212,13 +2336,15 @@ export default function App() {
       body: isBanner ? '' : newBoardPost.body.trim(),
       imageUrl: newBoardPost.imageUrl.trim(),
       linkUrl: normalizeExternalUrl(newBoardPost.linkUrl),
+      imageFrame: normalizeBannerFrame(newBoardPost.imageFrame),
       createdAt: Date.now(),
       author: userData?.usuario || 'Administración',
       order: 0,
     };
     setBoardPosts(posts => [postItem, ...posts]);
     setBoardPreviewId(postItem.id);
-    setNewBoardPost({ type: 'comunicado', title: '', body: '', imageUrl: '', linkUrl: '' });
+    setNewBoardPost(createEmptyBoardPost());
+    setDraftBannerMeta(null);
     setBoardSlide(0);
     setPublicationTypeOpen(false);
     try {
@@ -3773,13 +3899,20 @@ export default function App() {
   /* ======================================================================
      DASHBOARD · BENTO GRID
      ====================================================================== */
-  const renderBoardSlide = (post) => {
+  const renderBoardSlide = (post, options = {}) => {
     if (!post) return <p className="empty-note">No hay publicaciones activas.</p>;
     const hasLink = Boolean(normalizeExternalUrl(post.linkUrl));
+    const imageFrame = normalizeBannerFrame(post.imageFrame);
+    const bannerImageStyle = {
+      objectFit: imageFrame.fit,
+      objectPosition: `${imageFrame.positionX}% ${imageFrame.positionY}%`,
+      transform: `scale(${imageFrame.zoom / 100})`,
+      transformOrigin: `${imageFrame.positionX}% ${imageFrame.positionY}%`,
+    };
     const article = post.type === 'banner' ? (
-      <article className={`board-post banner ${hasLink ? '' : 'board-slide-enter'}`} aria-label="Banner corporativo">
+      <article className={`board-post banner frame-${imageFrame.fit} ${hasLink ? '' : 'board-slide-enter'}`} aria-label="Banner corporativo">
         {post.imageUrl
-          ? <img className="board-banner-image" src={getValidImageUrl(post.imageUrl)} alt="Banner corporativo" />
+          ? <img className="board-banner-image" src={getValidImageUrl(post.imageUrl)} alt="Banner corporativo" style={bannerImageStyle} onLoad={options.onImageLoad} draggable="false" />
           : <div className="board-banner-empty">Banner sin imagen</div>}
       </article>
     ) : (
@@ -4300,10 +4433,48 @@ export default function App() {
       id: 'board-draft-preview', type: newBoardPost.type,
       title: newBoardPost.title.trim() || 'Título de la publicación',
       body: newBoardPost.body.trim() || 'Aquí podrás comprobar cómo se verá el mensaje antes de compartirlo con los colaboradores.',
-      imageUrl: newBoardPost.imageUrl.trim(), linkUrl: normalizeExternalUrl(newBoardPost.linkUrl), createdAt: Date.now(), author: userData?.usuario || 'Administración',
+      imageUrl: newBoardPost.imageUrl.trim(), imageFrame: normalizeBannerFrame(newBoardPost.imageFrame),
+      linkUrl: normalizeExternalUrl(newBoardPost.linkUrl), createdAt: Date.now(), author: userData?.usuario || 'Administración',
     };
     const selectedActivePost = boardPosts.find(postItem => postItem.id === boardPreviewId) || boardPosts[0] || null;
+    const selectedActivePreview = selectedActivePost?.type === 'banner' && activeBannerFrameDraft
+      ? { ...selectedActivePost, imageFrame: activeBannerFrameDraft }
+      : selectedActivePost;
     const closeBoardManager = () => { setPublicationTypeOpen(false); setBoardManagerNotice(null); setShowBoardManager(false); };
+    const renderBannerFrameControls = (target, frameValue, meta, postItem = null) => {
+      const frame = normalizeBannerFrame(frameValue);
+      const sourceRatio = meta?.width && meta?.height ? meta.width / meta.height : 0;
+      const ratioDistance = sourceRatio ? Math.abs(sourceRatio - 4) / 4 : 1;
+      const qualityState = !meta
+        ? { label: 'Analizando imagen', tone: 'neutral' }
+        : meta.width >= 1200 && meta.height >= 300 && ratioDistance <= .18
+          ? { label: 'Formato óptimo', tone: 'success' }
+          : { label: 'Ajuste recomendado', tone: 'warning' };
+      const setFrame = update => updateBannerFrameForTarget(target, update);
+      return <section className="banner-frame-editor" aria-label="Ajuste del banner">
+        <header>
+          <div><span><IcoSliders s={14} /></span><div><strong>Encuadre del banner</strong><small>Formato recomendado: 1600 × 400 px · proporción 4:1</small></div></div>
+          <em className={qualityState.tone}><i />{qualityState.label}</em>
+        </header>
+        <div className="banner-frame-modes">
+          <button type="button" className={frame.mode === 'auto' ? 'active' : ''} onClick={() => applyAutomaticBannerFrame(target)}><IcoSparkles s={14} /><span><strong>Ajuste automático</strong><small>Ágora elige el encuadre más seguro</small></span>{frame.mode === 'auto' && <IcoCheck s={11} />}</button>
+          <button type="button" className={frame.mode === 'manual' ? 'active' : ''} onClick={() => setFrame(current => ({ ...current, mode: 'manual' }))}><IcoSliders s={14} /><span><strong>Ajuste manual</strong><small>Recorta, escala y posiciona</small></span>{frame.mode === 'manual' && <IcoCheck s={11} />}</button>
+        </div>
+        {frame.mode === 'auto' ? <div className="banner-auto-summary">
+          <span><IcoCheck s={11} /></span><p><strong>{frame.fit === 'cover' ? 'El espacio se llenará por completo.' : 'La imagen se conservará completa.'}</strong> Ágora evita recortes agresivos cuando la proporción se aleja del formato corporativo.</p>
+        </div> : <div className="banner-manual-controls">
+          <div className="banner-fit-control"><span>Visualización</span><div><button type="button" className={frame.fit === 'contain' ? 'active' : ''} onClick={() => setFrame(current => ({ ...current, fit: 'contain' }))}>Imagen completa</button><button type="button" className={frame.fit === 'cover' ? 'active' : ''} onClick={() => setFrame(current => ({ ...current, fit: 'cover' }))}>Llenar espacio</button></div></div>
+          <label className="banner-range-control"><span><b>Escala</b><strong>{Math.round(frame.zoom)}%</strong></span><input type="range" min="100" max="200" step="1" value={frame.zoom} onChange={event => setFrame(current => ({ ...current, zoom: Number(event.target.value) }))} /></label>
+          <div className="banner-position-grid">
+            <label className="banner-range-control"><span><b>Horizontal</b><strong>{Math.round(frame.positionX)}%</strong></span><input type="range" min="0" max="100" step="1" value={frame.positionX} onChange={event => setFrame(current => ({ ...current, positionX: Number(event.target.value) }))} /></label>
+            <label className="banner-range-control"><span><b>Vertical</b><strong>{Math.round(frame.positionY)}%</strong></span><input type="range" min="0" max="100" step="1" value={frame.positionY} onChange={event => setFrame(current => ({ ...current, positionY: Number(event.target.value) }))} /></label>
+          </div>
+          <div className="banner-manual-foot"><p><IcoTarget s={12} /> También puedes arrastrar la imagen directamente sobre la vista previa.</p><button type="button" onClick={() => setFrame({ ...DEFAULT_BANNER_FRAME, mode: 'manual', fit: 'cover' })}><IcoRefresh s={12} /> Centrar</button></div>
+        </div>}
+        <div className="banner-source-meta"><span>Archivo de origen</span><strong>{meta ? `${meta.width} × ${meta.height} px` : 'Esperando una imagen válida'}</strong><i>{frame.fit === 'cover' ? 'Llenar' : 'Completa'} · {Math.round(frame.zoom)}%</i></div>
+        {postItem && <button type="button" className="btn btn-primary banner-frame-save" disabled={boardPendingAction === `frame-${postItem.id}`} onClick={() => saveActiveBannerFrame(postItem)}>{boardPendingAction === `frame-${postItem.id}` ? <NexoActionLoader /> : <IcoCheck s={13} />}{boardPendingAction === `frame-${postItem.id}` ? 'Guardando encuadre…' : 'Guardar encuadre'}</button>}
+      </section>;
+    };
     return (
       <div className="modal-overlay board-manager-overlay" onMouseDown={closeBoardManager}>
         <section className="board-modal" onMouseDown={e => e.stopPropagation()}>
@@ -4335,12 +4506,12 @@ export default function App() {
                   return <button key={type.id} type="button" role="option" aria-selected={selected} className={selected ? 'selected' : ''} onClick={() => { setNewBoardPost(postItem => ({ ...postItem, type: type.id })); setPublicationTypeOpen(false); }}><span className={`publication-type-icon ${type.id}`}><TypeIcon s={17} /></span><span><strong>{type.label}</strong><small>{type.detail}</small></span>{selected && <IcoCheck s={13} />}</button>;
                 })}</div>}
               </div>
-              {newBoardPost.type === 'banner' ? <div className="banner-form-note"><IcoGrid s={16} /><span><strong>Banner gráfico</strong>Se mostrará completo, sin título, texto ni filtros de color.</span></div> : <>
+              {newBoardPost.type === 'banner' ? <div className="banner-form-note"><IcoGrid s={16} /><span><strong>Banner gráfico</strong>Define el encuadre desde la vista previa antes de publicarlo.</span></div> : <>
                 <label className="form-label">Título</label><input className="field" value={newBoardPost.title} maxLength={90} onChange={e => setNewBoardPost({ ...newBoardPost, title: e.target.value })} placeholder="Título de la publicación" required />
                 <label className="form-label">Mensaje</label><textarea className="field" value={newBoardPost.body} maxLength={360} onChange={e => setNewBoardPost({ ...newBoardPost, body: e.target.value })} placeholder="Información para los colaboradores" required />
               </>}
               <label className="form-label">{newBoardPost.type === 'banner' ? 'Imagen del banner (URL obligatoria)' : 'Imagen (URL opcional)'}</label>
-              <input className="field" type="url" value={newBoardPost.imageUrl} onChange={e => setNewBoardPost({ ...newBoardPost, imageUrl: e.target.value })} placeholder="https://…" required={newBoardPost.type === 'banner'} />
+              <input className="field" type="url" value={newBoardPost.imageUrl} onChange={e => { setDraftBannerMeta(null); setNewBoardPost(current => ({ ...current, imageUrl: e.target.value, imageFrame: { ...DEFAULT_BANNER_FRAME } })); }} placeholder="https://…" required={newBoardPost.type === 'banner'} />
               <label className="form-label">LINK URL <span className="optional-label">Opcional</span></label>
               <div className="link-url-field"><IcoChevron s={14} /><input className="field mono" type="url" value={newBoardPost.linkUrl} onChange={e => setNewBoardPost({ ...newBoardPost, linkUrl: e.target.value })} placeholder="https://portal.multival.com/comunicado" /></div>
               <p className="field-help">Toda la publicación será interactiva cuando tenga un enlace.</p>
@@ -4348,8 +4519,15 @@ export default function App() {
             </form>
             <section className="board-preview-workbench">
               <div className="board-preview-heading"><div><span>02</span><div><strong>Vista previa</strong><small>Así se mostrará en el escritorio.</small></div></div><em><i /> En tiempo real</em></div>
-              <div className={`board-preview-canvas preview-${newBoardPost.type}`}>{renderBoardSlide(boardDraftPreview)}</div>
-              <div className="board-preview-foot"><IcoCheck s={12} /><span>Revisa imagen, jerarquía y legibilidad antes de publicar.</span></div>
+              <div className={`board-preview-canvas preview-${newBoardPost.type} ${newBoardPost.type === 'banner' && normalizeBannerFrame(newBoardPost.imageFrame).mode === 'manual' ? 'banner-manual-mode' : ''}`}
+                onPointerDown={newBoardPost.type === 'banner' ? event => startBannerDrag('draft', event) : undefined}
+                onPointerMove={newBoardPost.type === 'banner' ? moveBannerDrag : undefined}
+                onPointerUp={newBoardPost.type === 'banner' ? endBannerDrag : undefined}
+                onPointerCancel={newBoardPost.type === 'banner' ? endBannerDrag : undefined}>
+                {renderBoardSlide(boardDraftPreview, { onImageLoad: event => handleBannerImageLoad('draft', event) })}
+              </div>
+              {newBoardPost.type === 'banner' && newBoardPost.imageUrl.trim() && renderBannerFrameControls('draft', newBoardPost.imageFrame, draftBannerMeta)}
+              <div className="board-preview-foot"><IcoCheck s={12} /><span>{newBoardPost.type === 'banner' ? 'El encuadre guardado será el mismo para todos los colaboradores.' : 'Revisa imagen, jerarquía y legibilidad antes de publicar.'}</span></div>
             </section>
           </div> : <div className="board-active-layout">
             <section className="board-order-panel">
@@ -4368,7 +4546,13 @@ export default function App() {
             </section>
             <section className="board-active-preview">
               <div className="board-preview-heading"><div><span><IcoGrid s={14} /></span><div><strong>Publicación seleccionada</strong><small>Vista real del carrusel.</small></div></div>{selectedActivePost && <em><i /> Activa</em>}</div>
-              {selectedActivePost ? <><div className={`board-preview-canvas preview-${selectedActivePost.type}`}>{renderBoardSlide(selectedActivePost)}</div><div className="board-active-meta"><div><span>Posición</span><strong>{boardPosts.findIndex(postItem => postItem.id === selectedActivePost.id) + 1} de {boardPosts.length}</strong></div><div><span>Tipo</span><strong>{BOARD_TYPES.find(type => type.id === selectedActivePost.type)?.label || selectedActivePost.type}</strong></div><div><span>Enlace</span><strong>{normalizeExternalUrl(selectedActivePost.linkUrl) ? 'Configurado' : 'Sin enlace'}</strong></div></div>{normalizeExternalUrl(selectedActivePost.linkUrl) && <a className="board-preview-link" href={normalizeExternalUrl(selectedActivePost.linkUrl)} target="_blank" rel="noopener noreferrer">Probar enlace <IcoChevron s={11} /></a>}</> : <div className="board-manager-empty preview"><IcoGrid s={28} /><strong>Selecciona una publicación</strong><span>La vista previa aparecerá en este espacio.</span></div>}
+              {selectedActivePost ? <><div className={`board-preview-canvas preview-${selectedActivePost.type} ${selectedActivePost.type === 'banner' && normalizeBannerFrame(activeBannerFrameDraft).mode === 'manual' ? 'banner-manual-mode' : ''}`}
+                onPointerDown={selectedActivePost.type === 'banner' ? event => startBannerDrag('active', event) : undefined}
+                onPointerMove={selectedActivePost.type === 'banner' ? moveBannerDrag : undefined}
+                onPointerUp={selectedActivePost.type === 'banner' ? endBannerDrag : undefined}
+                onPointerCancel={selectedActivePost.type === 'banner' ? endBannerDrag : undefined}>
+                {renderBoardSlide(selectedActivePreview, selectedActivePost.type === 'banner' ? { onImageLoad: event => handleBannerImageLoad('active', event) } : {})}
+              </div>{selectedActivePost.type === 'banner' && activeBannerFrameDraft && renderBannerFrameControls('active', activeBannerFrameDraft, activeBannerMeta, selectedActivePost)}<div className="board-active-meta"><div><span>Posición</span><strong>{boardPosts.findIndex(postItem => postItem.id === selectedActivePost.id) + 1} de {boardPosts.length}</strong></div><div><span>Tipo</span><strong>{BOARD_TYPES.find(type => type.id === selectedActivePost.type)?.label || selectedActivePost.type}</strong></div><div><span>Enlace</span><strong>{normalizeExternalUrl(selectedActivePost.linkUrl) ? 'Configurado' : 'Sin enlace'}</strong></div></div>{normalizeExternalUrl(selectedActivePost.linkUrl) && <a className="board-preview-link" href={normalizeExternalUrl(selectedActivePost.linkUrl)} target="_blank" rel="noopener noreferrer">Probar enlace <IcoChevron s={11} /></a>}</> : <div className="board-manager-empty preview"><IcoGrid s={28} /><strong>Selecciona una publicación</strong><span>La vista previa aparecerá en este espacio.</span></div>}
             </section>
           </div>}
         </section>
