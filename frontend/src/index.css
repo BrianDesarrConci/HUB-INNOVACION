@@ -3373,3 +3373,179 @@ button:disabled .nexo-action-loader { opacity: .82; }
   .security-sessions-overlay{align-items:flex-end;padding:0}.security-sessions-modal{width:100%;height:min(94dvh,var(--agora-visible-height,100dvh));border-radius:25px 25px 0 0;border-bottom:0}.security-sessions-head{padding:18px 16px 14px}.security-sessions-title>span{width:43px;height:43px;flex-basis:43px;border-radius:14px}.security-sessions-title h2{font-size:19px}.security-sessions-title p{display:none}.security-overview{display:flex;overflow-x:auto;padding:12px 14px 4px;scroll-snap-type:x mandatory;scrollbar-width:none}.security-overview::-webkit-scrollbar{display:none}.security-overview article{min-width:210px;min-height:76px;padding:12px;scroll-snap-align:start}.security-sessions-toolbar{align-items:flex-start;padding:12px 14px 8px}.security-sessions-toolbar>div:first-child strong{font-size:10px}.security-sessions-toolbar>div:last-child{gap:5px}.security-refresh,.security-close-others{width:34px;padding:0;font-size:0}.security-refresh svg,.security-close-others svg{width:14px;height:14px}.security-sessions-scroll{padding:0 14px 15px}.security-session-row{grid-template-columns:42px minmax(0,1fr) auto;gap:10px;padding:12px}.security-device-icon{width:40px;height:40px;border-radius:13px}.security-session-device{grid-column:2}.security-session-activity{grid-column:2}.security-session-activity small,.security-session-activity span{display:none}.security-session-activity strong{margin:0;font-size:8px;color:var(--ink-3)}.security-session-revoke,.security-session-ended{grid-column:3;grid-row:1/3}.security-session-revoke{width:34px;padding:0}.security-session-revoke span{display:none}.security-sessions-footer{margin:0 14px calc(14px + env(safe-area-inset-bottom,0px));padding:9px}.security-sessions-footer p{font-size:7.5px}.security-session-notice{bottom:calc(13px + env(safe-area-inset-bottom,0px));max-width:calc(100% - 28px)}.security-session-confirm{padding:23px 19px}.session-timeout-warning{left:10px;right:10px;bottom:82px;width:auto;grid-template-columns:38px minmax(0,1fr)}.session-timeout-warning>span{width:37px;height:37px}.session-timeout-warning button{grid-column:1/-1;width:100%}
 }
 @media(prefers-reduced-motion:reduce){.security-sessions-modal,.security-session-confirm,.session-timeout-warning{animation:none!important}.security-session-row,.security-refresh{transition:none!important}}
+
+
+/* Biblioteca de aplicaciones */
+.agora-store { color: var(--module-text, var(--ink)); padding: 0 0 70px; }
+.agora-store button, .agora-store input, .agora-store select, .agora-store textarea { font: inherit; }
+.agora-store button { cursor: pointer; }
+.agora-store button:disabled { cursor: not-allowed; opacity: .6; }
+.agora-store-hero { position: relative; isolation: isolate; overflow: hidden; min-height: 188px; border-radius: 25px; background: linear-gradient(115deg,#242a54,#343b72 62%,#126d55); color: #fff; padding: 34px 39px; box-shadow: 0 22px 42px -29px rgba(13,20,49,.7); }
+.agora-store-hero-glow { position: absolute; z-index: -1; inset: auto -50px -140px auto; width: 400px; height: 330px; border-radius: 50%; background: radial-gradient(circle,rgba(255,205,4,.37),rgba(4,140,56,.18) 45%,transparent 68%); }
+.agora-store-eyebrow { display: block; color: #b7ecd3; font-size: 11px; font-weight: 800; letter-spacing: .13em; }
+.agora-store-hero h2 { color: #fff; margin: 12px 0 7px; font-size: clamp(27px,3vw,39px); font-weight: 740; letter-spacing: -.045em; line-height: 1.16; }
+.agora-store-hero p { color: #e0e5ee; margin: 0; max-width: 600px; font-size: 14px; line-height: 1.6; }
+.agora-store-message { border-radius: 12px; margin: 19px 0 0; padding: 12px 17px; font-size: 13px; font-weight: 600; }
+.agora-store-message.error { background: rgba(224,82,75,.12); color: var(--red,#a02020); }
+.agora-store-message.success { background: rgba(4,140,56,.12); color: var(--brand-green,#048c38); }
+.agora-store-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 13px; margin: 21px 0 25px; }
+.agora-store-summary > div { display: flex; flex-direction: column; gap: 1px; padding: 16px 21px; background: var(--surface); border: 1px solid var(--line); border-radius: 17px; box-shadow: var(--module-shadow); }
+.agora-store-summary strong { font-size: 25px; line-height: 1.2; font-weight: 770; color: var(--module-text); }
+.agora-store-summary span { color: var(--module-muted); font-size: 12px; }
+.agora-store-controls { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 28px 0 17px; }
+.agora-store-tabs { display: inline-flex; align-items: center; padding: 4px; border-radius: 13px; background: var(--surface-soft); border: 1px solid var(--line); }
+.agora-store-tabs button { padding: 9px 15px; color: var(--module-muted); background: none; border: 0; border-radius: 10px; font-size: 13px; font-weight: 650; }
+.agora-store-tabs button.active { color: var(--module-text); background: var(--surface); box-shadow: 0 3px 10px rgba(15,25,50,.09); }
+.agora-store-controls input, .agora-store-user-picker select { min-height: 41px; border: 1px solid var(--line-strong); border-radius: 11px; padding: 9px 13px; background: var(--surface); color: var(--module-text); outline-color: #048c38; }
+.agora-store-controls input { width: min(280px,100%); }
+.agora-store-controls input::placeholder { color: var(--module-subtle); }
+.agora-store-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 27px; }
+.agora-store-filters button { border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--module-muted); padding: 7px 12px; font-size: 12px; font-weight: 630; }
+.agora-store-filters button.active { background: #e6f3ea; color: #116b36; border-color: #b9dfc6; }
+[data-theme='dark'] .agora-store-filters button.active { background: #1a4131; color: #b6f2cd; border-color: #33694c; }
+.agora-store-section-title, .agora-store-admin-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 17px 0 15px; }
+.agora-store-section-title h3, .agora-store-admin-heading h3 { margin: 0; font-size: 19px; letter-spacing: -.025em; color: var(--module-text); }
+.agora-store-section-title span, .agora-store-admin-heading span { color: var(--module-subtle); font-size: 12px; }
+.agora-store-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 15px; }
+.agora-store-tile { display: flex; flex-direction: column; min-height: 241px; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 19px; box-shadow: var(--module-shadow); transition: transform .2s, box-shadow .2s; }
+.agora-store-tile:hover { transform: translateY(-3px); box-shadow: 0 22px 40px -26px rgba(9,25,52,.4); }
+.agora-store-tile-top, .agora-store-tile-footer { display: flex; align-items: flex-start; justify-content: space-between; gap: 9px; }
+.agora-store-icon { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 15px; color: #fff; font-size: 17px; font-weight: 750; box-shadow: inset 0 1px rgba(255,255,255,.27), 0 10px 20px -13px rgba(0,0,0,.6); }
+.agora-store-icon.small { width: 41px; height: 41px; border-radius: 12px; font-size: 13px; }
+.agora-store-icon.navy { background: linear-gradient(135deg,#5263ad,#242a54); }
+.agora-store-icon.green { background: linear-gradient(135deg,#41b876,#056734); }
+.agora-store-icon.blue { background: linear-gradient(135deg,#58a7c7,#24537f); }
+.agora-store-icon.purple { background: linear-gradient(135deg,#a88ac4,#615087); }
+.agora-store-icon.amber { background: linear-gradient(135deg,#dcb660,#9b672d); }
+.agora-store-category { max-width: 65%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 9px; border-radius: 99px; background: var(--surface-soft); color: var(--module-muted); font-size: 10px; font-weight: 700; }
+.agora-store-tile h3 { color: var(--module-text); font-size: 17px; margin: 18px 0 6px; line-height: 1.3; }
+.agora-store-tile p { color: var(--module-muted); font-size: 12px; line-height: 1.55; margin: 0 0 20px; }
+.agora-store-tile-footer { margin-top: auto; align-items: center; }
+.agora-store-tile-footer small { max-width: 48%; color: var(--module-subtle); font-size: 11px; overflow-wrap: anywhere; }
+.agora-store-btn, .agora-store-row-actions button, .agora-store-dialog-actions button { flex: none; border: 1px solid #bfe4ce; border-radius: 9px; padding: 8px 12px; background: #e6f4eb; color: #116839; font-size: 12px; font-weight: 750; }
+.agora-store-btn.primary, .agora-store-row-actions button.primary, .agora-store-dialog-actions button.primary { border-color: #048c38; background: #048c38; color: #fff; }
+.agora-store-pending { color: var(--module-muted); font-size: 12px; font-weight: 650; }
+.agora-store-empty { padding: 30px 20px; border: 1px dashed var(--line-strong); border-radius: 14px; color: var(--module-muted); text-align: center; font-size: 13px; }
+.agora-store-admin { display: grid; gap: 8px; padding-top: 19px; }
+.agora-store-admin-heading button { background: var(--surface); border: 1px solid var(--line); border-radius: 9px; color: var(--module-text); padding: 7px 12px; }
+.agora-store-request-list { display: grid; gap: 8px; }
+.agora-store-request-row { display: flex; align-items: center; gap: 15px; min-width: 0; padding: 14px 17px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--module-shadow); }
+.agora-store-request-row > div:nth-child(2) { flex: 1; min-width: 0; }
+.agora-store-request-row strong { color: var(--module-text); font-size: 13px; }
+.agora-store-request-row p { color: var(--module-muted); margin: 2px 0; font-size: 12px; overflow-wrap: anywhere; }
+.agora-store-request-row small { color: var(--module-subtle); font-size: 11px; }
+.agora-store-request-state { flex: none; border-radius: 99px; background: var(--surface-soft); padding: 6px 10px; color: var(--module-muted); font-size: 11px; font-weight: 750; }
+.agora-store-request-state.aprobada { color: #13813e; background: rgba(4,140,56,.13); }
+.agora-store-request-state.rechazada { color: #b2453c; background: rgba(224,82,75,.13); }
+.agora-store-row-actions { display: flex; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+.agora-store-row-actions button:first-child { background: var(--surface-soft); color: var(--module-text); border-color: var(--line); }
+.agora-store-user-picker { display: flex; flex-direction: column; gap: 7px; color: var(--module-muted); font-size: 12px; font-weight: 670; max-width: 380px; }
+.agora-store-matrix { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; margin: 12px 0; }
+.agora-store-matrix-row { display: flex; align-items: center; gap: 11px; min-width: 0; padding: 12px; border: 1px solid var(--line); background: var(--surface); border-radius: 13px; }
+.agora-store-matrix-row > div { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.agora-store-matrix-row strong { color: var(--module-text); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agora-store-matrix-row small { color: var(--module-subtle); font-size: 11px; }
+.agora-store-matrix-row button { border: 0; border-radius: 8px; padding: 8px 10px; font-size: 11px; font-weight: 700; }
+.agora-store-matrix-row button.grant { color: #fff; background: #048c38; }
+.agora-store-matrix-row button.revoke { color: #a7443e; background: rgba(224,82,75,.1); }
+.agora-store-footnote { color: var(--module-subtle); font-size: 12px; }
+.agora-store-overlay { position: fixed; z-index: 9999; inset: 0; display: grid; place-items: center; padding: 17px; background: rgba(9,14,31,.56); backdrop-filter: blur(9px); }
+.agora-store-dialog { position: relative; display: grid; gap: 11px; width: min(100%,490px); max-height: min(88dvh,730px); overflow-y: auto; padding: 30px; background: var(--surface); color: var(--module-text); border: 1px solid var(--line); border-radius: 22px; box-shadow: 0 36px 90px rgba(0,0,0,.3); }
+.agora-store-dialog .agora-store-eyebrow { color: #048c38; margin-top: 7px; }
+.agora-store-dialog h3 { margin: 0; font-size: 25px; color: var(--module-text); }
+.agora-store-dialog p, .agora-store-dialog small { color: var(--module-muted); font-size: 12px; margin: 0; line-height: 1.6; }
+.agora-store-dialog label { display: grid; gap: 8px; margin-top: 6px; color: var(--module-text); font-size: 13px; font-weight: 700; }
+.agora-store-dialog textarea { resize: vertical; min-height: 110px; padding: 12px; border-radius: 11px; border: 1px solid var(--line-strong); color: var(--module-text); background: var(--surface-soft); }
+.agora-store-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 9px; }
+.agora-store-close { position: absolute; top: 17px; right: 20px; border: 0; background: transparent; color: var(--module-muted); font-size: 25px !important; }
+.agora-dashboard-app-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 960px) { .agora-store-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 630px) { .agora-store { padding-bottom: 85px; } .agora-store-hero { padding: 27px 23px; min-height: 180px; } .agora-store-grid, .agora-store-matrix { grid-template-columns: 1fr; } .agora-store-summary { gap: 7px; } .agora-store-summary > div { padding: 11px; } .agora-store-summary strong { font-size: 20px; } .agora-store-summary span { font-size: 10px; } .agora-store-controls { align-items: stretch; flex-direction: column; } .agora-store-controls input { width: 100%; } .agora-store-tabs { width: 100%; } .agora-store-tabs button { flex: 1; padding: 9px 5px; font-size: 11px; } .agora-store-request-row { align-items: flex-start; flex-wrap: wrap; } .agora-store-row-actions { width: 100%; } .agora-store-dialog { padding: 24px; } }
+
+/* Biblioteca y Accesos · superficies y jerarquía del ecosistema Ágora OS */
+.agora-store { width: min(1440px,100%); margin: 0 auto; padding-bottom: 46px; color: var(--ink); }
+.agora-store-hero {
+  min-height: 205px; display: grid; grid-template-columns: minmax(0,1fr) 235px; align-items: center; gap: 20px;
+  padding: 31px 35px; border-radius: 30px;
+  background: radial-gradient(circle at 86% 8%,rgba(93,225,121,.24),transparent 31%),
+              radial-gradient(circle at 93% 110%,rgba(76,87,157,.62),transparent 39%),
+              linear-gradient(135deg,#25294F 0%,#171C3B 64%,#0F172D 100%);
+  box-shadow: 0 30px 72px -38px rgba(15,18,43,.78),inset 0 0 0 .5px rgba(255,255,255,.13),inset 0 1px 0 rgba(255,255,255,.12);
+}
+.agora-store-hero::before { content: ''; position: absolute; inset: 0; opacity: .14; background-image: linear-gradient(rgba(255,255,255,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.09) 1px,transparent 1px); background-size: 42px 42px; mask-image: linear-gradient(90deg,transparent 20%,#000); }
+.agora-store-hero-copy { position: relative; z-index: 1; }
+.agora-store-eyebrow { display: inline-flex; align-items: center; gap: 8px; color: #BCEBCB; font-size: 10px; letter-spacing: .12em; font-weight: 760; }
+.agora-store-eyebrow i { width: 7px; height: 7px; border-radius: 50%; background: #5DE179; box-shadow: 0 0 0 4px rgba(93,225,121,.11),0 0 13px rgba(93,225,121,.65); }
+.agora-store-hero h2 { margin: 15px 0 9px; font-size: clamp(29px,3vw,39px); color: #fff; letter-spacing: -.05em; line-height: 1.12; font-weight: 700; }
+.workspace-inner .agora-store .agora-store-hero h2 { color: #fff; }
+.agora-store-hero p { max-width: 630px; color: rgba(255,255,255,.7); font-size: 13px; line-height: 1.55; }
+.agora-store-hero-meta { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 22px; }
+.agora-store-hero-meta span { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; color: rgba(255,255,255,.7); font-weight: 620; }
+.agora-store-hero-meta svg { color: #68DF91; }
+.agora-store-hero-art { position: relative; z-index: 1; height: 140px; }
+.agora-store-hero-art > span { position: absolute; display: grid; place-items: center; width: 69px; height: 69px; border-radius: 22px; color: #fff; background: rgba(255,255,255,.11); border: 1px solid rgba(255,255,255,.17); box-shadow: 0 16px 38px rgba(0,0,0,.19),inset 0 1px 0 rgba(255,255,255,.18); backdrop-filter: blur(12px); }
+.agora-store-hero-art > span:nth-child(1) { top: 15px; left: 16px; transform: rotate(-9deg); }
+.agora-store-hero-art > span:nth-child(2) { top: 47px; left: 91px; width: 79px; height: 79px; background: linear-gradient(140deg,rgba(33,168,91,.79),rgba(5,93,55,.8)); transform: rotate(7deg); }
+.agora-store-hero-art > span:nth-child(3) { top: 5px; right: 4px; width: 53px; height: 53px; color: #FFF1B0; transform: rotate(12deg); }
+.agora-store-hero-art > i { position: absolute; border: 1px solid rgba(255,255,255,.12); border-radius: 50%; pointer-events: none; }
+.agora-store-hero-art > i:nth-of-type(1) { width: 225px; height: 225px; left: 12px; top: -45px; }.agora-store-hero-art > i:nth-of-type(2) { width: 160px; height: 160px; left: 47px; top: -13px; }
+.agora-store-summary { gap: 14px; margin: 16px 0 26px; }
+.agora-store-summary > div { position: relative; display: grid; gap: 6px; min-height: 112px; padding: 18px 21px; border: 1px solid var(--line); border-radius: 21px; background: var(--glass-strong); box-shadow: var(--sh-1); overflow: hidden; }
+.agora-store-summary > div::before { content: ''; position: absolute; left: 0; top: 19px; bottom: 19px; width: 3px; border-radius: 0 4px 4px 0; background: var(--brand-green); }
+.agora-store-summary > div:nth-child(2)::before { background: #5667A1; }.agora-store-summary > div:nth-child(3)::before { background: var(--brand-gold); }
+.agora-store-summary span { order: 0; font-size: 10px; font-weight: 760; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3); }
+.agora-store-summary strong { order: 1; font-size: 29px; line-height: 1; color: var(--ink); font-weight: 730; }
+.agora-store-summary small { order: 2; font-size: 11px; color: var(--ink-2); }
+.agora-store-controls { margin: 18px 0 18px; padding: 10px; border: 1px solid var(--line); border-radius: 20px; background: var(--glass-strong); box-shadow: var(--sh-1); }
+.agora-store-tabs { border: 0; background: var(--glass-fill); border-radius: 14px; }
+.agora-store-tabs button { min-height: 39px; padding: 9px 16px; border-radius: 11px; color: var(--ink-2); font-size: 12px; }
+.agora-store-tabs button.active { background: var(--surface-raised); color: var(--ink); box-shadow: var(--sh-1); }
+.agora-store-controls input,.agora-store-user-picker select { border: 1px solid var(--line-strong); border-radius: 13px; background: var(--surface-raised); color: var(--ink); min-height: 43px; font-size: 12px; }
+.agora-store-controls input:focus,.agora-store-user-picker select:focus,.agora-store-dialog textarea:focus { outline: 2px solid color-mix(in srgb,var(--brand-green) 60%,transparent); outline-offset: 2px; }
+.agora-store-controls input { width: min(305px,100%); padding-left: 16px; }
+.agora-store-filters { margin-bottom: 19px; gap: 7px; }
+.agora-store-filters button { border-radius: 11px; padding: 8px 13px; background: var(--glass-strong); color: var(--ink-2); box-shadow: inset 0 0 0 .5px var(--hairline); }
+.agora-store-filters button.active { background: color-mix(in srgb,var(--brand-green) 14%,var(--surface)); border-color: color-mix(in srgb,var(--brand-green) 35%,transparent); color: var(--ink); }
+[data-theme='dark'] .agora-store-filters button.active { background: color-mix(in srgb,var(--brand-green) 22%,var(--surface)); border-color: color-mix(in srgb,var(--brand-green) 50%,transparent); color: var(--ink); }
+.agora-store-section-title h3 { font-size: 18px; color: var(--ink); }.agora-store-section-title span { color: var(--ink-3); font-size: 11px; }
+.agora-store-grid { gap: 14px; }
+.agora-store-tile { position: relative; min-height: 250px; padding: 21px; border-radius: 22px; border: 1px solid var(--line); background: var(--glass-strong); box-shadow: var(--sh-1); transition: transform .23s var(--ease),box-shadow .23s var(--ease),border-color .23s; }
+.agora-store-tile:hover { transform: translateY(-4px); border-color: color-mix(in srgb,var(--brand-green) 25%,var(--line)); box-shadow: var(--sh-2); }
+.agora-store-tile .app-icon { box-shadow: 0 10px 25px -15px rgba(16,20,37,.7),inset 0 1px 0 rgba(255,255,255,.35); }
+.agora-store-category { max-width: 57%; border-radius: 10px; padding: 7px 10px; color: var(--ink-2); background: var(--glass-fill); font-size: 10px; }
+.agora-store-tile-copy { flex: 1; padding: 13px 0 17px; }.agora-store-tile h3 { margin: 0 0 7px; font-size: 17px; font-weight: 700; color: var(--ink); }.agora-store-tile p { margin: 0; font-size: 12px; line-height: 1.55; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.agora-store-tile-footer { padding-top: 15px; border-top: 1px solid var(--line); align-items: center; }
+.agora-store-owner { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 55%; color: var(--ink-3); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.agora-store-owner svg { flex: none; }
+.agora-store-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; border-radius: 11px; padding: 8px 12px; color: var(--ink); background: var(--glass-fill); border: 1px solid var(--line); font-size: 11px; }
+.agora-store-btn.primary { background: var(--brand-green); color: #fff; border-color: var(--brand-green); box-shadow: 0 9px 22px -13px rgba(4,140,56,.85); }
+.agora-store-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); }
+.agora-store-pending { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-2); font-size: 11px; }
+.agora-store-admin { gap: 15px; padding-top: 0; }.agora-store-admin-summary { margin: 16px 0 1px; }
+.agora-store-surface { min-width: 0; padding: 22px 24px 25px; border-radius: 23px; border: 1px solid var(--line); background: var(--glass-strong); box-shadow: var(--sh-1); }
+.agora-store-admin-heading { align-items: center; margin: 0 0 20px; }.agora-store-admin-heading > div { min-width: 0; }
+.agora-store-admin-heading span { display: block; margin-bottom: 7px; font-size: 9px; color: var(--brand-green); font-weight: 800; letter-spacing: .11em; }.agora-store-admin-heading h3 { font-size: 19px; color: var(--ink); }.agora-store-admin-heading p { margin-top: 4px; font-size: 11.5px; color: var(--ink-2); }
+.agora-store-admin-heading button { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; border-radius: 11px; background: var(--surface); color: var(--ink); border: 1px solid var(--line); padding: 8px 13px; font-size: 11px; font-weight: 650; }
+.agora-store-request-list { gap: 9px; }
+.agora-store-request-row { min-height: 78px; padding: 14px 15px; border-radius: 16px; background: var(--surface); box-shadow: inset 0 0 0 .5px var(--hairline); }
+.agora-store-request-row strong,.agora-store-matrix-row strong { color: var(--ink); font-size: 13px; }.agora-store-request-row p { margin: 4px 0; font-size: 12px; color: var(--ink-2); }.agora-store-request-row small { color: var(--ink-3); font-size: 10px; }
+.agora-store-row-actions button { min-height: 36px; border-radius: 10px; font-size: 11px; }.agora-store-row-actions button:first-child { color: var(--ink-2); background: var(--glass-fill); }
+.agora-store-row-actions button.primary { color: #fff; background: var(--brand-green); border-color: var(--brand-green); }
+.agora-store-user-picker { max-width: 420px; margin-bottom: 17px; font-size: 11px; font-weight: 700; color: var(--ink-2); }.agora-store-user-picker > span { letter-spacing: .02em; }
+.agora-store-user-picker select { appearance: none; width: 100%; padding: 0 41px 0 14px; background-image: linear-gradient(45deg,transparent 50%,var(--ink-2) 50%),linear-gradient(135deg,var(--ink-2) 50%,transparent 50%); background-position: calc(100% - 19px) 19px,calc(100% - 14px) 19px; background-size: 5px 5px; background-repeat: no-repeat; }
+.agora-store-user-picker option { background: var(--surface); color: var(--ink); }
+.agora-store-matrix { gap: 9px; margin: 0; }.agora-store-matrix-row { min-height: 75px; border-radius: 15px; background: var(--surface); padding: 12px 13px; gap: 12px; box-shadow: inset 0 0 0 .5px var(--hairline); }
+.agora-store-matrix-row .app-icon { flex: none; }.agora-store-matrix-row > div:nth-of-type(2) { flex: 1; min-width: 0; }.agora-store-matrix-row small { font-size: 10.5px; color: var(--ink-3); }
+.agora-store-access-state { flex: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; background: var(--glass-fill); padding: 6px 9px; font-size: 10px; color: var(--ink-2); font-weight: 700; }
+.agora-store-access-state::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-4); }.agora-store-access-state.enabled { color: var(--brand-green); background: color-mix(in srgb,var(--brand-green) 11%,var(--surface)); }.agora-store-access-state.enabled::before { background: var(--brand-green); }
+.agora-store-matrix-row button { min-height: 34px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 10px; font-size: 10.5px; white-space: nowrap; }.agora-store-matrix-row button.grant { background: var(--brand-green); border-color: var(--brand-green); color: #fff; }.agora-store-matrix-row button.revoke { background: var(--glass-fill); color: var(--ink-2); }
+.agora-store-overlay { backdrop-filter: blur(11px); }.agora-store-dialog { gap: 12px; border-radius: 25px; background: var(--surface-raised); box-shadow: var(--sh-3); padding: 30px; }.agora-store-dialog .agora-store-eyebrow { color: var(--brand-green); font-size: 9px; }.agora-store-dialog h3 { color: var(--ink); }.agora-store-dialog p,.agora-store-dialog small { color: var(--ink-2); font-size: 12px; }.agora-store-dialog label { color: var(--ink); }.agora-store-dialog textarea { background: var(--surface-soft); color: var(--ink); border-radius: 13px; line-height: 1.5; }.agora-store-close { color: var(--ink-2); }.agora-store-empty { background: var(--glass-fill); border-color: var(--line); color: var(--ink-2); }
+.agora-store :is(button,input,select,textarea):focus-visible { outline: 2px solid var(--brand-green); outline-offset: 3px; }
+[data-theme='dark'] .agora-store-access-state.enabled { color: #72DB9B; }
+[data-theme='dark'] .agora-store-admin-heading span,[data-theme='dark'] .agora-store-dialog .agora-store-eyebrow { color: #72DB9B; }
+.agora-store .agora-store-hero :where(strong,label) { color: #fff; }
+.dashboard-app-card .lp-item[aria-busy='true'],.lp-page .lp-item[aria-busy='true'] { opacity: .75; cursor: progress; }
+.lp-item[aria-busy='true'] .nexo-action-loader { position: absolute; top: 5px; right: 8px; z-index: 2; padding: 4px; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); box-shadow: var(--sh-1); }
+@media(max-width:1050px) { .agora-store-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }.agora-store-matrix { grid-template-columns: 1fr; } }
+@media(max-width:700px) { .agora-store-hero { grid-template-columns: 1fr; padding: 25px 23px; min-height: 202px; }.agora-store-hero-art { display: none; }.agora-store-hero-meta { gap: 12px; }.agora-store-grid { grid-template-columns: 1fr; }.agora-store-surface { padding: 18px 15px 20px; }.agora-store-matrix-row { flex-wrap: wrap; }.agora-store-access-state { margin-left: auto; }.agora-store-matrix-row button { margin-left: auto; }.agora-store-summary > div { min-height: 92px; padding: 14px 13px; }.agora-store-summary strong { font-size: 23px; }.agora-store-summary small { font-size: 9px; }.agora-store-summary span { font-size: 9px; } }
+@media(max-width:520px) { .agora-store { padding-bottom: 96px; }.agora-store-hero { border-radius: 23px; }.agora-store-summary { gap: 7px; }.agora-store-summary > div { padding: 13px 10px; }.agora-store-summary small { display: none; }.agora-store-controls { padding: 8px; }.agora-store-tabs { width: 100%; }.agora-store-tabs button { flex: 1; padding: 9px 5px; }.agora-store-controls input { width: 100%; }.agora-store-request-row { display: grid; grid-template-columns: 45px minmax(0,1fr); align-items: start; }.agora-store-request-row > div:nth-child(2) { grid-column: 2; }.agora-store-row-actions { grid-column: 1/-1; justify-content: stretch; }.agora-store-row-actions button { flex: 1; }.agora-store-dialog { padding: 24px 20px; }.agora-store-tile { min-height: 224px; } }
+@media(prefers-reduced-motion:reduce) { .agora-store-tile,.agora-store-btn { transition: none; } }

@@ -99,6 +99,14 @@ const normalizeExternalUrl = (value) => {
   } catch { return ''; }
 };
 
+const embeddedAppUrl = (value, userId) => {
+  const url = normalizeExternalUrl(value);
+  if (!url) return '';
+  const target = new URL(url);
+  target.searchParams.set('usuario', userId);
+  return target.href;
+};
+
 const DEFAULT_BANNER_FRAME = Object.freeze({ mode: 'auto', fit: 'contain', positionX: 50, positionY: 50, zoom: 100 });
 const clampBannerValue = (value, min, max, fallback) => {
   if (value === '' || value === null || value === undefined) return fallback;
@@ -1127,6 +1135,7 @@ export default function App() {
   const [securitySessionConfirm, setSecuritySessionConfirm] = useState(null);
   const [idleWarningSeconds, setIdleWarningSeconds] = useState(0);
   const sessionInvalidationRef = useRef(false);
+  const currentSessionTokenRef = useRef('');
   const lastUserActivityRef = useRef(Date.now());
   const lastSecurityHeartbeatRef = useRef(0);
   const [workspaceAppearance, setWorkspaceAppearance] = useState(() => {
@@ -1169,6 +1178,12 @@ export default function App() {
 
   /* --- Datos --- */
   const [appsList, setAppsList] = useState([]);
+  const [storeApps, setStoreApps] = useState([]);
+  const [accessRequests, setAccessRequests] = useState([]);
+  const [accessLoading, setAccessLoading] = useState(false);
+  const [accessError, setAccessError] = useState('');
+  const [launchingAppId, setLaunchingAppId] = useState(null);
+  const launchRequestsRef = useRef(new Set());
   const [usersList, setUsersList] = useState([]);
   const [people360, setPeople360] = useState(null);
   const [people360Loading, setPeople360Loading] = useState(false);
@@ -1595,8 +1610,22 @@ export default function App() {
     try {
       const parsed = JSON.parse(responseText);
       if (!res.ok) throw new Error(parsed.message || `El backend respondió con estado ${res.status}.`);
-      if (parsed?.code === 'SESSION_EXPIRED' && payload?.action !== 'login' && payload?.action !== 'logout') {
-        window.setTimeout(() => handleSessionInvalidated(parsed.message), 0);
+      if (parsed?.code === 'SESSION_EXPIRED' && !['login', 'logout', 'checkAccess'].includes(payload?.action)) {
+        const failedToken = payload?.authToken;
+        const failedUser = payload?.usuario;
+        window.setTimeout(async () => {
+          if (!failedToken || failedToken !== currentSessionTokenRef.current) return;
+          try {
+            const check = await fetch(GAS_API_URL, {
+              method: 'POST', body: JSON.stringify({ action: 'checkAccess', usuario: failedUser, authToken: failedToken }),
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            });
+            const result = await check.json();
+            // Una respuesta tardía o aislada no debe cerrar una sesión que sigue vigente.
+            if (!check.ok || result.status !== 'success' || result.authorized !== false) return;
+            if (failedToken === currentSessionTokenRef.current) handleSessionInvalidated(parsed.message);
+          } catch { /* un fallo de red no demuestra que la sesión haya expirado */ }
+        }, 0);
       }
       return parsed;
     } catch (parseError) {
@@ -1611,8 +1640,8 @@ export default function App() {
   };
 
   const normalizeWorkspaceView = (view, session = userData) => {
-    const publicViews = ['dashboard', 'journey', 'teams', 'control'];
-    const adminViews = ['analytics', 'catalog', 'users'];
+    const publicViews = ['dashboard', 'journey', 'teams', 'control', 'store'];
+    const adminViews = ['analytics', 'catalog', 'users', 'access'];
     if (publicViews.includes(view)) return view;
     if (session?.rolGlobal === 'Administrador' && adminViews.includes(view)) return view;
     return 'dashboard';
@@ -1765,11 +1794,24 @@ export default function App() {
   };
 
   const fetchApps = async (session = userData) => {
+    if (!session?.usuario || !session?.sessionToken) return;
+    setAccessLoading(true);
     try {
-      const r = await post({ action: 'getApps', usuario: session?.usuario || '', authToken: session?.sessionToken || '' });
-      if (r.status === 'success') setAppsList((r.data || []).map(app => ({ ...app, grupo: app.grupo?.trim() || 'Sin grupo', estado: isAppEnabled(app) ? 'Activo' : 'Inactivo' })));
+      const r = await post({ action: 'getAppStore', usuario: session.usuario, authToken: session.sessionToken });
+      if (r.status !== 'success') throw new Error(r.message || 'No fue posible validar tus aplicativos.');
+      const authorized = (r.data?.apps || []).map(app => ({ ...app, grupo: app.grupo?.trim() || 'Sin grupo', estado: isAppEnabled(app) ? 'Activo' : 'Inactivo' }));
+      const allowed = new Set(authorized.filter(isAppEnabled).map(app => String(app.accessKey)));
+      setAppsList(authorized);
+      setOpenApps(current => current.filter(app => app.sys || allowed.has(String(app.accessKey))));
+      setActiveAppId(current => current !== null && !authorized.some(app => String(app.id) === String(current) && isAppEnabled(app)) && !String(current).startsWith('sys-') ? null : current);
+      setStoreApps(r.data?.available || []);
+      setAccessRequests(r.data?.requests || []);
+      setAccessError('');
     }
-    catch { /* offline */ }
+    catch (appError) {
+      setAppsList([]); setStoreApps([]); setAccessRequests([]);
+      setAccessError(appError.message || 'No fue posible validar tus permisos.');
+    } finally { setAccessLoading(false); }
   };
   const fetchSecuritySessions = async (session = userData, silent = false) => {
     if (!session?.usuario || !session?.sessionToken) return;
@@ -1791,8 +1833,9 @@ export default function App() {
     setShowSecuritySessions(true);
     fetchSecuritySessions(userData);
   };
-  const fetchUsers = async () => {
-    try { const r = await post({ action: 'getUsers' }); if (r.status === 'success') setUsersList(r.data || []); }
+  const fetchUsers = async (session = userData) => {
+    if (!session?.usuario || !session?.sessionToken) return;
+    try { const r = await post({ action: 'getUsers', usuario: session.usuario, authToken: session.sessionToken }); if (r.status === 'success') setUsersList(r.data || []); }
     catch { /* offline */ }
   };
   const fetchPeople360 = async (session = userData) => {
@@ -1838,7 +1881,11 @@ export default function App() {
       const response = await post({ action: 'getEcosystemControl', usuario: session.usuario, authToken: session.sessionToken });
       if (response.status !== 'success') throw new Error(response.message || 'No fue posible consultar el estado del ecosistema.');
       setEcosystemData(response.data);
-      if (Array.isArray(response.data?.apps)) setAppsList(response.data.apps.map(app => ({ ...app, grupo: app.grupo?.trim() || 'Sin grupo', estado: isAppEnabled(app) ? 'Activo' : 'Inactivo' })));
+      // La vista operativa solo añade salud; nunca sustituye la lista autorizada.
+      if (Array.isArray(response.data?.apps)) setAppsList(current => current.map(app => ({
+        ...app,
+        estadoOperativo: response.data.apps.find(item => String(item.id) === String(app.id))?.estadoOperativo || app.estadoOperativo,
+      })));
     } catch (controlError) {
       setEcosystemError(controlError.message || 'No fue posible consultar el estado del ecosistema.');
     } finally { setEcosystemLoading(false); }
@@ -2060,6 +2107,12 @@ export default function App() {
     try {
       const r = await post({ action: 'login', usuario, password, website: loginWebsite, deviceInfo: getAgoraDeviceInfo() });
       if (r.status === 'success') {
+        if (!r.usuario || !r.sessionToken) throw new Error('El backend no entregó un token de sesión. Publica la versión actualizada de Code.gs.');
+        const accessCheck = await post({ action: 'checkAccess', usuario: r.usuario, authToken: r.sessionToken });
+        if (accessCheck.status !== 'success' || !accessCheck.authorized) {
+          throw new Error('El backend aceptó las credenciales, pero no pudo conservar la sesión. Publica una nueva versión de Code.gs y verifica la hoja Sesiones_Seguridad.');
+        }
+        currentSessionTokenRef.current = r.sessionToken;
         const sessionId = r.securitySessionId || `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         sessionIdRef.current = sessionId;
         sessionInvalidationRef.current = false;
@@ -2067,7 +2120,7 @@ export default function App() {
         lastSecurityHeartbeatRef.current = Date.now();
         setIdleWarningSeconds(0);
         setSecurityPolicy(current => ({ ...current, idleMinutes: r.sessionIdleMinutes || current.idleMinutes, absoluteHours: r.sessionAbsoluteHours || current.absoluteHours }));
-        setIsLoggedIn(true); setUserData(r); fetchApps(r); fetchUsers(); fetchBoardPosts(); fetchTeams(r); fetchNotifications(r); fetchAgenda(r, true);
+        setIsLoggedIn(true); setUserData(r); fetchApps(r); fetchUsers(r); fetchBoardPosts(); fetchTeams(r); fetchNotifications(r); fetchAgenda(r, true);
         if (r.rolGlobal === 'Administrador') fetchPeople360(r);
         emitAnalytics('session_start', { usuario: r.usuario, authToken: r.sessionToken, sessionId });
         setPassword(''); setLoginWebsite('');
@@ -2076,17 +2129,20 @@ export default function App() {
         const minutes = Math.max(1, Math.ceil(Number(r.retryAfterSeconds || 60) / 60));
         setError(`Acceso temporalmente pausado por seguridad. Intenta nuevamente en ${minutes} min.`);
       } else setError(r.message || 'No fue posible validar las credenciales o la cuenta no se encuentra disponible.');
-    } catch { setError('Servidor no disponible en este momento.'); }
+    } catch (loginError) { setError(loginError.message || 'Servidor no disponible en este momento.'); }
     finally { setLoading(false); }
   };
 
   const clearAuthenticatedWorkspace = (loginMessage = '') => {
+    currentSessionTokenRef.current = '';
+    launchRequestsRef.current.clear();
     wakeEnabledRef.current = false; wakeSuspendedRef.current = false;
     wakeRecognitionRef.current?.abort?.(); speechRecognitionRef.current?.abort?.();
     nexoSpeechPlaybackRef.current += 1;
     window.clearTimeout(wakeRestartTimerRef.current); window.clearTimeout(nexoSpeechResumeTimerRef.current); window.clearTimeout(nexoAmbientTimerRef.current); window.speechSynthesis?.cancel?.();
     document.body.setAttribute('data-theme', 'light');
     setIsLoggedIn(false); setUserData(null); setOpenApps([]); setActiveAppId(null);
+    setAppsList([]); setStoreApps([]); setAccessRequests([]); setAccessError(''); setLaunchingAppId(null);
     setShowUserMenu(false); setShowMobileMenu(false); setShowAppearancePanel(false); setShowWidgetGallery(false); setShowProfileEditor(false);
     setShowSecuritySessions(false); setSecuritySessions([]); setSecuritySessionAction(''); setSecuritySessionNotice(''); setSecuritySessionConfirm(null); setIdleWarningSeconds(0);
     setShowBoardManager(false); setPublicationTypeOpen(false); setBoardCarouselPaused(false);
@@ -2157,7 +2213,7 @@ export default function App() {
     lastUserActivityRef.current = Date.now(); setIdleWarningSeconds(0);
     try {
       const response = await post({ action: 'checkAccess', usuario: userData.usuario, authToken: userData.sessionToken });
-      if (!response.authorized) handleSessionInvalidated('Tu sesión terminó por seguridad. Ingresa nuevamente.');
+      if (!response.authorized && userData.sessionToken === currentSessionTokenRef.current) handleSessionInvalidated('Tu sesión terminó por seguridad. Ingresa nuevamente.');
     } catch { /* el siguiente llamado autenticado volverá a validar la sesión */ }
   };
 
@@ -2171,11 +2227,12 @@ export default function App() {
       if (now - lastSecurityHeartbeatRef.current >= 4 * 60000) {
         lastSecurityHeartbeatRef.current = now;
         post({ action: 'checkAccess', usuario: userData.usuario, authToken: userData.sessionToken })
-          .then(response => { if (!response.authorized) handleSessionInvalidated('Tu sesión terminó por seguridad. Ingresa nuevamente.'); })
+          .then(response => { if (!response.authorized && userData.sessionToken === currentSessionTokenRef.current) handleSessionInvalidated('Tu sesión terminó por seguridad. Ingresa nuevamente.'); })
           .catch(() => {});
       }
     };
     const inspectIdleTime = () => {
+      if (userData.sessionToken !== currentSessionTokenRef.current) return;
       const remaining = idleLimit - (Date.now() - lastUserActivityRef.current);
       if (remaining <= 0) {
         fetch(GAS_API_URL, {
@@ -2191,7 +2248,7 @@ export default function App() {
       if (document.hidden || Date.now() - lastUserActivityRef.current > 5 * 60000) return;
       lastSecurityHeartbeatRef.current = Date.now();
       post({ action: 'checkAccess', usuario: userData.usuario, authToken: userData.sessionToken })
-        .then(response => { if (!response.authorized) handleSessionInvalidated('Tu sesión terminó por seguridad. Ingresa nuevamente.'); })
+        .then(response => { if (!response.authorized && userData.sessionToken === currentSessionTokenRef.current) handleSessionInvalidated('Tu sesión terminó por seguridad. Ingresa nuevamente.'); })
         .catch(() => {});
     };
     const activityEvents = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
@@ -2708,6 +2765,8 @@ export default function App() {
       const appData = { ...newApp, grupo: canonicalGroupName(newApp.grupo, appGroups) };
       const r = await post({ action: 'addApp', usuario: userData.usuario, authToken: userData.sessionToken, appData });
       if (r.status !== 'success') throw new Error(r.message || 'No fue posible desplegar el aplicativo.');
+      const sync = await post({ action: 'syncAppKeys', usuario: userData.usuario, authToken: userData.sessionToken });
+      if (sync.status !== 'success') throw new Error(sync.message || 'Se creó la aplicación, pero faltó registrar su clave de acceso.');
       await fetchApps();
       setNewApp({ ...EMPTY_APP_DRAFT });
       setGuidedSteps(current => ({ ...current, app: 0 }));
@@ -2771,23 +2830,54 @@ export default function App() {
     .filter(app => app.id !== excludedId && !minimizedApps[app.id])
     .sort((a, b) => (windowLayers[b.id] || 0) - (windowLayers[a.id] || 0))[0];
 
-  const launchApp = (app) => {
+  const launchApp = async (app) => {
     closeOverlays();
-    if (['Interrumpido', 'Mantenimiento'].includes(app.estadoOperativo)) {
-      setEcosystemError(app.estadoOperativo === 'Mantenimiento'
-        ? `${app.nombre} se encuentra en mantenimiento. Consulta la ventana programada antes de ingresar.`
-        : `${app.nombre} presenta una interrupción activa. El Centro de control mostrará el avance de la recuperación.`);
-      navigateToView('control');
+    const catalogApp = appsList.find(item => String(item.id) === String(app?.id));
+    if (!userData?.sessionToken || !catalogApp || !isAppEnabled(catalogApp)) {
+      setAccessError('No tienes acceso vigente a esta aplicación. Puedes solicitarlo desde la Biblioteca.');
+      navigateToView('store');
       return;
     }
-    pushRecent(app);
-    emitAnalytics('app_open', { appId: app.id, appName: app.nombre, group: app.grupo || 'Sin grupo' });
-    const existing = openApps.find(a => a.id === app.id);
-    if (existing) { setMinimizedApps(p => ({ ...p, [app.id]: false })); prioritizeWindow(app.id); return; }
-    const toOpen = { ...app, isAuthorized: true, sys: false, defaultWidth: 1040, defaultHeight: 660 };
+    if (launchRequestsRef.current.has(catalogApp.id)) return;
+    launchRequestsRef.current.add(catalogApp.id);
+    setLaunchingAppId(catalogApp.id);
+    let authorizedApp;
+    try {
+      let response;
+      let validationError;
+      try {
+        response = await post({ action: 'authorizeAppLaunch', usuario: userData.usuario, authToken: userData.sessionToken, appKey: catalogApp.accessKey || catalogApp.id });
+      } catch (error) { validationError = error; }
+      if (response?.status === 'success' && response.data?.url) {
+        authorizedApp = { ...catalogApp, url: response.data.url };
+      } else {
+        // Una versión anterior del endpoint de apertura no debe bloquear una app
+        // que el backend acaba de incluir entre las autorizadas para esta sesión.
+        const fresh = await post({ action: 'getAppStore', usuario: userData.usuario, authToken: userData.sessionToken });
+        const verified = fresh.status === 'success' && fresh.data?.apps?.find(item => String(item.id) === String(catalogApp.id) && isAppEnabled(item));
+        if (!verified?.url) throw new Error(response?.message || validationError?.message || 'No fue posible validar el acceso a esta aplicación.');
+        authorizedApp = verified;
+      }
+      if (!embeddedAppUrl(authorizedApp.url, userData.usuario)) throw new Error('La URL de esta aplicación no es válida. Revisa su ficha en el Catálogo.');
+    } catch (launchError) {
+      navigateToView('store');
+      await fetchApps();
+      setAccessError(launchError.message || 'No fue posible validar el acceso.');
+      return;
+    } finally {
+      launchRequestsRef.current.delete(catalogApp.id);
+      setLaunchingAppId(null);
+    }
+    setAccessError('');
+    pushRecent(authorizedApp);
+    emitAnalytics('app_open', { appId: authorizedApp.id, appName: authorizedApp.nombre, group: authorizedApp.grupo || 'Sin grupo' });
+    const existing = openApps.find(a => a.id === authorizedApp.id);
+    if (existing) { setMinimizedApps(p => ({ ...p, [authorizedApp.id]: false })); prioritizeWindow(authorizedApp.id); return; }
+    const toOpen = { ...authorizedApp, isAuthorized: true, sys: false, defaultWidth: 1040, defaultHeight: 660 };
     setOpenApps(prev => [...prev, toOpen]);
     prioritizeWindow(toOpen.id);
     setLoadingApps(p => ({ ...p, [toOpen.id]: true }));
+    window.setTimeout(() => setLoadingApps(p => p[toOpen.id] ? { ...p, [toOpen.id]: false } : p), 12000);
   };
 
   const launchSystemApp = (type) => {
@@ -4024,7 +4114,7 @@ export default function App() {
       <section className="card b8 r2 dashboard-app-card">
         <div className="card-head">
           <div className="card-label"><IcoGrid s={13} /> Aplicaciones</div>
-          <button className="ghost-btn" onClick={openLaunchpad}>Abrir Launchpad</button>
+          <div className="agora-dashboard-app-actions"><button className="ghost-btn" onClick={() => navigateToView('store')}>Explorar biblioteca</button><button className="ghost-btn" onClick={openLaunchpad}>Abrir Launchpad</button></div>
         </div>
         <div className="dashboard-app-preview">
           <div className="desktop-app-groups">
@@ -4034,8 +4124,9 @@ export default function App() {
                 <div className="app-group-heading"><span>{group}</span><small>{apps.length}</small></div>
                 <div className="lp-grid">
                   {apps.slice(0, 6).map(app => (
-                    <button key={app.id} className="lp-item" onClick={() => launchApp(app)} title={app.desc || app.nombre}>
+                    <button key={app.id} className="lp-item" onClick={() => launchApp(app)} disabled={launchingAppId === app.id} aria-busy={launchingAppId === app.id} title={app.desc || app.nombre}>
                       <AppIcon app={app} size={58} />
+                      {launchingAppId === app.id && <NexoActionLoader s={15} />}
                       {app.estadoOperativo && app.estadoOperativo !== 'Disponible' && <i className={`lp-health-dot ${OPERATIONAL_STATUS_META[app.estadoOperativo]?.tone || 'healthy'}`} title={app.estadoOperativo} />}
                       <span className="lp-name">{app.nombre}</span>
                     </button>
@@ -4225,8 +4316,9 @@ export default function App() {
                   {entries.length === 0 ? <p className="empty-note">Sin resultados para “{lpQuery}”.</p> : (
                     <div className="lp-page-grid">
                       {entries.map((entry, index) => (
-                        <button key={entry.id} className="lp-item" style={{ animationDelay: `${Math.min(index * 28, 360)}ms` }} onClick={() => openEntry(entry)} title={entry.desc || entry.grupo || entry.nombre}>
+                        <button key={entry.id} className="lp-item" style={{ animationDelay: `${Math.min(index * 28, 360)}ms` }} disabled={launchingAppId === entry.id} aria-busy={launchingAppId === entry.id} onClick={() => openEntry(entry)} title={entry.desc || entry.grupo || entry.nombre}>
                           <AppIcon app={entry} size={76} />
+                          {launchingAppId === entry.id && <NexoActionLoader s={15} />}
                           {entry.estadoOperativo && entry.estadoOperativo !== 'Disponible' && <i className={`lp-health-dot ${OPERATIONAL_STATUS_META[entry.estadoOperativo]?.tone || 'healthy'}`} title={entry.estadoOperativo} />}
                           <span className="lp-name">{entry.nombre}</span>
                           <small className="lp-app-group">{entry.grupo || 'Sin grupo'}</small>
@@ -4260,6 +4352,7 @@ export default function App() {
       { id: 'teams', label: 'Abrir Equipos', detail: 'Seguimiento, tareas y calendario', keywords: 'equipo tareas personas', icon: IcoUsers, action: () => navigateToView('teams') },
       { id: 'control', label: 'Centro de control', detail: 'Salud, incidentes y mantenimientos', keywords: 'estado salud incidentes mantenimiento', icon: IcoPulse, action: () => navigateToView('control') },
       { id: 'launchpad', label: 'Abrir Launchpad', detail: 'Todos los aplicativos', keywords: 'aplicaciones apps launchpad', icon: IcoGrid, action: openLaunchpad },
+      { id: 'store', label: 'Biblioteca de aplicaciones', detail: 'Explora y solicita acceso', keywords: 'tienda apps aplicaciones permisos solicitar acceso', icon: IcoGrid, action: () => navigateToView('store') },
       { id: 'appearance', label: 'Personalizar escritorio', detail: 'Apariencia, color y movimiento', keywords: 'tema fondo oscuro apariencia', icon: IcoSliders, action: () => setShowAppearancePanel(true) },
       { id: 'learning', label: 'Aprendizaje y novedades', detail: 'Guías breves y mejoras de Ágora', keywords: 'ayuda aprender novedades tutorial guias', icon: IcoBook, action: () => { setLearningSection('discover'); setShowLearningCenter(true); fetchLearningCenter(userData, true); } },
       { id: 'feedback', label: 'Compartir mi experiencia', detail: 'Califica y ayuda a mejorar Ágora', keywords: 'opinion encuesta satisfaccion comentario', icon: IcoStar, action: () => { setExperienceSection('share'); setFeedbackStep(0); setShowExperienceCenter(true); } },
@@ -4267,6 +4360,7 @@ export default function App() {
       ...(isAdmin ? [
         { id: 'analytics', label: 'Abrir Dashboard', detail: 'Adopción y comportamiento del ecosistema', keywords: 'analitica métricas uso', icon: IcoChart, action: () => navigateToView('analytics') },
         { id: 'catalog', label: 'Gestionar Catálogo', detail: 'Gobierno y ciclo de vida', keywords: 'catalogo aplicaciones portafolio', icon: IcoRocket, action: () => navigateToView('catalog') },
+        { id: 'access', label: 'Administrar accesos', detail: 'Solicitudes y matriz de aplicativos', keywords: 'permisos usuarios accesos auditoria', icon: IcoShield, action: () => navigateToView('access') },
         { id: 'notification', label: 'Crear notificación', detail: 'Publicar una alerta empresarial', keywords: 'notificar alerta comunicado', icon: IcoBell, action: () => { setGuidedSteps(current => ({ ...current, notification: 0 })); setShowNotificationComposer(true); } },
         { id: 'executive', label: 'Iniciar Sala Ejecutiva 2.0', detail: 'Narrativa gerencial del ecosistema', keywords: 'junta presentación sala informe', icon: IcoPresentation, action: openExecutiveRoom },
       ] : []),
@@ -5658,11 +5752,13 @@ export default function App() {
      ====================================================================== */
   const menuItems = [
     { id: 'dashboard', label: 'Escritorio', admin: false, icon: IcoDesktopIco, detail: 'Inicio y widgets personales' },
+    { id: 'store', label: 'Biblioteca', admin: false, icon: IcoGrid, detail: 'Apps y solicitudes de acceso' },
     { id: 'journey', label: 'Mi Jornada', admin: false, icon: IcoSparkles, detail: 'Prioridades, reuniones y alertas' },
     { id: 'teams', label: 'Equipos', admin: false, icon: IcoUsers, detail: 'Tareas, personas y seguimiento' },
     { id: 'control', label: 'Control', admin: false, icon: IcoPulse, detail: 'Salud del ecosistema' },
     { id: 'analytics', label: 'Dashboard', admin: true, icon: IcoChart, detail: 'Analítica administrativa' },
     { id: 'catalog', label: 'Catálogo', admin: true, icon: IcoGrid, detail: 'Gobierno de aplicativos' },
+    { id: 'access', label: 'Accesos', admin: true, icon: IcoShield, detail: 'Solicitudes y matriz de permisos' },
     { id: 'users', label: 'Personas 360', admin: true, icon: IcoUser, detail: 'Talento, acceso y adopción' },
   ];
   const currentMenuItem = menuItems.find(item => item.id === currentView) || menuItems[0];
@@ -5691,9 +5787,10 @@ export default function App() {
     return (
       <iframe
         className="app-frame"
-        src={`${app.url}?usuario=${userData.usuario}`}
+        src={embeddedAppUrl(app.url, userData.usuario)}
         title={app.nombre}
         onLoad={() => setLoadingApps(p => ({ ...p, [app.id]: false }))}
+        onError={() => setLoadingApps(p => ({ ...p, [app.id]: false }))}
         style={{ opacity: loadingApps[app.id] ? 0 : 1, transition: 'opacity 0.35s ease' }}
       />
     );
@@ -5860,6 +5957,8 @@ export default function App() {
               <button onClick={openSecuritySessionCenter}><IcoShield s={17} /><span>Seguridad</span></button>
               <button onClick={() => { setShowMobileMenu(false); setShowAppearancePanel(true); }}><IcoSliders s={17} /><span>Personalizar</span></button>
               <button onClick={() => { setShowMobileMenu(false); setShowWidgetGallery(true); }}><IcoWidgets s={17} /><span>Widgets</span></button>
+              <button onClick={() => navigateToView('store')}><IcoGrid s={17} /><span>Biblioteca</span></button>
+              {isAdmin && <button onClick={() => navigateToView('access')}><IcoShield s={17} /><span>Accesos</span></button>}
               <button onClick={() => { setShowMobileMenu(false); setLearningSection('discover'); setShowLearningCenter(true); fetchLearningCenter(userData, true); }}><IcoBook s={17} /><span>Aprendizaje</span></button>
               <button onClick={() => { setShowMobileMenu(false); setExperienceSection('share'); setFeedbackStep(0); setShowExperienceCenter(true); }}><IcoStar s={17} /><span>Tu opinión</span></button>
               <button onClick={openNexo}><IcoSparkles s={17} /><span>Ágora Nexo</span></button>
@@ -5882,6 +5981,7 @@ export default function App() {
             {currentView === 'control' && renderEcosystemControl()}
             {currentView === 'analytics' && renderAnalytics()}
             {currentView === 'catalog' && renderCatalog()}
+            {(currentView === 'store' || currentView === 'access') && <AppStore key={`${userData.usuario}-${currentView}`} adminMode={currentView === 'access'} isAdmin={isAdmin} userData={userData} apps={appsList} available={storeApps} requests={accessRequests} loading={accessLoading} error={accessError} post={post} refresh={() => fetchApps(userData)} onLaunch={launchApp} />}
             {currentView === 'users' && renderUsers()}
           </div>
         </div>
@@ -6020,4 +6120,124 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+
+/* Biblioteca corporativa integrada para distribución en tres archivos. */
+
+const normalize = value => String(value || '').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+function AppStore({ adminMode, isAdmin, userData, apps, available, requests, loading, error, post, refresh, onLaunch }) {
+  const [tab, setTab] = useState('explore');
+  const [query, setQuery] = useState('');
+  const [group, setGroup] = useState('Todas');
+  const [selected, setSelected] = useState(null);
+  const [reason, setReason] = useState('');
+  const [working, setWorking] = useState('');
+  const [notice, setNotice] = useState('');
+  const [localError, setLocalError] = useState('');
+  const [adminData, setAdminData] = useState(null);
+  const [selectedUser, setSelectedUser] = useState('');
+
+  const loadAdmin = async () => {
+    if (!isAdmin || !userData?.sessionToken) return;
+    try {
+      const response = await post({ action: 'getAccessAdmin', usuario: userData.usuario, authToken: userData.sessionToken });
+      if (response.status !== 'success') throw new Error(response.message || 'No se pudo cargar la matriz de accesos.');
+      setAdminData(response.data);
+      setSelectedUser(value => response.data.users?.some(user => user.idRed === value) ? value : (response.data.users?.[0]?.idRed || ''));
+      setLocalError('');
+    } catch (loadError) { setLocalError(loadError.message || 'No se pudo cargar la matriz de accesos.'); }
+  };
+
+  useEffect(() => { if (adminMode && isAdmin) loadAdmin(); }, [adminMode, isAdmin, userData?.sessionToken]);
+
+  const catalog = useMemo(() => [...available, ...apps.filter(app => !available.some(item => item.accessKey === app.accessKey))], [available, apps]);
+  const groups = useMemo(() => ['Todas', ...new Set(catalog.map(app => app.grupo || 'Sin grupo'))], [catalog]);
+  const visible = (tab === 'mine' ? apps.filter(app => String(app.estado || 'Activo').toLowerCase() !== 'inactivo') : available)
+    .filter(app => (group === 'Todas' || (app.grupo || 'Sin grupo') === group) && normalize(`${app.nombre} ${app.desc} ${app.grupo} ${app.propietario}`).includes(normalize(query)));
+  const pendingFor = key => requests.find(request => request.appKey === key && request.estado === 'Pendiente');
+
+  const perform = async (key, payload, successMessage) => {
+    setWorking(key); setLocalError(''); setNotice('');
+    try {
+      const response = await post({ ...payload, usuario: userData.usuario, authToken: userData.sessionToken });
+      if (response.status !== 'success') throw new Error(response.message || 'No fue posible completar la acción.');
+      await refresh();
+      if (adminMode) await loadAdmin();
+      setNotice(successMessage);
+      return true;
+    } catch (actionError) { setLocalError(actionError.message || 'No fue posible completar la acción.'); return false; }
+    finally { setWorking(''); }
+  };
+
+  const submitRequest = async event => {
+    event.preventDefault();
+    if (!selected || reason.trim().length < 12) return;
+    const done = await perform(`request-${selected.accessKey}`, { action: 'requestAppAccess', appKey: selected.accessKey, reason: reason.trim() }, 'Tu solicitud está en revisión.');
+    if (done) { setSelected(null); setReason(''); }
+  };
+
+  const grant = (userId, appKey, enabled) => perform(`grant-${userId}-${appKey}`, { action: 'setUserAppAccess', targetUser: userId, appKey, enabled }, enabled ? 'Acceso concedido.' : 'Acceso revocado.');
+  const decide = (request, approved) => perform(`decision-${request.id}`, { action: 'decideAppAccess', requestId: request.id, approved }, approved ? 'Solicitud aprobada.' : 'Solicitud rechazada.');
+  const toggleRequestable = app => perform(`listing-${app.accessKey}`, { action: 'setAppRequestable', appKey: app.accessKey, requestable: !app.solicitable }, app.solicitable ? 'Aplicación retirada de la biblioteca.' : 'Aplicación publicada en la biblioteca.');
+
+  const tile = (app, owned = false) => {
+    const pending = pendingFor(app.accessKey);
+    return <article className="agora-store-tile" key={app.accessKey || app.id}>
+      <div className="agora-store-tile-top"><AppIcon app={app} size={57} /><span className="agora-store-category">{app.grupo || 'Sin grupo'}</span></div>
+      <div className="agora-store-tile-copy"><h3>{app.nombre}</h3><p>{app.desc || 'Conoce las herramientas disponibles para tu trabajo.'}</p></div>
+      <div className="agora-store-tile-footer"><span className="agora-store-owner"><IcoUser s={13} />{app.propietario || 'Aplicación corporativa'}</span>
+        {owned ? <button className="agora-store-btn primary" onClick={() => onLaunch(app)} disabled={working !== ''}>Abrir <IcoChevron s={14} /></button>
+          : pending ? <span className="agora-store-pending"><IcoClock s={13} /> En revisión</span>
+            : <button className="agora-store-btn" disabled={working !== ''} onClick={() => { setSelected(app); setReason(''); setLocalError(''); }}>Solicitar <IcoChevron s={13} /></button>}
+      </div>
+    </article>;
+  };
+
+  if (adminMode && !isAdmin) return null;
+
+  const pendingCount = (adminData?.requests || []).filter(item => item.estado === 'Pendiente').length;
+  const activeGrants = (adminData?.grants || []).filter(item => item.estado === 'Activo').length;
+
+  return <div className="agora-store enter">
+    <header className="agora-store-hero">
+      <div className="agora-store-hero-copy">
+        <span className="agora-store-eyebrow"><i /> ÁGORA OS / {adminMode ? 'GOBIERNO DE ACCESOS' : 'ECOSISTEMA DE APLICACIONES'}</span>
+        <h2>{adminMode ? 'Accesos a aplicaciones' : 'Biblioteca de aplicaciones'}</h2>
+        <p>{adminMode ? 'Una vista clara de las autorizaciones, solicitudes y publicaciones de todo el ecosistema.' : 'Explora las herramientas de tu compañía y solicita las que necesitas para tu trabajo.'}</p>
+        <div className="agora-store-hero-meta"><span><IcoShield s={13} /> Acceso por persona</span><span><IcoGrid s={13} /> {adminMode ? adminData?.apps?.length || 0 : apps.length + available.length} aplicaciones</span></div>
+      </div>
+      <div className="agora-store-hero-art" aria-hidden="true"><span><IcoGrid s={24} /></span><span><IcoShield s={27} /></span><span><IcoCheck s={24} /></span><i /><i /></div>
+    </header>
+    {(error || localError) && <div className="agora-store-message error" role="alert">{localError || error}</div>}
+    {notice && <div className="agora-store-message success" role="status">{notice}</div>}
+
+    {adminMode ? <div className="agora-store-admin">
+      <div className="agora-store-summary agora-store-admin-summary"><div><span>Solicitudes por revisar</span><strong>{pendingCount}</strong><small>Decisiones pendientes</small></div><div><span>Accesos vigentes</span><strong>{activeGrants}</strong><small>Autorizaciones activas</small></div><div><span>Aplicaciones</span><strong>{adminData?.apps?.length || 0}</strong><small>En el ecosistema</small></div></div>
+      <section className="agora-store-surface"><div className="agora-store-admin-heading"><div><span>01 / FLUJO DE SOLICITUDES</span><h3>Solicitudes pendientes</h3><p>Revisa el motivo antes de conceder acceso.</p></div><button type="button" onClick={loadAdmin} disabled={working !== ''}><IcoRefresh s={14} /> Actualizar</button></div>
+      <div className="agora-store-request-list">{(adminData?.requests || []).filter(item => item.estado === 'Pendiente').length === 0 && <p className="agora-store-empty">No hay solicitudes pendientes.</p>}
+        {(adminData?.requests || []).filter(item => item.estado === 'Pendiente').map(item => <article key={item.id} className="agora-store-request-row">
+          <AppIcon app={{ nombre: item.appName }} size={45} />
+          <div><strong>{item.appName}</strong><p>{item.reason}</p><small>{item.usuario} · {item.createdAt ? new Date(item.createdAt).toLocaleString('es-CO') : ''}</small></div>
+          <div className="agora-store-row-actions"><button disabled={working !== ''} onClick={() => decide(item, false)}>Rechazar</button><button className="primary" disabled={working !== ''} onClick={() => decide(item, true)}>{working === `decision-${item.id}` ? 'Procesando…' : 'Aprobar'}</button></div>
+        </article>)}
+      </div></section>
+      <section className="agora-store-surface"><div className="agora-store-admin-heading"><div><span>02 / MATRIZ DE PERMISOS</span><h3>Accesos por persona</h3><p>Consulta y gestiona las herramientas de cada colaborador.</p></div></div>
+      <label className="agora-store-user-picker"><span>Colaborador</span><select value={selectedUser} onChange={event => setSelectedUser(event.target.value)}><option value="">Selecciona una persona</option>{(adminData?.users || []).map(user => <option key={user.idRed} value={user.idRed}>{user.nombre || user.idRed} · {user.idRed}</option>)}</select></label>
+      {selectedUser && <div className="agora-store-matrix">{(adminData?.apps || []).map(app => {
+        const enabled = (adminData?.grants || []).some(grantItem => grantItem.usuario === selectedUser && grantItem.appKey === app.accessKey && grantItem.estado === 'Activo');
+        return <div className="agora-store-matrix-row" key={app.accessKey}><AppIcon app={app} size={42} /><div><strong>{app.nombre}</strong><small>{app.grupo || 'Sin grupo'}</small></div><span className={`agora-store-access-state ${enabled ? 'enabled' : ''}`}>{enabled ? 'Autorizada' : 'Sin acceso'}</span><button className={enabled ? 'revoke' : 'grant'} disabled={working !== '' || app.estado === 'Inactivo'} onClick={() => grant(selectedUser, app.accessKey, !enabled)}>{working === `grant-${selectedUser}-${app.accessKey}` ? 'Procesando…' : enabled ? 'Revocar' : 'Conceder'}</button></div>;
+      })}</div>}</section>
+      <section className="agora-store-surface"><div className="agora-store-admin-heading"><div><span>03 / PUBLICACIÓN</span><h3>Visibilidad en la biblioteca</h3><p>Controla qué aplicaciones pueden descubrir y solicitar los colaboradores.</p></div></div>
+      <div className="agora-store-matrix">{(adminData?.apps || []).map(app => <div className="agora-store-matrix-row" key={app.accessKey}><AppIcon app={app} size={42} /><div><strong>{app.nombre}</strong><small>{app.grupo}</small></div><span className={`agora-store-access-state ${app.solicitable ? 'enabled' : ''}`}>{app.solicitable ? 'Visible' : 'Oculta'}</span><button className={app.solicitable ? 'revoke' : 'grant'} disabled={working !== ''} onClick={() => toggleRequestable(app)}>{working === `listing-${app.accessKey}` ? 'Procesando…' : app.solicitable ? 'Ocultar' : 'Publicar'}</button></div>)}</div></section>
+    </div> : <>
+      <div className="agora-store-summary"><div><span>Mis aplicaciones</span><strong>{apps.filter(app => String(app.estado || 'Activo').toLowerCase() !== 'inactivo').length}</strong><small>Listas para trabajar</small></div><div><span>Para descubrir</span><strong>{available.length}</strong><small>Herramientas disponibles</small></div><div><span>En revisión</span><strong>{requests.filter(item => item.estado === 'Pendiente').length}</strong><small>Solicitudes enviadas</small></div></div>
+      <div className="agora-store-controls"><div className="agora-store-tabs" role="tablist" aria-label="Secciones de la biblioteca"><button role="tab" aria-selected={tab === 'explore'} className={tab === 'explore' ? 'active' : ''} onClick={() => setTab('explore')}>Explorar</button><button role="tab" aria-selected={tab === 'mine'} className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')}>Mis aplicaciones</button><button role="tab" aria-selected={tab === 'requests'} className={tab === 'requests' ? 'active' : ''} onClick={() => setTab('requests')}>Solicitudes</button></div><input aria-label="Buscar aplicaciones" type="search" placeholder="Buscar aplicaciones…" value={query} onChange={event => setQuery(event.target.value)} /></div>
+      {tab !== 'requests' && <><div className="agora-store-filters" aria-label="Filtrar por grupo">{groups.map(item => <button key={item} className={group === item ? 'active' : ''} onClick={() => setGroup(item)}>{item}</button>)}</div><div className="agora-store-section-title"><h3>{tab === 'mine' ? 'Mis aplicaciones' : 'Descubre herramientas para tu trabajo'}</h3><span>{visible.length} aplicaciones</span></div><div className="agora-store-grid">{visible.map(app => tile(app, tab === 'mine'))}</div>{visible.length === 0 && <p className="agora-store-empty">{loading ? 'Cargando aplicaciones…' : tab === 'mine' ? 'Aún no tienes aplicaciones autorizadas.' : 'No hay aplicaciones disponibles con estos filtros.'}</p>}</>}
+      {tab === 'requests' && <div className="agora-store-request-list"><div className="agora-store-section-title"><h3>Seguimiento de solicitudes</h3><span>{requests.length} registros</span></div>{requests.length === 0 && <p className="agora-store-empty">Todavía no has solicitado acceso.</p>}{requests.map(item => <article key={item.id} className="agora-store-request-row"><AppIcon app={{ nombre: item.appName }} size={45} /><div><strong>{item.appName}</strong><p>{item.reason}</p><small>{item.createdAt ? new Date(item.createdAt).toLocaleString('es-CO') : ''}</small></div><span className={`agora-store-request-state ${normalize(item.estado)}`}>{item.estado}</span></article>)}</div>}
+    </>}
+
+    {selected && <div className="agora-store-overlay" onMouseDown={() => !working && setSelected(null)}><form className="agora-store-dialog" onMouseDown={event => event.stopPropagation()} onSubmit={submitRequest} role="dialog" aria-modal="true" aria-label={`Solicitar acceso a ${selected.nombre}`}><button type="button" className="agora-store-close" aria-label="Cerrar" onClick={() => setSelected(null)}>×</button><AppIcon app={selected} size={60} /><span className="agora-store-eyebrow">SOLICITUD DE ACCESO</span><h3>{selected.nombre}</h3><p>{selected.desc}</p><label>¿Para qué necesitas esta aplicación?<textarea required minLength={12} maxLength={500} value={reason} onChange={event => setReason(event.target.value)} placeholder="Describe brevemente tu función o necesidad de trabajo." /></label><small>El administrador revisará tu solicitud. No se concederá acceso de forma automática.</small><div className="agora-store-dialog-actions"><button type="button" onClick={() => setSelected(null)} disabled={working !== ''}>Cancelar</button><button type="submit" className="primary" disabled={working !== '' || reason.trim().length < 12}>{working ? 'Enviando…' : 'Enviar solicitud'}</button></div></form></div>}
+  </div>;
 }
